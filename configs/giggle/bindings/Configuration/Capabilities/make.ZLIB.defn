@@ -1,5 +1,0 @@
-INC_DIRS += $(ZLIB_INC_DIRS)
-ZLIB_DIR      = /usr
-ZLIB_INC_DIRS = 
-ZLIB_LIB_DIRS = 
-ZLIB_LIBS     = z

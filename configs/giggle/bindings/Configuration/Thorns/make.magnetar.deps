@@ -1,6 +1,0 @@
-include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.CARTGRID3D.deps
-include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.DIAGNOSTICS_VACUUM.deps
-include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.DIAGNOSTICS_MHD.deps
-include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.MHD_EVOLVE.deps
-include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.BSSN.deps
-include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.GW_EXTRACTION.deps

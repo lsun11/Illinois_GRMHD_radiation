@@ -1,2 +1,0 @@
-LIBDIRS +=  $(ZLIB_LIB_DIRS)                                  $(HDF5_LIB_DIRS)  $(GSL_LIB_DIRS)      
-LIBS +=  $(ZLIB_LIBS)                                  $(HDF5_LIBS)  $(GSL_LIBS)      

@@ -1,6 +1,0 @@
-INC_DIRS += $(GSL_INC_DIRS)
-HAVE_GSL     = 1
-GSL_DIR      = /sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0
-GSL_INC_DIRS = /sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0/include
-GSL_LIB_DIRS = /sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0/lib
-GSL_LIBS     = gsl gslcblas m
