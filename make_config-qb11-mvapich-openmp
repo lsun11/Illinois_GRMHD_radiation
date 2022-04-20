@@ -1,0 +1,12 @@
+#/usr/local/packages/mvapich2/1.4/intel-11.1/
+#/usr/local/compilers/Intel/intel_cc_10.1/bin/
+#/usr/local/packages/mvapich2/1.4/intel-10.1/bin/
+
+#/usr/local/packages/mvapich2/1.4/intel-11.1/lib/
+
+yes|make giggle-config CC=mpicc CXX="mpicxx -DMPICH_IGNORE_CXX_SEEK" GSL_DIR=/usr/local/packages/gsl/1.9/intel-11.1-mvapich2-1.4 F77=mpif77 F90=mpif90 HDF5=yes HDF5_DIR=/home/zetienne/local/ PTHREADS=yes F90FLAGS="-w95 " MPI=CUSTOM MPI_LIBS=mpich MPI_LIB_DIRS=/usr/local/packages/mvapich2/1.4/intel-11.1/lib MPI_INC_DIRS=/usr/local/packages/mvapich2/1.4/intel-11.1/include CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " FPPFLAGS=" -traditional" PTHREADS=yes C_OPTIMISE_FLAGS="-O2 -openmp -openmp-report2 -c99" F90_OPTIMISE_FLAGS="-O2 -openmp -openmp-report2" F77_OPTIMISE_FLAGS="-O2 -openmp -openmp-report2" CXX_OPTIMISE_FLAGS="-O2 -openmp -openmp-report2" FPPFLAGS=-traditional WARN=yes LD="mpicxx -lgsl -lgslcblas -L/usr/local/packages/mvapich2/1.4/intel-11.1/lib/ -L/usr/local/compilers/Intel/intel_fc_11.1/lib/intel64/ -lmpich -shared-intel -lifcore -O2 -openmp -openmp-report2"
+
+# OpenMP OFF
+#yes|make giggle-config CC=mpicc CXX="mpicxx -DMPICH_IGNORE_CXX_SEEK" F77=mpif77 F90=mpif90 HDF5=yes HDF5_DIR=/home/zetienne/local/ PTHREADS=yes F90FLAGS="-w95 " MPI=CUSTOM MPI_LIBS=mpich MPI_LIB_DIRS=/usr/local/packages/mvapich2/1.4/intel-11.1/lib MPI_INC_DIRS=/usr/local/packages/mvapich2/1.4/intel-11.1/include CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " FPPFLAGS=" -traditional" PTHREADS=yes C_OPTIMISE_FLAGS="-O2  -c99" F90_OPTIMISE_FLAGS="-O2 " F77_OPTIMISE_FLAGS="-O2 " CXX_OPTIMISE_FLAGS="-O2 " FPPFLAGS=-traditional WARN=yes LD="mpicxx -L/usr/local/packages/mvapich2/1.4/intel-11.1/lib/ -L/usr/local/compilers/Intel/intel_fc_11.1/lib/intel64/ -lmpich -shared-intel -lifcore -O2 "
+
+cp -p ThornList configs/giggle

@@ -1,0 +1,30 @@
+#/opt/apps/intel10_1/openmpi/1.3/lib/
+#/opt/apps/intel/10.1/cc/bin/icc
+#/share/home/00281/tg455525/local
+#/opt/apps/intel10_1/openmpi/1.3/bin/mpicxx
+
+#/opt/apps/pgi7_2/openmpi/1.3/lib/
+# -fast -tp barcelona-64  -mp
+# -O3 -xO -openmp
+#/opt/apps/pgi7_2/mvapich2/1.2/bin/mpicc
+#/opt/apps/pgi8_0/mvapich/1.0.1/bin/
+#/opt/apps/pgi7_2/mvapich2/1.2/bin/mpirun
+#/opt/apps/pgi7_2/mvapich/1.0.1/bin/mpicxx
+# -Minline=levels:10
+
+yes|make giggle-config CXX_OPTIMISE_FLAGS="-Minline\=levels:10 -DRANGER_PGI -fast -O3 -w -tp barcelona-64  -mp" C_OPTIMISE_FLAGS="-Minline\=levels:10 -DRANGER_PGI -fast -O3 -w -tp barcelona-64  -mp" F77_OPTIMISE_FLAGS="-Minline\=levels:10 -DRANGER_PGI -fast -O3 -w -tp barcelona-64  -mp" F90_OPTIMISE_FLAGS="-Minline\=levels:10 -DRANGER_PGI -fast -O3 -w -tp barcelona-64  -mp" MPI=CUSTOM MPI_LIBS=mpich GSL_DIR=/opt/apps/gsl/1.13 CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 HDF5=yes HDF5_DIR=/share/home/00281/tg455525/local/ PTHREADS=yes MPI_LIB_DIRS=/opt/apps/pgi8_0/mvapich/1.0.1/lib MPI_INC_DIRS=/opt/apps/pgi8_0/mvapich/1.0.1/include/ WARN=yes LD="mpicxx  -L/opt/apps/gsl/1.13/lib -lgsl -lgslcblas -L/opt/apps/pgi/8.0-6/linux86-64/8.0-6/libso/ -lpgmp -lpgbind -lnuma -lrt -lpthread -lc"
+
+
+#yes|make giggle-config CC="/opt/apps/pgi8_0/mvapich/1.0.1/bin/mpicc -fast -O3 -w -tp barcelona-64  -mp" CXX="/opt/apps/pgi8_0/mvapich/1.0.1/bin/mpicxx -DMPICH_IGNORE_CXX_SEEK -fast -O3 -w -tp barcelona-64  -mp" F77="/opt/apps/pgi8_0/mvapich/1.0.1/bin/mpif77 -fast -O3 -w -tp barcelona-64  -mp" F90="/opt/apps/pgi8_0/mvapich/1.0.1/bin/mpif90 -fast -O3 -w -tp barcelona-64  -mp" HDF5=yes HDF5_DIR=/share/home/00281/tg455525/local/ PTHREADS=yes MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/opt/apps/pgi7_2/openmpi/1.3/lib/ MPI_INC_DIRS=/opt/apps/intel10_1/openmpi/1.3/include WARN=yes LD="/opt/apps/pgi8_0/mvapich/1.0.1/bin/mpicxx -L/opt/apps/pgi8_0/mvapich/1.0.1/libso/ -lpgmp -lpgbind -lnuma -lrt -lpthread -lc -mp -fast -O3 -w -tp barcelona-64"
+
+# might be a little slower?
+##yes|make giggle-config CC="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicc -fast -O3 -w -tp barcelona-64  -mp=numa" CXX="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicxx -DMPICH_IGNORE_CXX_SEEK -fast -O3 -w -tp barcelona-64  -mp=numa" F77="/opt/apps/pgi7_2/openmpi/1.3/bin/mpif77 -fast -O3 -w -tp barcelona-64  -mp=numa" F90="/opt/apps/pgi7_2/openmpi/1.3/bin/mpif90 -fast -O3 -w -tp barcelona-64  -mp=numa" HDF5=yes HDF5_DIR=/share/home/00281/tg455525/local/ PTHREADS=yes MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/opt/apps/pgi7_2/openmpi/1.3/lib/ MPI_INC_DIRS=/opt/apps/intel10_1/openmpi/1.3/include WARN=yes LD="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicxx -L/opt/apps/pgi/7.2-5/linux86-64/7.2-5/libso/ -lpgmp -lpgbind -lnuma -lrt -lpthread -lc -mp=numa -fast -O3 -w -tp barcelona-64"
+
+#works:
+##yes|make giggle-config CC="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicc -fast -O3 -w -tp barcelona-64  -mp" CXX="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicxx -DMPICH_IGNORE_CXX_SEEK -fast -O3 -w -tp barcelona-64  -mp" F77="/opt/apps/pgi7_2/openmpi/1.3/bin/mpif77 -fast -O3 -w -tp barcelona-64  -mp" F90="/opt/apps/pgi7_2/openmpi/1.3/bin/mpif90 -fast -O3 -w -tp barcelona-64  -mp" HDF5=yes HDF5_DIR=/share/home/00281/tg455525/local/ PTHREADS=yes MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/opt/apps/pgi7_2/openmpi/1.3/lib/ MPI_INC_DIRS=/opt/apps/intel10_1/openmpi/1.3/include WARN=yes LD="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicxx -L/opt/apps/pgi/7.2-5/linux86-64/7.2-5/libso/ -lpgmp -lpgbind -lnuma -lrt -lpthread -lc -mp -fast -O3 -w -tp barcelona-64"
+
+### WORKS:
+#yes|make giggle-config CC="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicc -fast -w -tp barcelona-64  -mp" CXX="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicxx -DMPICH_IGNORE_CXX_SEEK -fast -w -tp barcelona-64  -mp" F77="/opt/apps/pgi7_2/openmpi/1.3/bin/mpif77 -fast -w -tp barcelona-64  -mp" F90="/opt/apps/pgi7_2/openmpi/1.3/bin/mpif90 -fast -w -tp barcelona-64  -mp" HDF5=yes HDF5_DIR=/share/home/00281/tg455525/local/ PTHREADS=yes MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/opt/apps/pgi7_2/openmpi/1.3/lib/ MPI_INC_DIRS=/opt/apps/intel10_1/openmpi/1.3/include WARN=yes LD="/opt/apps/pgi7_2/openmpi/1.3/bin/mpicxx -L/opt/apps/pgi/7.2-5/linux86-64/7.2-5/libso/ -lpgmp -lpgbind -lnuma -lrt -lpthread -lc -mp -fast -w -tp barcelona-64"
+
+
+cp -p ThornList configs/giggle

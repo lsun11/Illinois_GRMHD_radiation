@@ -1,0 +1,6 @@
+## With openmp
+yes|make giggle-config CC=cc CXX="CC -DMPICH_IGNORE_CXX_SEEK" F77=ftn F90=ftn MPI=CUSTOM MPI_LIBS=mpich HDF5=yes HDF5_DIR=$HDF5_DIR PTHREADS=yes F90FLAGS=" " CFLAGS=" -std\=gnu99" CXXFLAGS=" -fpermissive" F77FLAGS=" " PTHREADS=yes LD="echo -L$GSL_DIR/lib -lgsl -lgslcblas -Wl,--allow-multiple-definition" C_OPTIMISE_FLAGS=" -I$GSL_DIR/include/ -fast -diag-enable\=vec -no-ipo -O2 -qopenmp" F90_OPTIMISE_FLAGS=" -fast -diag-enable\=vec -no-ipo -O2 -qopenmp" F77_OPTIMISE_FLAGS=" -fast -diag-enable\=vec -no-ipo -O2 -qopenmp" CXX_OPTIMISE_FLAGS="-I$GSL_DIR/include/ -fast -diag-enable\=vec -no-ipo -O2 -qopenmp" GSL_DIR=$GSL_DIR OPENMP=yes
+
+
+cp -p ThornList configs/giggle
+

@@ -1,0 +1,1 @@
+rm -f ./exe/cactus_giggle; make -j12 giggle;cd exe

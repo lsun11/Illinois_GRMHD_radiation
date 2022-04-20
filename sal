@@ -1,0 +1,1000 @@
+  178  ls
+  179  pwd
+  180  ls
+  181  cd ABE-bbh-output/
+  182  ls
+  183  gnuplot 
+  184  qstat -u ruiz1
+  185  cd ..
+  186  ls
+  187  grep hour  563308.nid11293.OU
+  188  ls
+  189  grep time_refi *.par
+  190  cd ..
+  191  ls
+  192  cd q01nc-mr-bssn/
+  193  ls
+  194  grep time_refi *.par
+  195  grep hour 563308.nid11293.OU
+  196  ls
+  197  a
+  198  aq
+  199  q
+  200  ls
+  201  emacs -nw job_submit_bw.pbs
+  202  history 
+  203  ls -ltrh  /projects/sciteam/joh/
+  204  emacs -nw   /projects/sciteam/joh/job_submit_bw.pbs
+  205  ks
+  206  ls
+  207  q
+  208  emacs -nw   /projects/sciteam/joh/job_submit_bw.pbs
+  209  ls
+  210  cd ..
+  211  ls
+  212  mkdir matter
+  213  ls
+  214  ls -ltrh /projects/sciteam/joh/
+  215  cd matter/
+  216  ls
+  217  scp -r /projects/sciteam/joh/q01nc-mr-bssn .
+  218  ls
+  219  cd q01nc-mr-bssn/
+  220  ls
+  221  cd ..
+  222  ls
+  223  mv -f q01nc-mr-bssn 64
+  224  ls
+  225  mkdir 128
+  226  ls
+  227  mkdir 16
+  228  cp 64/* 16/
+  229  cp 64/* 128/
+  230  ls
+  231  q
+  232  qstat -u ruiz1
+  233  ls
+  234  mkdir 8
+  235  ls
+  236  cd..
+  237  ls
+  238  cd q01nc-mr-bssn/
+  239  ls
+  240  grep hour 563308.nid11293.OU
+  241  ls
+  242  cd ..
+  243  ls
+  244  cd matter/
+  245  ls
+  246  cp 16/* 8/
+  247  ;;s
+  248  ls
+  249  cd 8/
+  250  ls
+  251  emacs -nw job_submit_bw.pbs
+  252  cd ..
+  253  ls
+  254  cd ..
+  255  l
+  256  ls
+  257  cd q01nc-mr-bssn/
+  258  ls
+  259  emacs -nw job_submit_bw.pbs
+  260  cd ..
+  261  ls
+  262  cd matter/
+  263  ls
+  264  cd 8/
+  265  ;s
+  266  ls
+  267  emacs -nw job_submit_bw.pbs  /projects/sciteam/joh/job_submit_bw.pbs
+  268  emacs -nw job_submit_bw.pbs
+  269  ls
+  270  diff job_submit_bw.pbs job_submit_bw.pbs~
+  271  ls
+  272  qsub job_submit_bw.pbs
+  273  q
+  274  cd ..
+  275  ls
+  276  cd 16/
+  277  ls
+  278  emacs -nw job_submit_bw.pbs
+  279  ls
+  280  emacs -nw job_submit_bw.pbs
+  281  qsub job_submit_bw.pbs
+  282  q
+  283  emacs -nw job_submit_bw.pbs
+  284  cd ..
+  285  ls
+  286  cd 64/
+  287  ls
+  288  emacs -nw job_submit_bw.pbs
+  289  cd ..
+  290  ls
+  291  cd 16/
+  292  ls
+  293  emacs -nw job_submit_bw.pbs
+  294  ls
+  295  q
+  296  qdel 563639.nid11293
+  297  q
+  298  qdel --h
+  299  q
+  300  emacs -nw job_submit_bw.pbs
+  301  qsub job_submit_bw.pbs
+  302  q
+  303  ls
+  304  q
+  305  cd ..
+  306  ls
+  307  cd 64/
+  308  ls
+  309  emacs -nw job_submit_bw.pbs 
+  310  qsub job_submit_bw.pbs
+  311  q
+  312  history 
+  313  q
+  314  cd ..
+  315  ls
+  316  cd 128/
+  317  ls
+  318  emacs -nw job_submit_bw.pbs 
+  319  qsub job_submit_bw.pbs
+  320  q
+  321  ls
+  322  cd ..
+  323  ls
+  324  q
+  325  qstat -u
+  326  qstat -u ruizm
+  327  qstat -u ruiz1
+  328  ls
+  329  q
+  330  ls
+  331  cd 8/
+  332  ls
+  333  l
+  334  cd ..
+  335  ls
+  336  cd ..
+  337  ls
+  338  cp vacuum/q1/cactus_giggle matter/8/
+  339  cp vacuum/q1/cactus_giggle matter/16/
+  340  cp vacuum/q1/cactus_giggle matter/64/
+  341  cp vacuum/q1/cactus_giggle matter/128/
+  342  q
+  343  ls
+  344  cd matter/
+  345  ls
+  346  cd 8/
+  347  ls
+  348  less 563638.nid11293.err
+  349  less 563638.nid11293.out 
+  350  qstat -u
+  351  qsub job_submit_bw.pbs
+  352  q
+  353  cd ..
+  354  ls
+  355  cd 16/
+  356  ls
+  357  less 563640.nid11293.err
+  358  qsub job_submit_bw.pbs
+  359  cd ..
+  360  ls
+  361  cd 64
+  362  ls
+  363  qsub job_submit_bw.pbs
+  364  q
+  365  ls
+  366  q
+  367  cd ..
+  368  ls
+  369  cd 128/
+  370  ls
+  371  q
+  372  s
+  373  ls
+  374  cd ..
+  375  ls
+  376  cd 8/
+  377  ls
+  378  grep hour 563643.nid11293.out
+  379  less 563643.nid11293.out
+  380  ls
+  381  less 563643.nid11293.err
+  382  emacs -nw *.par
+  383  cd ..
+  384  ls
+  385  cd ..
+  386  ls
+  387  cd q01nc-mr-bssn
+  388  ls
+  389  diff disk_binary.par disk_binary.par~
+  390  cd ..
+  391  ls
+  392  cd matter/
+  393  ks
+  394  ls
+  395  cd 8/
+  396  ls
+  397  emacs -nw *.par
+  398  rm -rf *.err
+  399  rm -rf *.out
+  400  qsub job_submit_bw.pbs
+  401  q
+  402  cd ..
+  403  ls
+  404  cd 16/
+  405  ls
+  406  rm -rf *.err
+  407  rm -rf *.out
+  408  emacs -nw *.par
+  409  qsub job_submit_bw.pbs
+  410  cd ..
+  411  ls
+  412  cd 64
+  413  ls
+  414  emacs -nw *.par
+  415  ls
+  416  rm -rf *.err
+  417  rm -rf *.out
+  418  ls
+  419  qsub job_submit_bw.pbs
+  420  q
+  421  cd ..
+  422  ls
+  423  cd 128/
+  424  emacs -nw *.par
+  425  la
+  426  ls
+  427  cd ..
+  428  q
+  429  exit
+  430  qstat -u ruiz1
+  431  q
+  432  ls
+  433  cd sr
+  434  ls
+  435  cd scratch/
+  436  ls
+  437  cd cac
+  438  exit
+  439  q
+  440  cd scratch/
+  441  ls
+  442  cd matter/
+  443  ls
+  444  cd 8
+  445  ls
+  446  grep hour 563648.nid11293.out
+  447  cd ..
+  448  cd 16/
+  449  ls
+  450  grep hour 563649.nid11293.out
+  451  cd ..
+  452  ls
+  453  cd 64
+  454  grep hour *.out
+  455  grep hour ../../q01nc-mr-bssn/*.out
+  456  cd ..
+  457  ls
+  458  cd 128
+  459  ls
+  460  grep hour 563642.nid11293.out
+  461  cd ..
+  462  ls
+  463  cd ..
+  464  ls
+  465  grep hour  matter/8/*.out
+  466  emacs -nw scale.rl
+  467  grep hour  matter/16/*.out
+  468  fg
+  469  grep hour  q01nc-mr-bssn/*.out
+  470  emacs -nw scale.rl
+  471  fg
+  472  grep hour  matter/64/*.out
+  473  fg
+  474  grep hour  matter/128/*.out
+  475  emacs -nw scale.rl
+  476  fg
+  477  gnuplot
+  478  less 563643.nid11293.err
+  479  less scale.rl 
+  480  gnuplot
+  481  ls
+  482  cd matter/
+  483  ls
+  484  cd 8/
+  485  ls
+  486  less *.out
+  487  cd ..
+  488  ls
+  489  cd ..
+  490  ls
+  491  cd vacuum/
+  492  ls
+  493  cd q1/
+  494  ls
+  495  cd ..
+  496  ls
+  497  cd ..
+  498  ls
+  499  cd q01nc-mr-bssn/
+  500  less *.out
+  501  cd ..
+  502  ls
+  503  cd matter/
+  504  ls
+  505  mkdir 4
+  506  cp 8/cactus_giggle 4/
+  507  cp 8/*.par 4/
+  508  cp 8/job_submit_bw.pbs 4/
+  509  cp 8/outfields_bbhcp*.dat 4/
+  510  cd 4/
+  511  l
+  512  ls
+  513  emacs -nw job_submit_bw.pbs 
+  514  ls
+  515  qsub job_submit_bw.pbs
+  516  q
+  517  ls
+  518  grep 563761.nid11293.OU
+  519  grep hour  563761.nid11293.OU
+  520  q
+  521  cd ..
+  522  ls
+  523  cd --
+  524  cd scratch/
+  525  ls
+  526  cd q01nc-mr-bssn/
+  527  ls
+  528  ls checkpoint/
+  529  ls -ltrh 
+  530  ls
+  531  cd checkpoint/
+  532  ls -ltrh
+  533  cd ..
+  534  ls
+  535  pwd
+  536  ls
+  537  q
+  538  pwd
+  539  ls
+  540  qsub job_submit_bw.pbs
+  541  q
+  542  cd --
+  543  cd scratch/
+  544  ls
+  545  cd matter/
+  546  ls
+  547  cd 4/
+  548  ls
+  549  grep hour  563761.nid11293.OU
+  550  ls *.out
+  551  ls -ltrh *.out
+  552  grep hour  *.out
+  553  tail -f  *.out
+  554  grep hour  *.out
+  555  grep hour  *.OU
+  556  ls
+  557  ls *.out
+  558  tail -f  563761.nid11293.OU
+  559  ls
+  560  grep hour  *.OU
+  561  grep hour  *.out
+  562  grep hour  *.OU
+  563  q
+  564  pwd
+  565  ls
+  566  grep hour  *.OU
+  567  grep hour  *.out
+  568  cd ..
+  569  ls
+  570  cd ..
+  571  ls
+  572  emacs -nw scale.rl 
+  573  gnuplot
+  574  exit
+  575  cd scratch/
+  576  ls
+  577  cd matter/
+  578  ls
+  579  cd 4
+  580  ls
+  581  grep hour  *.out
+  582  q
+  583  qq
+  584  q
+  585  exit
+  586  cd Roman/
+  587  exit
+  588  q
+  589  cd scratch/
+  590  ls
+  591  cd vacuum/
+  592  ls
+  593  cd q1/
+  594  ls
+  595  cd ABE-bbh-output/
+  596  ls
+  597  gnuplot 
+  598  cd
+  599  ls
+  600  cd q01nc-mr-bssn/
+  601  ls
+  602  cd ABE-bbh-output/
+  603  ls
+  604  gnuplot 
+  605  cd
+  606  ls
+  607  cd scratch/
+  608  ls
+  609  gnuplot
+  610  ls
+  611  cd vacuum/
+  612  ls
+  613  cd q1
+  614  ls
+  615  cd ABE-bbh-output/
+  616  ls
+  617  cd ..
+  618  ls
+  619  gnuplot
+  620  cd
+  621  ls
+  622  cd py
+  623  ls
+  624  svn up
+  625  less GWfreq.py 
+  626  cd
+  627  cd scratch/
+  628  ls
+  629  cd vacuum/
+  630  ls
+  631  cd q1/
+  632  ls
+  633  cd ABE-bbh-output/
+  634  cd ..
+  635  python -i ~/py/GWfreq.py Psi4_rad.mon.3 
+  636  ls
+  637  cd ..
+  638  l
+  639  cd ..
+  640  l
+  641  cd q01nc-mr-bssn/
+  642  ls
+  643  gnuplot
+  644  cd ..
+  645  ls
+  646  cd q01nc-mr-bssn
+  647  ls
+  648  less surf_dens_1d_t0.000000e+00.dat
+  649  gnuplot
+  650  cd
+  651  ls
+  652  cd scratch/
+  653  ls
+  654  cd q01nc-mr-bssn/
+  655  ls
+  656  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc i 0
+  657  ls
+  658  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 0
+  659  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 10
+  660  ls
+  661  less ABE-bbh-output/rho_b.xy.asc 
+  662  gnuplot
+  663  less ABE-bbh-output/rho_b.xy.asc 
+  664  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 43.2
+  665  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 43
+  666  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 1
+  667  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 9
+  668  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc i 10
+  669  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc i 9
+  670  cd ..
+  671  ls
+  672  cd
+  673  history 
+  674  history > histroy_keep
+  675  ls
+  676  chmod 777 histroy_keep 
+  677  ls
+  678  lls
+  679  ls
+  680  history 
+  681  ls -ltrh /projects/sciteam/joh/
+  682  gnuplot
+  683  ls
+  684  mkdir Roman
+  685  ls
+  686  cd Roman/
+  687  ls
+  688  scp monday.physics.illinois.edu:~/Roman/*.tgz .
+  689  scp ruizm@monday.physics.illinois.edu:~/Roman/*.tgz .
+  690  scp ruizm@monday.physics.illinois.edu:~/Roman/*.tar .
+  691  ls
+  692  tar xvf vacuum-data-q01.tar 
+  693  ls
+  694  gnuplot
+  695  ls
+  696  diff disk_binary.par ../scratch/vacuum/q1/disk_binary.par
+  697  grep FD ../scratch/vacuum/q1/*.out
+  698  diff outfields_bbhcp-2.dat ../scratch/vacuum/q1/outfields_bbhcp-2.dat
+  699  diff outfields_bbhcp-1.dat ../scratch/vacuum/q1/outfields_bbhcp-1.dat
+  700  diff outfields_bbhcp-3.dat ../scratch/vacuum/q1/outfields_bbhcp-3.dat
+  701  cd
+  702  ls
+  703  cd illinois-grmhd-cctk-code/
+  704  ls
+  705  svnversion 
+  706  cd
+  707  cd Roman/
+  708  ls
+  709  ll
+  710  cd ..
+  711  ls
+  712  cd Roman/
+  713  ls
+  714  gnuplot
+  715  q
+  716  cd
+  717  l
+  718  cd scratch/
+  719  ls
+  720  cd vacuum/
+  721  ls
+  722  cd q1/
+  723  ls
+  724  grep hour *.out
+  725  ls
+  726  less job_submit_bw.pbs 
+  727  less *.par
+  728  ls
+  729  q
+  730  ls
+  731  emacs -nw disk_binary.par
+  732  emacs -nw job_submit_bw.pbs 
+  733  q
+  734  history 
+  735  ls -ltrh /projects/sciteam/joh/
+  736  ls -ltrh /projects/sciteam/joh/q01nc-mr-bssn
+  737  cd ..
+  738  ls
+  739  cd vacuum/
+  740  ls
+  741  cd q1/
+  742  ls
+  743  ll
+  744  cp disk_binary.par  /projects/sciteam/joh/
+  745  ls -ltrh   /projects/sciteam/joh/
+  746  chmod 666  /projects/sciteam/joh/disk_binary.par
+  747  ls
+  748  q
+  749  ls *563762.nid11293*
+  750  ls *563762*
+  751  cd ..
+  752  ls
+  753  cd ..
+  754  ls
+  755  cd q01nc-mr-bssn
+  756  ls
+  757  ls *563762*
+  758  tail 563762.nid11293.out
+  759  cd ..
+  760  ls
+  761  cd .
+  762  ls
+  763  cd vacuum/
+  764  ls
+  765  cd q1/
+  766  ls
+  767  tail 563614.nid11293.out
+  768  tail 563614.nid11293.err 
+  769  qsub job_submit_bw.pbs
+  770  q
+  771  cd ..
+  772  ls
+  773  cd ..
+  774  ls
+  775  cd q01nc-mr-bssn/
+  776  qsub job_submit_bw.pbs
+  777  q
+  778  cd ..
+  779  ls
+  780  cd vacuum/
+  781  ls
+  782  mkdir q1_q_level
+  783  cp q1/*.par q1_q_level/
+  784  cp q1/job_submit_bw.pbs q1_q_level/
+  785  cp q1/outfields_bbhcp-*.dat q1_q_level/
+  786  ls q1_q_level/
+  787  cp q1/cactus_giggle q1_q_level/
+  788  cd q1_q_level/
+  789  ls
+  790  emacs -nw job_submit_bw.pbs 
+  791  ls
+  792  emacs -nw disk_binary.par 
+  793  ls
+  794  diff ../q1/*.par
+  795  diff *.par  ../q1/*.par
+  796  emacs -nw disk_binary.par 
+  797  ls
+  798  qsub job_submit_bw.pbs
+  799  q
+  800  cd
+  801  ls
+  802  cd illinois-grmhd-cctk-code/
+  803  l
+  804  ls
+  805  svn up
+  806  cd exe/
+  807  ls
+  808  cd ..
+  809  ls
+  810  cd EX
+  811  cd EXE/
+  812  ls
+  813  q
+  814  ls
+  815  cd 
+  816  ls
+  817  cdsc
+  818  cd scratch/
+  819  ls
+  820  cd q01nc-mr-bssn
+  821  ls
+  822  ls -ltrh *.out
+  823  tail -f 563762.nid11293.out
+  824  tail -f CCTK_Proc0.out
+  825  ls
+  826  gnuplot
+  827  cd ..
+  828  ls
+  829  cd ..
+  830  ls
+  831  less histroy_keep 
+  832  q
+  833  exit
+  834  cd scratch/
+  835  ls
+  836  cd vacuum/
+  837  ls
+  838  cd q4/
+  839  ls
+  840  emacs -nw job_submit_bw.pbs 
+  841  ls
+  842  q
+  843  cd ..
+  844  ls
+  845  gnuplot
+  846  q
+  847  exit
+  848  cd scratch/
+  849  ls
+  850  cd vacuum/
+  851  ls
+  852  cd q1
+  853  ls
+  854  ls -ltrh
+  855  tail -f CCTK_Proc0.out
+  856  cd ..
+  857  ls
+  858  cd..
+  859  ls
+  860  cd ..
+  861  ls
+  862  gnuplot
+  863  scp forRoman.eps monday.physics..illinois.edu:
+  864  scp forRoman.eps monday.physics.illinois.edu:
+  865  scp forRoman.eps ruizm@monday.physics.illinois.edu:
+  866  gnuplot
+  867  ls ltrh
+  868  ls -ltrh
+  869  scp forRoman.eps ruizm@monday.physics.illinois.edu:
+  870  pwd
+  871  ls
+  872  cd scratch/
+  873  ls
+  874  cd vacuum/
+  875  ls
+  876  diff q1/*.par q1_q_level/*.par
+  877  cd ..
+  878  ls
+  879  gnuplot
+  880  ls
+  881  cd scratch/
+  882  ls
+  883  cd vacuum/
+  884  ls
+  885  cd q1_q_level/
+  886  ls
+  887  grep hour 563902.nid11293.OU 
+  888  cd ..
+  889  ls
+  890  less /projects/sciteam/joh/q04v/disk_binary.par 
+  891  pwd
+  892  ls
+  893  cp /projects/sciteam/joh/q04v/disk_binary.par .
+  894  ls
+  895  mkdir q4
+  896  ls
+  897  diff disk_binary.par q1/disk_binary.par
+  898  ls
+  899  cd q4/
+  900  ls
+  901  l
+  902  sls
+  903  ls
+  904  cp ../disk_binary.par  .
+  905  ls
+  906  emacs -nw disk_binary.par 
+  907  ls
+  908  emacs -nw disk_binary.par
+  909  ls
+  910  cp ../q1/cactus_giggle .
+  911  cp ../q1/job_submit_bw.pbs .
+  912  scp lonestar.tacc.utexas.edu:/work/02588/ruizm/cts2spherical/q04_mOmega028/outfields_bbhcp-*.dat .
+  913  scp ruizm@lonestar.tacc.utexas.edu:/work/02588/ruizm/cts2spherical/q04_mOmega028/outfields_bbhcp-*.dat .
+  914  ls
+  915  less job_submit_bw.pbs
+  916  qsub job_submit_bw.pbs
+  917  q
+  918  cd ..
+  919  ls
+  920  mkdir q1_no_y
+  921  cp q1/*.par q1_no_y/
+  922  cp q1/cactus_giggle q1_no_y/
+  923  cp q1/outfields_bbhcp-*.dat q1_no_y/
+  924  ls q1_no_y/
+  925  cp q1/job_submit_bw.pbs q1_no_y/
+  926  cd q1_no_y/
+  927  emacs -nw *.par
+  928  diff *.par ../q1/*.par
+  929  emacs -nw job_submit_bw.pbs 
+  930  qsub job_submit_bw.pbs
+  931  q
+  932  cd ..
+  933  ls
+  934  cd ..
+  935  q
+  936  ls
+  937  emacs -nw q01nc-mr-bssn/disk_binary.par vacuum/q1/disk_binary.par 
+  938  emacs -nw q01nc-mr-bssn/disk_binary.par
+  939  diff q01nc-mr-bssn/disk_binary.par vacuum/q1/disk_binary.par
+  940  emacs -nw q01nc-mr-bssn/disk_binary.par vacuum/q1/disk_binary.par 
+  941  emacs -nw q01nc-mr-bssn/disk_binary.par
+  942  ls
+  943  cd matter/
+  944  ls
+  945  cd ..
+  946  ls
+  947  mkdir q04nc-mr-bssn
+  948  cp vacuum/q4/* q04nc-mr-bssn/
+  949  cd q04nc-mr-bssn/
+  950  ls
+  951  emacs -nw disk_binary.par
+  952  ls
+  953  emacs -nw job_submit_bw.pbs
+  954  ls
+  955  qsub job_submit_bw.pbs
+  956  q
+  957  pwd
+  958  emacs -nw *.par
+  959  q
+  960  cd ..
+  961  ls
+  962  gnuplot
+  963  cd vacuum/
+  964  gnuplot
+  965  q
+  966  gnuplot
+  967  q
+  968  ls
+  969  cd ..
+  970  ls
+  971  cd q04nc-mr-bssn
+  972  ls
+  973  less 565173.nid11293.out
+  974  emacs  disk_binary.par
+  975  emacs -nw disk_binary.par
+  976  less 565173.nid11293.err
+  977  emacs -nw disk_binary.par
+  978* make 
+  979  less 565173.nid11293.err
+  980  emacs -nw disk_binary.par
+  981  ls
+  982  rm -rf *.err
+  983  rm -rf *.out
+  984  ls
+  985  qsub job_submit_bw.pbs
+  986  q
+  987  cd ..
+  988  ls
+  989  cd vacuum/
+  990  ls
+  991  cd q4/
+  992  ls
+  993  gnuplot
+  994  ls
+  995  cd ABE-bbh-output/
+  996  ls
+  997  less BH_diagnostics.ah1.gp 
+  998  gnuplot
+  999  exit
+ 1000  ls
+ 1001  cd scratch/
+ 1002  ls
+ 1003  cd vacuum/
+ 1004  ls
+ 1005  cd q4/
+ 1006  gnuplot
+ 1007  ls
+ 1008  cd ABE-bbh-output/
+ 1009  gnuplot
+ 1010  q
+ 1011  cd ..
+ 1012  ls
+ 1013  less Psi4_rad.mon.2
+ 1014  emacs -nw *.par
+ 1015  gnuplot
+ 1016  cd ABE-bbh-output/
+ 1017  gnuplot
+ 1018  ls
+ 1019  cd ,.,.
+ 1020  cd ..
+ 1021  ls
+ 1022  less Psi4_rad.mon.2
+ 1023  less Psi4_rad.mon.4
+ 1024  less Psi4_rad.mon.q
+ 1025  less Psi4_rad.mon.1
+ 1026  less Psi4_rad.mon.3
+ 1027  less Psi4_rad.mon.4
+ 1028  less Psi4_rad.mon.5
+ 1029  less *.par
+ 1030  grep -n NAN *
+ 1031  grep -n NaN *
+ 1032  grep -n -i NaN Psi4_rad.mon.*
+ 1033  gnuplot
+ 1034  cd ..
+ 1035  ls
+ 1036  cd ..
+ 1037  ls
+ 1038  cd vacuum/
+ 1039  cd ..
+ 1040  ls
+ 1041  cd vacuum/
+ 1042  gnuplot
+ 1043  ls
+ 1044  cd ..
+ 1045  ls
+ 1046  cd q04nc-mr-bssn
+ 1047  ls
+ 1048  tail *.565353.nid11293.OU
+ 1049  tail -f *.565353.nid11293.OU
+ 1050  tail -f *565353.nid11293.OU
+ 1051  grep hour  *565353.nid11293.OU
+ 1052  less *.par
+ 1053  emacs -nw *.par
+ 1054  q
+ 1055  cds
+ 1056  ls
+ 1057  cd  ..
+ 1058  ls
+ 1059  cd vacuum/
+ 1060  ls
+ 1061  cd q4/
+ 1062  ls
+ 1063  grep hour *.OU
+ 1064  cd ..
+ 1065  ls
+ 1066  cd q1
+ 1067  ls
+ 1068  gnuplot
+ 1069  pwd
+ 1070  cd ..
+ 1071  gnuplot
+ 1072  ls
+ 1073  q
+ 1074  cd q1
+ 1075  ls
+ 1076  tail 563849.nid11293.out
+ 1077  grep hour 563849.nid11293.out
+ 1078  ls
+ 1079  gnuplot
+ 1080  qsub job_submit_bw.pbs
+ 1081  q
+ 1082  cd ..
+ 1083  ls
+ 1084  cd q1_no_y/
+ 1085  cd ..
+ 1086  cd q1
+ 1087  ls
+ 1088  cd ..
+ 1089  ls
+ 1090  cd q01nc-mr-bssn
+ 1091  ls
+ 1092  less 563850.nid11293.out
+ 1093  gnuplot
+ 1094  ls
+ 1095  qsub job_submit_bw.pbs
+ 1096  q
+ 1097  ls
+ 1098  q
+ 1099  cd ..
+ 1100  lw
+ 1101  ls
+ 1102  cd q04nc-mr-bssn/
+ 1103  ls
+ 1104  less ~/histroy_keep 
+ 1105  ls
+ 1106  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xy.asc 0
+ 1107  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 0
+ 1108  ls
+ 1109  cd ABE-bbh-output/
+ 1110  ls
+ 1111  less rho_b.xz.asc 
+ 1112  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 10
+ 1113  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 9
+ 1114  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 8
+ 1115  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 7
+ 1116  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 6
+ 1117  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 5
+ 1118  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 4
+ 1119  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 3
+ 1120  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 2
+ 1121* 
+ 1122  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 0
+ 1123  ls
+ 1124  cd ..
+ 1125  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 10
+ 1126  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 15
+ 1127  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 35
+ 1128  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 135
+ 1129  ls
+ 1130  python -i ~/py/carpio-plot.py disk_binary.par ABE-bbh-output/rho_b.xz.asc 1
+ 1131  ls
+ 1132  q
+ 1133  ls
+ 1134  tail -f 565353.nid11293.out
+ 1135  ls -ltrh 
+ 1136  less 565353.nid11293.err
+ 1137  less 565353.nid11293.out 
+ 1138  less 565353.nid11293.err 
+ 1139  grep Tlow0upr *.par
+ 1140  grep Tlow0upr 
+ 1141  grep Tlow0upr *
+ 1142  q
+ 1143  cd ..
+ 1144  ls
+ 1145  cd vacuum/
+ 1146  ls
+ 1147  cd q1
+ 1148  less *.par
+ 1149  q
+ 1150  cd
+ 1151  ls
+ 1152  mkdir Vasilis_bhns
+ 1153  cd Vasilis_bhns/
+ 1154  ls
+ 1155  pwd
+ 1156  ls
+ 1157  scp monday.physics.illinois.edu:/home/ruizm/Vasilis_BHNS/* .
+ 1158  scp ruizm@monday.physics.illinois.edu:/home/ruizm/Vasilis_BHNS/* .
+ 1159  ls
+ 1160  tar xzvf FORK-CactusCET-grmhd-v2-11302013-firstordershift-newBfromA_BW_working.tar.gz 
+ 1161  ls
+ 1162  rm -rf FORK-CactusCET-grmhd-v2-11302013-firstordershift-newBfromA_BW_working
+ 1163  tar xzvf FORK-CactusCET-grmhd-v2-11302013-firstordershift-newBfromA_BW_working.tar.gz 
+ 1164  ls
+ 1165  rm FORK-CactusCET-grmhd-v2-11302013-firstordershift-newBfromA_BW_working.tar.gz
+ 1166  ls
+ 1167  cd FORK-CactusCET-grmhd-v2-11302013-firstordershift-newBfromA_BW_working/
+ 1168  ls
+ 1169  ./cleanconfig 
+ 1170  ls
+ 1171  ./make_config-bw-openmp-gnu
+ 1172  history > sal
+ 1173  grep giggle sal 
+ 1174  ls
+ 1175  make -j32 giggle 
+ 1176  ls exe/
+ 1177  history > sal

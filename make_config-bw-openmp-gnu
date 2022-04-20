@@ -1,0 +1,12 @@
+
+##module swap pgi pgi/12.2.0
+
+## Without openmp
+#yes|make giggle-config CC=cc CXX="CC -DMPICH_IGNORE_CXX_SEEK" F77=ftn F90=ftn MPI=CUSTOM MPI_LIBS=mpich HDF5=yes HDF5_DIR=$HDF5_DIR PTHREADS=yes F90FLAGS=" " CFLAGS="-std=gnu99" CXXFLAGS=" -fpermissive" F77FLAGS=" " LD="CC -L/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/lib -lgsl -lgslcblas -Wl,--allow-multiple-definition" C_OPTIMISE_FLAGS='-I/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/include/ -O2 -ffast-math -funroll-loops' F90_OPTIMISE_FLAGS='-Ofast -funroll-loops' F77_OPTIMISE_FLAGS='-Ofast -funroll-loops' CXX_OPTIMISE_FLAGS='-I/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/include/ -O2 -ffast-math -funroll-loops' GSL_DIR=/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/ OPENMP=no
+
+
+## Same with openmp
+yes|make giggle-config CC=cc CXX="CC -DMPICH_IGNORE_CXX_SEEK" F77=ftn F90=ftn MPI=CUSTOM MPI_LIBS=mpich HDF5=yes HDF5_DIR=$HDF5_DIR PTHREADS=yes F90FLAGS=" " CFLAGS="-std=gnu99" CXXFLAGS=" -fpermissive" F77FLAGS=" " PTHREADS=yes LD="echo -L/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/lib -lgsl -lgslcblas -Wl,--allow-multiple-definition" C_OPTIMISE_FLAGS='-I/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/include/ -Ofast -ffast-math -funroll-loops -fopenmp' F90_OPTIMISE_FLAGS='-Ofast -funroll-loops -fopenmp' F77_OPTIMISE_FLAGS='-Ofast -funroll-loops -fopenmp' CXX_OPTIMISE_FLAGS='-I/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/include/ -Ofast -ffast-math -funroll-loops -fopenmp' GSL_DIR=/sw/xe/gsl/1.15/cnl4.1_gnu4.7.2/ OPENMP=yes
+
+
+cp -p ThornList configs/giggle

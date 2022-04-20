@@ -1,0 +1,4 @@
+
+yes|make giggle-config CXX_OPTIMISE_FLAGS="-I$TACC_GSL_INC/ -O3 -c99 -xO -ip -openmp" C_OPTIMISE_FLAGS="-I$TACC_GSL_INC/ -O3 -c99 -xO -ip -openmp" F77_OPTIMISE_FLAGS="-O3 -c99 -xO -ip -openmp -I$TACC_GSL_INC/" F90_OPTIMISE_FLAGS="-O3 -c99 -xO -ip -openmp -I$TACC_GSL_INC/" MPI=CUSTOM MPI_LIBS=mpich GSL_DIR=$TACC_GSL_DIR CC=mpicc CXX=mpicxx F77=mpif77 F90=mpif90 HDF5=yes HDF5_DIR=/opt/apps/intel10_1/hdf5/1.6.5/ PTHREADS=yes MPI_LIB_DIRS=/opt/apps/intel10_1/mvapich/1.0.1/lib MPI_INC_DIRS=/opt/apps/intel10_1/mvapich/1.0.1/include/ WARN=yes LD="mpicxx  -L/opt/apps/gsl/1.13/lib -lgsl -lgslcblas -lgsl -lgslcblas -ip -lmpich -L/opt/apps/intel/10.1/fc/lib/ -lifcore"
+
+cp -p ThornList configs/giggle

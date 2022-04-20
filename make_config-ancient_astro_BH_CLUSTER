@@ -1,0 +1,40 @@
+# FASTEST CHOICE FOR CORE 2 DUO-BASED SYSTEMS!:
+yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O3 -c99 -xS -ip -openmp' F90_OPTIMISE_FLAGS='-O3 -xS -ip -openmp' F77_OPTIMISE_FLAGS='-O3 -xS -ip -openmp' CXX_OPTIMISE_FLAGS='-O3 -c99 -xS -ip -openmp'
+
+#20m12.067s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O2 -c99 -xS -ip -openmp' F90_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' F77_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' CXX_OPTIMISE_FLAGS='-O2 -c99 -xS -ip -openmp'
+
+############################
+##### OTHER BENCHMARKS #####
+############################
+
+#new (C++) Newton-Raphson primitives solver: 0m27.336s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' F90_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' F77_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' CXX_OPTIMISE_FLAGS='-O2 -xS -ip -openmp'
+
+#old (F90) primitives solver: 0m33.670s
+#new (C++) Newton-Raphson primitives solver: 0m27.761s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' F90_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' F77_OPTIMISE_FLAGS='-O2 -xS -ip -openmp' CXX_OPTIMISE_FLAGS='-O2 -xS -ip -openmp'
+
+#old (F90) primitives solver: 0m33.666s
+#new (C++) Newton-Raphson primitives solver: 0m27.960s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O3 -xS -ip -openmp' F90_OPTIMISE_FLAGS='-O3 -xS -ip -openmp' F77_OPTIMISE_FLAGS='-O3 -xS -ip -openmp' CXX_OPTIMISE_FLAGS='-O3 -xS -ip -openmp'
+
+# Warning: -no-prec-div "enables optimizations that give slightly less precise results than full IEEE division."
+#old (F90) primitives solver: 0m31.841s
+#new (C++) Newton-Raphson primitives solver: 0m27.962s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O2 -xP -ip -openmp -no-prec-div' F90_OPTIMISE_FLAGS='-O2 -xP -ip -openmp -no-prec-div' F77_OPTIMISE_FLAGS='-O2 -xP -ip -openmp -no-prec-div' CXX_OPTIMISE_FLAGS='-O2 -xP -ip -openmp -no-prec-div'
+
+#old (F90) primitives solver: 34.681
+#new (C++) Newton-Raphson primitives solver: 28.969
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O2 -xP -ip -openmp' F90_OPTIMISE_FLAGS='-O2 -xP -ip -openmp' F77_OPTIMISE_FLAGS='-O2 -xP -ip -openmp' CXX_OPTIMISE_FLAGS='-O2 -xP -ip -openmp'
+
+#old (F90) primitives solver: 0m37.010s
+#new (C++) Newton-Raphson primitives solver: 0m31.509s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O2 -xP -ip -p -openmp' F90_OPTIMISE_FLAGS='-O2 -xP -ip -p -openmp' F77_OPTIMISE_FLAGS='-O2 -xP -ip -p -openmp' CXX_OPTIMISE_FLAGS='-O2 -xP -ip -p -openmp'
+
+#old (F90) primitives solver: 0m34.692s
+#new (C++) Newton-Raphson primitives solver: 0m28.971s
+#yes|make giggle-config CC=icc CXX="icpc -DMPICH_IGNORE_CXX_SEEK" F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/usr/local/lib MPI_INC_DIRS=/usr/local/include HDF5=yes HDF5_DIR=/usr/local PTHREADS=yes F90FLAGS="-w95 " CFLAGS="-w " CXXFLAGS="-w " F77FLAGS=" -w95 " PTHREADS=yes LD="icpc -L/opt/intel/cce/10.1.025/lib/ -L/opt/intel/fce/10.1.025/lib/ -lifcore -L/usr/local/lib -lmpi" C_OPTIMISE_FLAGS='-O3 -xP -ip -openmp' F90_OPTIMISE_FLAGS='-O3 -xP -ip -openmp' F77_OPTIMISE_FLAGS='-O3 -xP -ip -openmp' CXX_OPTIMISE_FLAGS='-O3 -xP -ip -openmp'
+
+
+cp ThornList configs/giggle

@@ -1,0 +1,6 @@
+# AMP'S
+# hi
+yes|make giggle-config GSL_DIR=$HOME/gsl_intel GSL_INC_DIRS=$HOME/gsl_intel/include LIBZ_DIR=$HOME/zlib/lib/ LIBSZ_DIR=/nasa/szip/2.1.1/lib/  CC=icc CXX=icpc F77=ifort F90=ifort MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/nasa/sgi/mpt/2.14r19/lib MPI_INC_DIRS=/nasa/sgi/mpt/2.14r19/include HDF5=yes HDF5_DIR=/nasa/hdf5/1.8.18_mpt PTHREADS=yes LD="echo -L$GSL_DIR/lib -L/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/compiler/lib/intel64 -O3  -axCORE-AVX2 -xSSE4.2 -lgsl -lgslcblas -ip -lmpi -lifcore" CFLAGS="-std=c99 -U__STRICT_ANSI__" CXXFLAGS="-std=-std=c++11 -U__STRICT_ANSI__" F90FLAGS=" -align" F77FLAGS=" -align" C_OPTIMISE_FLAGS='-O3 -ip -axCORE-AVX2 -xSSE4.2 -qopenmp -I/home4/lsun5/gsl_intel/include/gsl/ -I/home4/lsun5/gsl_intel/include' CXX_OPTIMISE_FLAGS='-O3 -ip -axCORE-AVX2 -xSSE4.2 -qopenmp -I/home4/lsun5/gsl_intel/include/gsl/ -I/home4/lsun5/gsl_intel/include' F90_OPTIMISE_FLAGS='-O3 -ip -axCORE-AVX2 -xSSE4.2 -qopenmp' F77_OPTIMISE_FLAGS='-O3 -ip -axCORE-AVX2 -xSSE4.2 -qopenmp' 
+
+cp ThornList configs/giggle
+

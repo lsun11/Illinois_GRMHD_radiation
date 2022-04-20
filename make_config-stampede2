@@ -1,0 +1,8 @@
+# IMPI
+# hi
+yes|make giggle-config LIBZ_DIR=$HOME/zlib-1.2.7/lib/ CC=mpicc CXX="mpicxx -DMPICH_IGNORE_CXX_SEEK" F77=mpif77 F90=mpif90 MPI=CUSTOM MPI_LIBS=mpi MPI_LIB_DIRS=/opt/intel/compilers_and_libraries_2017.4.196/linux/mpi/intel64/lib MPI_INC_DIRS=/opt/intel/compilers_and_libraries_2017.4.196/linux/mpi/intel64/include HDF5=yes HDF5_DIR=/opt/apps/intel17/hdf5/1.8.16/x86_64/ PTHREADS=yes F90FLAGS=" -xCORE-AVX2 -axCORE-AVX512,MIC-AVX512" CFLAGS="-w -xCORE-AVX2 -axCORE-AVX512,MIC-AVX512" CXXFLAGS="-w -xCORE-AVX2 -axCORE-AVX512,MIC-AVX512" F77FLAGS="  -xCORE-AVX2 -axCORE-AVX512,MIC-AVX512" PTHREADS=yes LD="mpicxx -xCORE-AVX2 -axCORE-AVX512,MIC-AVX512 -rpath -ip -lifcore -openmp -L$TACC_GSL_LIB -lgsl -lgslcblas -Wl,-rpath,$TACC_HDF5_LIB -L$TACC_HDF5_LIB -lhdf5 -lz -L/opt/intel/compilers_and_libraries_2017.4.196/linux/mpi/intel64/lib" C_OPTIMISE_FLAGS='-I/opt/apps/intel17/gsl/2.3/include/ -I$TACC_HDF5_INC -I$TACC_GSL_INC -I$TACC_GSL_INC/gsl -O2 -c99 -ip -openmp' F90_OPTIMISE_FLAGS='-O2 -ip -openmp' F77_OPTIMISE_FLAGS='-O2 -ip -openmp' CXX_OPTIMISE_FLAGS='-I/opt/apps/intel17/gsl/2.3/include/ -I$TACC_HDF5_INC -I$TACC_GSL_INC -I$TACC_GSL_INC/gsl -O2 -c99 -ip -openmp' GSL_DIR=/opt/apps/intel17/gsl/2.3/ GSL_INC_DIRS=/opt/apps/intel17/gsl/2.3/include/gsl
+
+
+cp ThornList configs/giggle
+
+
