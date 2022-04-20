@@ -1,0 +1,179 @@
+# Parameter definitions for thorn OS_toy
+
+shares: IO
+USES KEYWORD out_every
+
+#following 2 lines needed for binfile checkpointing
+shares: Cactus
+USES INT cctk_itlast 
+
+shares: grid
+
+shares: mhd_evolve
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD force_font_fix_fail
+USES KEYWORD enable_primitives_disk
+USES KEYWORD primitives_solver
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD M_B
+USES KEYWORD rad_evolve_enable
+USES KEYWORD rad_opacity_abs
+USES KEYWORD rad_opacity_sct
+USES KEYWORD enable_OS_collapse
+USES KEYWORD rad_closure_scheme
+USES KEYWORD Erad_cut
+USES KEYWORD Erad_atm_cut
+USES KEYWORD gamma_OS
+USES KEYWORD compute_microphysics
+USES KEYWORD OS_T_Rmax
+
+shares: diagnostics_mhd
+USES KEYWORD N_rad_ray
+USES KEYWORD rhosurf_rmin
+USES KEYWORD rhosurf_rmax
+
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD scaledsurf
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD sym_factor
+
+
+
+#restricted:
+
+#INT enable_OS_collapse "whether to start OS collapse"
+#{
+# 0:1 :: "0: No, 1: Yes"
+#}0
+
+
+
+private:
+
+
+
+#------------------------------------------------------------------
+REAL M0_initial "Initial value of M_0, for diagnostic/comparison purposes"
+{
+  0:* :: "Any positive real"
+} 0
+
+
+#--------OS collapse reader
+
+
+REAL M_OS "initial mass of OS star"
+{
+ 0:* :: "Any positive real"
+}1.0
+
+
+REAL R_OS " initial areal radius of OS star"
+{
+ 0:* :: "Any positive real"
+}5.0
+
+
+
+REAL xc_OS " initial x-coord of OS star"
+{
+ 0:* :: "Any positive real"
+}0.0
+
+REAL yc_OS " initial y-coord of OS star"
+{
+ 0:* :: "Any positive real"
+}0.0
+
+REAL zc_OS " initial z-coord of OS star"
+{
+ 0:* :: "Any positive real"
+}0.0
+
+
+REAL P_over_rho " initial Pressure over density "
+{
+ 0:* :: "Any positive real"
+}0.001
+
+
+REAL E_over_rho " initial E_rad over density "
+{
+ 0:* :: "Any positive real"
+}1.0e-4
+
+REAL Fx_over_rho " initial F_radx over density "
+{
+ 0:* :: "Any positive real"
+}0.0
+
+REAL Fy_over_rho " initial F_rady over density "
+{
+ 0:* :: "Any positive real"
+}0.0
+
+REAL Fz_over_rho " initial F_radz over density "
+{
+ 0:* :: "Any positive real"
+}0.0
+
+
+INT narr "size of particle tracer array"
+{
+ 1:* :: "Positive Any Integer"
+} 100
+
+REAL Po4PiB "P_matter0 / 4 pi B0"
+{
+ 0:* :: "Any positive real"
+} 1.0e-4
+
+
+REAL particle_rad_cut "The cutoff precentage of the outmost particle tracer"
+{
+ 0:* :: "Greater than 0"
+}0.96
+
+
+REAL opt_depth_a "optical depth for absorption"
+{
+ 0:* :: "Positive"
+} 10.0
+
+REAL opt_depth_s "optical depth for scattering"
+{
+ 0:* :: "Positive"
+} 0.0
+
+REAL rounding "the rounding factor of density"
+{
+ 0:* :: "Positive"
+}0.0001
+
+
+#REAL OS_T_Rmax "radius of maximum temperature"
+#{
+#  0:* :: "Positive"
+#}5.0

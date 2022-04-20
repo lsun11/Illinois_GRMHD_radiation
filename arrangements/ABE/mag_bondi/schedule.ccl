@@ -1,0 +1,100 @@
+# Schedule definitions for disk initial data thorn
+
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3], mag_bondi::aux_var
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::Stagger_Bs
+STORAGE: mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+#STORAGE: excision::excision_int_gfs, excision::excision_gfs
+STORAGE: horizon_data_arrays
+
+schedule mag_bondi_initialdata_part2 at CCTK_INITIAL as second_initialdata
+{
+  LANG:          FORTRAN
+  SYNC:         bssn::BSSN_vars[3], lapse::lapse_vars, mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs, mhd_evolve::em_conservativex[3], mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+  SYNC:         mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+  SYNC:         mhd_evolve::Stagger_Bs
+} "Set up the metric, hydro and em fields"
+
+schedule GROUP mag_bondi_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+{
+} "Finish up magnetar initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+schedule mag_bondi_initialdata_part2p5 in mag_bondi_postid as twopointfive_initialdata before third_initialdata
+{
+  LANG:          FORTRAN
+  options:        global
+} "Compute xmax_bondi, zmax_bondi"
+
+
+schedule mag_bondi_initialdata_part3 in mag_bondi_postid as third_initialdata before fourth_initialdata
+{
+  LANG:          FORTRAN
+  SYNC:         mhd_evolve::mhd_conservatives[3],mhd_evolve::mhd_primitives,mhd_evolve::mhd_vs
+  options:        global, loop-local
+} "Set up the matter source terms"
+
+schedule mag_bondi_analytic_horizon_data in mag_bondi_postid as forth_initialdata after third_initialdata before postid
+{
+  LANG:         FORTRAN
+  options:        global
+} "Setup the analytic horizon data arrays"
+
+schedule driver_mag_bondi_post_regrid in CCTK_POSTREGRIDINITIAL as mag_bondi_post_regrid after fish_postregrid_update0 before PsiKad
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:       bssn::phi_derivs,bssn::BSSN_diag_restrict, bssn::BSSN_gupij,bssn::BSSN_vars, bssn::BSSN_matter, bssn::BSSN_aux_restrict2
+#    SYNC:      BSSN_vars
+    OPTIONS:    LEVEL,LOOP-LOCAL
+    LANG:       FORTRAN
+  } "postregridinitial: Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+
+schedule driver_mag_bondi_post_regrid in CCTK_POSTRESTRICTINITIAL as mag_bondi_post_regrid after fish_postregrid_update0 before PsiKad
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:       bssn::phi_derivs,bssn::BSSN_diag_restrict, bssn::BSSN_gupij,bssn::BSSN_vars, bssn::BSSN_matter, bssn::BSSN_aux_restrict2
+#    SYNC:      BSSN_vars
+    OPTIONS:    LEVEL,LOOP-LOCAL
+    LANG:       FORTRAN
+  } "postrestrictinitial:  Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+
+schedule driver_mag_bondi_post_regrid in CCTK_POSTRESTRICT as mag_bondi_post_regrid after fish_postregrid_update0 before PsiKad
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:       bssn::phi_derivs,bssn::BSSN_diag_restrict, bssn::BSSN_gupij,bssn::BSSN_vars, bssn::BSSN_matter, bssn::BSSN_aux_restrict2
+#    SYNC:      BSSN_vars
+    OPTIONS:    LEVEL,LOOP-LOCAL
+    LANG:       FORTRAN
+  } "Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+
+schedule driver_mag_bondi_post_regrid in CCTK_POSTREGRID as mag_bondi_post_regrid after fish_postregrid_update before PsiKad
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:       phi_derivs,BSSN_diag_restrict, BSSN_gupij,BSSN_vars, BSSN_matter, BSSN_aux_restrict2
+#    SYNC:      BSSN_vars
+    OPTIONS:    LEVEL,LOOP-LOCAL
+#    OPTIONS:   GLOBAL,LOOP-LOCAL
+    LANG:       FORTRAN
+  } "Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+
+schedule mag_bondi_some_radius_conversions at CCTK_RECOVER_VARIABLES
+{
+  LANG:         FORTRAN
+  options:        global
+} "convert radii for the fon file."
+
+schedule mag_bondi_compute_b2 as mag_bondi_acc_compute_b2 at CCTK_ANALYSIS 
+{
+  LANG:         FORTRAN
+} "Compute b^2 (only if puncture_id set to 1)"
+
+schedule diagnostic_mag_bondi_accretion at CCTK_ANALYSIS as poststep after mag_bondi_acc_compute_b2
+{
+  LANG:          FORTRAN
+  options:        global
+} "Evaluate diagnostics"

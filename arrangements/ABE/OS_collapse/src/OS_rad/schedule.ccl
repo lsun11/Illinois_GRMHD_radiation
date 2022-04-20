@@ -1,0 +1,47 @@
+# Schedule definitions for thorn OS_rad
+# $Header:$
+STORAGE: BSSN::BSSN_vars[2],BSSN::phi_derivs,BSSN::BSSN_aux_restrict2,BSSN::BSSN_diag_restrict,BSSN::BSSN_AH
+STORAGE: lapse::lapse_vars[2],lapse::lapse_derivatives
+STORAGE: shift::shift_vars[2]
+STORAGE: mhd_evolve::mhd_conservatives[2], mhd_evolve::mhd_primitives,mhd_evolve::mhd_vs,mhd_evolve::mhd_sync_nablas,mhd_evolve::mhd_sync_rho_br_rho_bl,mhd_evolve::mhd_sync_metric_facevals,mhd_evolve::mhd_sync_d0_quantities,mhd_evolve::mhd_sync_hydro_fwdbck_quantities,mhd_evolve::mhd_sync_lr_hydro_quantities,mhd_evolve::mhd_sync_lr_B_quantities,mhd_evolve::mhd_nosync,mhd_evolve::eos_params1,mhd_evolve::eos_params2,mhd_evolve::mhdscalar
+STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: rad_evolve::rad_conservatives[2], rad_evolve::rad_primitives,rad_evolve::rad_nosync,rad_evolve::opacity,rad_evolve::rad_constant
+STORAGE: OS_rad::analytic,OS_rad::particle_tracer,OS_rad::mhd_v_ps,OS_rad::pcle_stuff,OS_rad::more_pcle_stuff,OS_rad::convergence,OS_rad::conv_int
+STORAGE: interpolation::Xglobal_coord_array, interpolation::Yglobal_coord_array, interpolation::Zglobal_coord_array, interpolation::Xlocal_coord_array, interpolation::Ylocal_coord_array, interpolation::Zlocal_coord_array
+STORAGE: ahfinder::out_1d_legen
+STORAGE: ahfinder::out_2d_legen
+
+#read in os initial data
+schedule OS_rad_initialdata at CCTK_INITIAL as first_initialdata
+{
+	LANG:		C
+} "read in os initial data"
+
+#finalize os initial data
+schedule OS_rad_finalize_initialdata at CCTK_INITIAL as second_initialdata after first_initialdata
+{
+ 	LANG:           FORTRAN
+} "finalize os initial data"
+
+
+schedule OS_rad_copy_to_prev_timelevel at CCTK_INITIAL as third_initialdata after second_initialdata
+{
+   LANG:          FORTRAN
+} "Copy to previous timelevel"
+
+schedule OS_rad_sanitycheck_restore_Aij at CCTK_ANALYSIS as sanitycheck_restore_Aij
+{
+   LANG:          FORTRAN
+} "Sanity check, Restore Aij"
+
+
+schedule particle_tracer at CCTK_ANALYSIS as tracer after sanitycheck_restore_Aij
+{
+  LANG:          FORTRAN
+} "do particle tracer stuff"
+
+schedule OS_rad_diag_integrals at CCTK_ANALYSIS as poststep after tracer
+{
+  LANG:          FORTRAN
+} "Evaluate diagnostic integrals"
+

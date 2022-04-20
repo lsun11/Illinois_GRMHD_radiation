@@ -1,0 +1,64 @@
+# Interface definition for thorn WeakRates
+IMPLEMENTS: WeakRates
+#INHERITS: EOS_Thermal_Table3d
+
+# Normalized neutrino emissivities
+CCTK_INT FUNCTION NeutrinoEmission( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT r_nue,\
+        CCTK_REAL OUT r_nua,\
+        CCTK_REAL OUT r_nux,\
+        CCTK_REAL OUT q_nue,\
+        CCTK_REAL OUT q_nua,\
+        CCTK_REAL OUT q_nux)
+PROVIDES FUNCTION NeutrinoEmission WITH NeutrinoEmissionImpl LANGUAGE Fortran
+
+CCTK_INT FUNCTION NeutrinoOpacity( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT kappa_0_nue,\
+        CCTK_REAL OUT kappa_0_nua,\
+        CCTK_REAL OUT kappa_0_nux,\
+        CCTK_REAL OUT kappa_1_nue,\
+        CCTK_REAL OUT kappa_1_nua,\
+        CCTK_REAL OUT kappa_1_nux)
+PROVIDES FUNCTION NeutrinoOpacity WITH NeutrinoOpacityImpl LANGUAGE Fortran
+
+CCTK_INT FUNCTION NeutrinoAbsorptionRate( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT abs_0_nue,\
+        CCTK_REAL OUT abs_0_nua,\
+        CCTK_REAL OUT abs_0_nux,\
+        CCTK_REAL OUT abs_1_nue,\
+        CCTK_REAL OUT abs_1_nua,\
+        CCTK_REAL OUT abs_1_nux)
+PROVIDES FUNCTION NeutrinoAbsorptionRate WITH NeutrinoAbsorptionRateImpl LANGUAGE Fortran
+
+# Normalized neutrino density and average energy
+CCTK_INT FUNCTION NeutrinoDensity( \
+        CCTK_REAL IN rho, \
+        CCTK_REAL IN temp, \
+        CCTK_REAL IN ye, \
+        CCTK_REAL OUT num_nue, \
+        CCTK_REAL OUT num_nua, \
+        CCTK_REAL OUT num_nux, \
+        CCTK_REAL OUT ene_nue, \
+        CCTK_REAL OUT ene_nua, \
+        CCTK_REAL OUT ene_nux)
+PROVIDES FUNCTION NeutrinoDensity WITH NeutrinoDensityImpl LANGUAGE Fortran
+
+CCTK_INT FUNCTION NucleiAbar( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT abar)
+PROVIDES FUNCTION NucleiAbar WITH NucleiAbarImpl LANGUAGE Fortran
+
+# Normalized average baryon mass
+CCTK_REAL FUNCTION AverageBaryonMass()
+PROVIDES FUNCTION AverageBaryonMass WITH AtomicMassImpl LANGUAGE Fortran

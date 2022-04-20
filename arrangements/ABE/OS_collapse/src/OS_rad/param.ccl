@@ -1,0 +1,172 @@
+# Parameter definitions for thorn OS_rad
+# $Header:$
+shares: grid
+#shares: driver
+#USES KEYWORD global_nx
+#USES KEYWORD global_ny
+#USES KEYWORD global_nz
+
+shares: rad_evolve
+USES KEYWORD rad_evolve_enable
+
+shares: mhd_evolve
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD rho_b_atm
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD rho_fact
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD K_poly
+
+
+shares: diagnostics_vacuum
+USES KEYWORD out_surf_int_sum
+USES KEYWORD surf_radius
+#USES KEYWORD E_GW_LOSS
+
+shares: diagnostics_mhd
+USES KEYWORD F_M0
+USES KEYWORD F_E_fluid
+USES KEYWORD F_E_em
+USES KEYWORD F_J_fluid
+USES KEYWORD F_J_em
+
+shares: lapse
+USES KEYWORD slicing_type
+
+shares: IO
+USES INT out_every 
+
+restricted:
+REAL rounding_temp "parameter that determines how we round the initial profile"
+{
+*:* :: "anything"
+} 0.01
+ 
+REAL width "parameter that determines the width of the initial F_rad profile, if its less than 0 than initial profile is flat"
+{
+*:* :: "anything"
+} -1.0
+
+#REAL K_poly "initial polytropic constant" STEERABLE = ALWAYS
+#{
+# 0:* :: "Positive"
+#} 1.0
+
+REAL n_index "polytropic index" STEERABLE = ALWAYS
+{
+ 0:* :: "Positive"
+} 3.0
+
+REAL R0 "Initial areal radius of star"
+{
+0:* :: "Positive"
+} 4.0
+
+REAL Po4PiB "P_matter0 / 4 pi B0"
+{
+ 0:* :: "Positive"
+} .001
+
+REAL PoRho "P_matter0 / rho0"
+{
+ 0:* :: "Positive"
+} .001
+
+REAL RoM "R0 / M"
+{
+ 0:* :: "Positive"
+} 10
+
+REAL opt_depth_a "optical depth for absorption"
+{
+ 0:* :: "Positive"
+} 10.0
+
+REAL opt_depth_s "optical depth for scattering"
+{
+ 0:* :: "Positive"
+} 0.0
+
+#REAL rho_b_atm "Dont bother setting this parameter in your .par file: density atmosphere parameter (set to correct value inside code)"
+#{
+# 0:* :: "Positive"
+#} 100.000
+
+
+REAL P_deplete "Pressure depletion paramter (1.0 -> no pressure depletion)"
+{
+ 0:* :: "Positive"
+} 1.0
+
+REAL betam1 "P_B / P_gas"
+{
+ 0:* :: "Positive"
+} 1e-4
+
+REAL p_c ""
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL Omega_Frame "angular velocity of reference frame"
+{
+ *:* :: "Any Real"
+} 0.0
+
+INT em_field_type "poloidal (0) or toroidal (1) fields?"
+{
+ *:* :: "Any Integer"
+} 0
+
+INT binfile_restart "Restart from binfile?"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+INT os_maximal "use interpolated maximal_slicing"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+STRING mag_interp_operator "Name of interpolation operator to use" STEERABLE = ALWAYS
+{
+  ".+" :: "A valid name for a registered interpolation operator"
+} "uniform cartesian"
+
+STRING OS_filename "name of file containing initial OS data"
+{
+  ".+" :: "a valid filename"
+} "data_r4"
+
+#following parameter needed for binfile checkpointing
+INT binfile_checkpoint_iteration "label of binfile.  e.g., Axy.time___0.000.h5001000777.bin has label time___0.000.h5001000777.bin"
+{
+  0:* :: "Any positive integer"
+} 0
+
+REAL lapse_regrid "when minimum lapse hits this level, dump binfile checkpoints and exit!"
+{
+  *:* :: "Any real"
+} -1000
+
+REAL proper_time "proper time at center of grid"
+{
+  0:* :: "positive number"
+} 0.0 
+
+INT narr "number of particle tracers"
+{
+0:* :: "Positive"
+} 4
+
+INT coarse_res "coarsest resolution for convergence test"
+{
+0:* :: "Positive"
+} 80
+
+

@@ -1,0 +1,40 @@
+
+                   ! *********************
+                   ! ***  second star  ***
+                   ! *********************
+
+                   xp_s = X(i,1,1)+hdX 
+                   yp_s = Y(1,j,1)+hdY
+                   zp_s = Z(1,1,k)+hdZ
+
+                   !x-component of A_i :
+                   xp = xp_s
+                   yp = yp_s
+                   zp = Z(1,1,k)
+
+
+                   pomega2b = zp**2 + (yp-y_NS_CoM_coord2)**2 + hdX*1.d-13
+
+                   call compute_Aphi_bhns_current_loop_app(xp,yp,zp,x_NS_CoM_coord2,y_NS_CoM_coord2,a0,I0,Aphi_s)
+                   if (Sym_Bz .lt. 0.d0) Aphi_s = Aphi_s*zp/sqrt(pomega2b)
+                   Az_temp = - (yp-y_NS_CoM_coord2)*Aphi_s/pomega2b
+
+
+                   !y-component of A_i :
+                   xp = xp_s
+                   yp = Y(1,j,1)
+                   zp = zp_s
+                   
+                   pomega2 = zp**2 + (yp-y_NS_CoM_coord2)**2 + hdX*1.d-13
+                   call compute_Aphi_bhns_current_loop_app(xp,yp,zp,x_NS_CoM_coord2,y_NS_CoM_coord2,a0,I0,Aphi_s)
+                   if (Sym_Bz .lt. 0.d0) Aphi_s = Aphi_s*zp/sqrt(pomega2b)
+                   Ay_temp  =  (zp)*Aphi_s/pomega2b
+
+                   !z-component of A_i :
+                   Ax_temp = 0.d0
+
+                   !superpose the vectors
+
+                   !Ax(i,j,k) = Ax(i,j,k) + Ax_temp
+                   !Ay(i,j,k) = Ay(i,j,k) + Ay_temp
+                   !Az(i,j,k) = Az(i,j,k) + Az_temp

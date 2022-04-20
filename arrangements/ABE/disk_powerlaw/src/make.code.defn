@@ -1,0 +1,18 @@
+# make.code.defn file for thorn bbhlorene
+
+# Source files in this directory
+SRCS =  disk_powerlaw_matter_id.F90 \
+	disk_powerlaw_compute_P_max.F90 \
+	disk_powerlaw_compute_rho_b_atm.F90 \
+	disk_powerlaw_compute_rhostar_tau_max.F90 \
+	disk_powerlaw_setup_emfields.F90 \
+	disk_powerlaw_setup_remaining_matter_quantities.F90 \
+	diagnostics.F90 \
+	disk_powerlaw_recompute_primitives.F90 \
+	driver_spatial_derivs.F90 \
+        spatial_metric_derivs.C \
+        spatial_metric_derivs_2ndorderbdry.C \
+        spatial_metric_derivs_4thorderbdry.C \
+	surface_dens_1d.F90 \
+	surface_dens_2d.F90 \
+	surface_dens_1d_IO.C

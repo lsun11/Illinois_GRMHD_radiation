@@ -1,0 +1,6 @@
+# Main make.code.defn file for thorn ridX
+
+# Source files in this directory
+SRCS =  driver_ridX.F90 ridX_lowlevel.C
+
+SUBDIRS = 

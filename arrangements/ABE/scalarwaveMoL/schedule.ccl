@@ -1,0 +1,69 @@
+# Schedule definitions for thorn scalarwave
+# $Header: /home/astro/CVS/Cactus/arrangements/ABE/scalarwave/schedule.ccl,v 1.3 2006/03/10 22:31:47 zetienne Exp $
+
+STORAGE: scalarMoLevolve[3],scalarMoLrhs,scalarMoLstagger[3],scalarMoLstaggerrhs,scalarMoLanalytic,scawave_have_global_boundary
+
+# Checks that amp & width are within bounds
+schedule scalarwaveMoL_CheckParameters at CCTK_PARAMCHECK
+{
+  LANG: C
+} "Check parameters"
+
+schedule scalarwaveMoL_print_time in MoL_PreStep
+{
+  LANG: FORTRAN
+} "Print the iteration number and time."
+
+# Prints out a banner stating the runtype
+schedule scalarwaveMoL_Startup at STARTUP
+{
+  LANG: C
+} "Register banner"
+
+# Tells the symmetry thorn how to implement symmetries
+schedule scalarwaveMoL_InitSymBound at BASEGRID
+{
+  LANG: C
+  OPTIONS: META
+} "Schedule symmetries"
+
+schedule ABE_ScalarWave_Setup_InitialData at CCTK_INITIAL
+{
+  LANG: C
+} "Setup initial data"
+
+schedule scalarwaveMoL_RegisterVars in MoL_Register
+{
+  LANG: C
+  OPTIONS: META
+} "Register variables for MoL"
+
+schedule scalarwaveMoL_compute_rhs in MoL_CalcRHS
+{
+  LANG: C
+} "Register RHS calculation for MoL"
+
+schedule scalarwaveMoL_update_boundary as scalarwaveMoL_Boundaries in MoL_PostStep
+{
+  LANG: FORTRAN
+  SYNC: scalarMoLevolve,scalarMoLstagger
+} "Apply boundary conditions for scalarwaveMoL"
+
+# This will compute the analytic solution, if the appropriate src/Scalar_Methods.C 
+# lines are uncommented.  Warning: WILL SLOW DOWN THE CODE by factor of ~1.5.
+schedule Compute_Difference_Numerical_Analytic as C_A at CCTK_ANALYSIS 
+{
+  LANG: C
+  SYNC: scalarMoLevolve,scalarMoLstagger,scalarMoLanalytic
+} "Compute Analytic Solution"
+
+schedule update_movingbox at CCTK_ANALYSIS after C_A
+{ 
+  LANG: FORTRAN
+  options:   global
+} "Update moving box center"
+
+##schedule scalarwaveMoL_postregrid at CCTK_POSTREGRID 
+##{
+##  LANG: FORTRAN
+##} "scalarwaveMoL postregrid"

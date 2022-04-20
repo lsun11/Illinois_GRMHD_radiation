@@ -1,0 +1,11 @@
+# Main make.code.defn file for thorn OS_rad
+# $Header:$
+
+# Source files in this directory
+#SRCS = spline.C splint.C OS_rad_initialdata.C OS_rad_finalize_initialdata.F90 compute_OS_rad.F90 OS_rad_sanitycheck_restore_Aij.F90 copy_to_prev_timelevel.F90 lin_wave_initialdata.F90 linearwave_evolve.F90 CheckParameters.C Startup.C lw_diagnostic_integrals.F90 lw_sanitycheck_restore_Aij.F90
+
+SRCS = nrtype.F90 nr.F90 nrutil.F90  rtbis.F90 nrutil.C spline.C splint.C OS_rad_initialdata.C OS_rad_finalize_initialdata.F90 copy_to_prev_timelevel.F90 OS_rad_sanitycheck_restore_Aij.F90 OS_rad_diagnostic_integrals.F90 compute_OS_rad.F90 particle_tracer.F90 OS_rad_analytic_new.F90 
+#update_falloff_fisheye.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

@@ -1,0 +1,113 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+!-----------------------------------------------------------------------------
+! ang_freq_ofBfield diagnostic output
+!-----------------------------------------------------------------------------
+subroutine ang_freq_ofBfield_diagnostics(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8, dimension(num_theta,100)        :: export_data
+  character, dimension(100)                :: data_headers*20
+  character                                :: filename*50
+  !Interpolation stuff:
+!!  real*8, allocatable, dimension(:,:)      :: pointcoords
+!!  real*8, allocatable, dimension(:)        :: Psi4reint,Psi4imint
+!!  integer                                  :: N_theta,N_phi,ntot,n,j
+!!  integer                                  :: n,j,ii, ntot
+  integer                                  :: n,j,ii
+  real*8                                   :: sintheta,costheta,phiangle,PI
+!!  real*8                                   :: sintheta,costheta,phiangle,dcostheta,PI,dphi
+  real*8,dimension(num_theta,3)                    :: pointcoords
+  real*8,dimension(1)                      :: outputblah
+  real*8,dimension(num_theta)              :: Bfreq1int, Bfreq2int
+  real*8                                   :: psi4r,psi4i
+  real*8                                   :: radiusL, theta
+  integer :: num_cols,i,l,m,radiusindex,psikad_disable
+!!  integer, dimension(nmodes_phi4)               :: lmode,mmode
+  integer :: header_flag,vindex
+  integer :: NO_SYMM, EQUATORIAL, OCTANT, PI_SYMM, AXISYM
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+
+  PI = 3.14159265358979323846D0
+
+  !  if(MOD(cctk_iteration,out_every).eq.0) then
+
+  if(MOD(cctk_iteration,out_every).eq.0) then
+
+     !header_flag == 1 -> write file headers
+     if(CCTK_TIME == 0.D0) then
+        header_flag = 1
+     else
+        header_flag = 0
+     end if
+
+     	if(num_interp_radii_om.gt.0) write(*,*) 'In ang_freq_ofBfield diagnostics.F90, num_theta = ',num_theta
+
+     
+     !--------------------------------------------------------------------------------!
+
+!        print *, "ACA",bh_posn_x(1),bh_posn_y(1),bh_posn_z(1)
+
+     do ii=1,num_interp_radii_om
+
+        radiusL=radius_om(ii)
+
+	n = 1
+	  do i=1,num_theta
+	         theta = (i-1)*Pi/2.d0/(num_theta-1)
+		 phiangle = 0.d0
+        	 pointcoords(n,1) = radiusL*sin(theta)*cos(phiangle) + bh_posn_x(1)
+        	 pointcoords(n,2) = radiusL*sin(theta)*sin(phiangle) + bh_posn_y(1)
+        	 pointcoords(n,3) = radiusL*cos(theta) + bh_posn_z(1)
+        	 n = n + 1
+          end do
+
+  	  call CCTK_VarIndex(vindex,"ang_freq_ofBfield::Bfreq1")
+  	  call interp_driver_carp(cctkGH,num_theta,pointcoords,vindex,Bfreq1int)
+
+  	  call CCTK_VarIndex(vindex,"ang_freq_ofBfield::Bfreq2")
+  	  call interp_driver_carp(cctkGH,num_theta,pointcoords,vindex,Bfreq2int)
+
+
+        if(num_interp_radii_om.eq.1) then
+           filename = 'B_ang_freq.fon'
+        else
+           write(filename,31)(ii-1)
+31         FORMAT("B_ang_freq.fon",I1)
+        endif
+
+        num_cols = 6
+
+        data_headers(1) = '# Time'
+        data_headers(2) = "X"
+        data_headers(3) = "Y"
+        data_headers(4) = "Z"
+        data_headers(5) = "OmegF_1"
+        data_headers(6) = "OmegF_2"
+  
+	do i=1,num_theta
+     	  export_data(i,1) = CCTK_TIME
+     	  export_data(i,2) = pointcoords(i,1)
+     	  export_data(i,3) = pointcoords(i,2)
+     	  export_data(i,4) = pointcoords(i,3)
+     	  export_data(i,5) = Bfreq1int(i)
+     	  export_data(i,6) = Bfreq2int(i)
+  	end do
+
+  	if(CCTK_MyProc(CCTKGH)==0) call output_multiline_data_to_file(filename,num_cols,data_headers,num_theta,export_data,header_flag) 
+
+     end do
+
+     !--------------------------------------------------------------------------------!
+
+
+  end if
+end subroutine ang_freq_ofBfield_diagnostics

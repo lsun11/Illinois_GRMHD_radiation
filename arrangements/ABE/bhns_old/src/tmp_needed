@@ -1,0 +1,31 @@
+
+    // Now calculate the conformal factor
+
+    cout << "Now compute the conformal metric and  the conformal factor" << endl;
+    cout << "Notice that the 3-metric is not conformally flat" << endl;
+
+    for(int k=0;k<nz;k++){
+      for(int j=0;j<ny;j++){
+	for(int i=0;i<nx;i++){
+	  int ind = CCTK_GFINDEX3D(cctkGH,i,j,k);
+	  double g_xxl = gxx[ind];
+	  double g_xyl = gxy[ind];
+	  double g_xzl = gxz[ind];
+	  double g_yyl = gyy[ind];
+	  double g_yzl = gyz[ind];
+	  double g_zzl = gzz[ind];
+	  
+	  // calculate the three-determinant
+	  
+	  double g= -g_xzl*g_xzl*g_yyl + 2*g_xyl*g_xzl*g_yzl 
+                    -g_xxl*g_yzl*g_yzl 
+	            -g_xyl*g_xyl*g_zzl 
+	            +g_xxl*g_yyl*g_zzl;
+
+	  if(g<0.0){
+	    printf("Stopping: Negative 3-metric determinant. Something's wrong!\n");
+	    exit(1);
+	  }
+	}
+      }
+    }

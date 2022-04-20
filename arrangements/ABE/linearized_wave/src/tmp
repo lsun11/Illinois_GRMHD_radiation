@@ -1,0 +1,165 @@
+subroutine lin_wave_analytic(ex, X, Y, Z, T, Amp, Width, &
+     gxx, gxy, gxz, gyy, gyz, gzz, kxx,kxy,kxz,kyy,kyz,kzz,PhysR, dRdr,mode)
+  implicit none
+!
+! Input parameters:
+!
+  integer, dimension(3)                       :: ex
+  real*8, dimension(ex(1),ex(2),ex(3))        :: X,Y,Z
+  real*8, dimension(ex(1),ex(2),ex(3))        :: PhysR, dRdr
+  real*8, dimension(ex(1),ex(2),ex(3)),target :: gxx,gxy,gxz
+  real*8, dimension(ex(1),ex(2),ex(3)),target :: gyy,gyz,gzz
+  real*8, dimension(ex(1),ex(2),ex(3)),target :: kxx,kxy,kxz
+  real*8, dimension(ex(1),ex(2),ex(3)),target :: kyy,kyz,kzz
+  real*8                                      :: T, Amp, Width
+  integer				      :: mode
+
+  integer                            :: i,j,k,l,m,n,o
+  integer                            :: imin,jmin,kmin,imax,jmax,kmax
+  real*8                             :: R,Rho,SinTh,CosTh,SinPh,CosPh
+  real*8                             :: A,B,C, KK,LL
+  real*8                             :: Ad,Bd,Cd, KKd,LLd
+  real*8, dimension(3,3)             :: trans,g_pol, k_pol
+  real*8                             :: frr,frt,frp,f1tt,f2tt,ftp,f1pp,f2pp
+  real*8 			     :: drt,drp,dtt,dtp,dpp
+  real*8                             :: ZERO, ONE, TWO, THREE
+  parameter ( ZERO = 0.D0, ONE = 1.D0, TWO = 2.D0, THREE = 3.D0 )
+
+!
+! Input translation
+!
+  imin = lbound(gxx,1)
+  jmin = lbound(gxx,2)
+  kmin = lbound(gxx,3)
+  imax = ubound(gxx,1)
+  jmax = ubound(gxx,2)
+  kmax = ubound(gxx,3)
+!
+! go to each gridpoint...
+!
+  do k = kmin, kmax
+     do j = jmin, jmax
+        do i = imin, imax
+!
+! find polar coordinates from cartesian coordinates
+!
+           R     = sqrt(X(i,j,k)**2 + Y(i,j,k)**2 + Z(i,j,k)**2)
+           Rho   = sqrt(X(i,j,k)**2 + Y(i,j,k)**2)
+           SinPh = Y(i,j,k) / Rho
+	   CosPh = X(i,j,k) / Rho
+           SinTh = Rho / R
+           CosTh = Z(i,j,k) / R
+!
+! find transformation matrix trans_{ij} = dx^{i'}/dx^j, where
+! primes are polar coordinates
+!
+           trans(1,1) = X(i,j,k)/R
+           trans(1,2) = Y(i,j,k)/R
+           trans(1,3) = Z(i,j,k)/R
+           trans(2,1) = X(i,j,k)*Z(1,1,k)/(R**2 * Rho)
+           trans(2,2) = Y(i,j,k)*Z(1,1,k)/(R**2 * Rho)
+           trans(2,3) = - Rho/R**2
+           trans(3,1) = - Y(i,j,k)/Rho**2
+           trans(3,2) = X(i,j,k)/Rho**2
+           trans(3,3) = ZERO
+!
+! find coefficients A, B, C (eq. (6) ) and K and L (eq. (9))
+!
+           call coefficients(PhysR(i,j,k),T,Amp,Width,A,B,C,KK,LL)
+ 	   call dt_coefficients(PhysR(i,j,k),T,Amp,Width,Ad,Bd,Cd,KKd,LLd)
+           
+!
+! find coefficients f and d (eqs. (7)  and (10))
+! 
+           call fij_dij(frr,frt,frp,f1tt,f2tt,ftp,f1pp,f2pp,drt,drp,dtt,dtp,dpp, & 
+                        SinTh,CosTh,SinPh,CosPh,mode)
+!
+! Find metric in polar coordinates (eq. (5) )
+!
+           g_pol(1,1) = (ONE + A*frr) * dRdr(i,j,k)**2
+           g_pol(1,2) = (B*frt+KK*drt)*PhysR(i,j,k) * dRdr(i,j,k)
+           g_pol(1,3) = (B*frp+KK*drp)*PhysR(i,j,k)*SinTh * dRdr(i,j,k)
+           g_pol(2,2) = (ONE + C*f1tt + A*f2tt + LL*dtt) * PhysR(i,j,k)**2
+           g_pol(2,3) = ( (A-2.d0*C)*ftp + LL*dtp)*SinTh*PhysR(i,j,k)**2
+           g_pol(3,3) = (ONE + C*f1pp + A*f2pp + LL*dpp)*(PhysR(i,j,k)*SinTh)**2
+           g_pol(2,1) = g_pol(1,2)
+           g_pol(3,1) = g_pol(1,3)
+           g_pol(3,2) = g_pol(2,3)
+
+           k_pol(1,1) = -0.5d0*Ad*frr * dRdr(i,j,k)**2
+           k_pol(1,2) = -0.5d0*(Bd*frt+KKd*drt)*PhysR(i,j,k) * dRdr(i,j,k)
+           k_pol(1,3) = -0.5d0*(Bd*frp+KKd*drp)*PhysR(i,j,k)*SinTh * dRdr(i,j,k)
+           k_pol(2,2) = -0.5d0*(Cd*f1tt + Ad*f2tt + LLd*dtt) * PhysR(i,j,k)**2
+           k_pol(2,3) = -0.5d0*((Ad-2.d0*Cd)*ftp+LLd*dtp)*SinTh*PhysR(i,j,k)**2
+           k_pol(3,3) = -0.5d0*(Cd*f1pp + Ad*f2pp + LLd*dpp)*(PhysR(i,j,k)*SinTh)**2
+           k_pol(2,1) = k_pol(1,2)
+           k_pol(3,1) = k_pol(1,3)
+           k_pol(3,2) = k_pol(2,3)
+
+!
+! Transform metric into cartesian coordinates
+!
+           gxx(i,j,k) = ZERO
+  	   kxx(i,j,k) = ZERO
+           do n = 1,3
+              do o = 1,3
+                 gxx(i,j,k) = gxx(i,j,k) + &
+                      trans(n,1)*trans(o,1)*g_pol(n,o)
+		 kxx(i,j,k) = kxx(i,j,k) + &
+                      trans(n,1)*trans(o,1)*k_pol(n,o)
+              end do
+           end do
+           gxy(i,j,k) = ZERO
+           kxy(i,j,k) = ZERO
+           do n = 1,3
+              do o = 1,3
+                 gxy(i,j,k) = gxy(i,j,k) + &
+                      trans(n,1)*trans(o,2)*g_pol(n,o)
+                 kxy(i,j,k) = kxy(i,j,k) + &
+                      trans(n,1)*trans(o,2)*k_pol(n,o)
+              end do
+           end do
+           gxz(i,j,k) = ZERO
+           kxz(i,j,k) = ZERO
+           do n = 1,3
+              do o = 1,3
+                 gxz(i,j,k) = gxz(i,j,k) + &
+                      trans(n,1)*trans(o,3)*g_pol(n,o)
+                 kxz(i,j,k) = kxz(i,j,k) + &
+                      trans(n,1)*trans(o,3)*k_pol(n,o)
+              end do
+           end do
+           gyy(i,j,k) = ZERO
+           kyy(i,j,k) = ZERO
+           do n = 1,3
+              do o = 1,3
+                 gyy(i,j,k) = gyy(i,j,k) + &
+                      trans(n,2)*trans(o,2)*g_pol(n,o)
+                 kyy(i,j,k) = kyy(i,j,k) + &
+                      trans(n,2)*trans(o,2)*k_pol(n,o)
+              end do
+           end do
+           gyz(i,j,k) = ZERO
+           kyz(i,j,k) = ZERO
+           do n = 1,3
+              do o = 1,3
+                 gyz(i,j,k) = gyz(i,j,k) + &
+                      trans(n,2)*trans(o,3)*g_pol(n,o)
+                 kyz(i,j,k) = kyz(i,j,k) + &
+                      trans(n,2)*trans(o,3)*k_pol(n,o)
+              end do
+           end do
+           gzz(i,j,k) = ZERO
+           kzz(i,j,k) = ZERO
+           do n = 1,3
+              do o = 1,3
+                 gzz(i,j,k) = gzz(i,j,k) + &
+                      trans(n,3)*trans(o,3)*g_pol(n,o)
+                 kzz(i,j,k) = kzz(i,j,k) + &
+                      trans(n,3)*trans(o,3)*k_pol(n,o)
+            end do
+           end do
+        end do
+     end do
+  end do
+end subroutine lin_wave_analytic

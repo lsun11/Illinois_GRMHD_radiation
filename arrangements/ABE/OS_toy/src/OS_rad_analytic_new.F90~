@@ -1,0 +1,63 @@
+subroutine OS_rad_analytic_new(Fcoeff,z,R_a,tau,RoM,M,E_i,tau_a,tau_s,eta,Q,rho_b,Ec,Fc,E,F)
+  use nr
+  use nrtype
+  implicit none
+
+  real(DP), intent(in) :: R_a,tau,RoM,M,E_i,tau_a,tau_s
+  real(DP), intent(out) :: E,F,rho_b,z,Fcoeff
+  real(DP) :: eta,tau_t,sinchi0,chi0,Q,Ec,Fc,x1,x2,xacc,term
+  integer :: n
+  interface
+     FUNCTION os_func_toy(eta,tau,RoM,M)
+       USE nrtype
+       IMPLICIT NONE
+       REAL(DP), INTENT(IN) :: eta,tau,RoM,M
+       REAL(DP) :: os_func_toy
+     END FUNCTION os_func_toy
+   end interface 
+  
+   write(*,*) "Inside OS_rad_analytic_new!, R_OS =", RoM
+  !E,F,Ec,Fc here are all ratios with 4piB0 actually
+  !rho_b is the the ratio rho_b/rho_b0
+  x1 = -1.d-6
+  x2 = pi
+  xacc = 1.d-6
+  eta = abs(rtbis(os_func_toy,x1,x2,xacc,tau,RoM,M))
+  write(*,*) "Inside OS_rad_analytic_new! eta, tau are", eta,tau   
+  sinchi0 = sqrt(2.d0/RoM)
+  chi0 = asin(sinchi0)
+  tau_t = sqrt(RoM/8.d0)/(4.d0*(tau_a+tau_s))*(sinchi0/chi0)**2*(eta + 4.d0/3.d0*sin(eta) + 1.d0/6.d0*sin(2.d0*eta))
+  Q = (1.d0+cos(eta))/2.d0 
+  z = asin(sqrt(2.d0/RoM**3/M**2)*R_a*M/Q)/chi0
+  rho_b = 1.d0/Q**3
+  n = 1
+  Ec = 0.d0
+  Fc =0.d0
+  Fcoeff = -Q*Q/3.d0*sinchi0/chi0/(tau_a+tau_s)
+  do
+     term = (-1)**(n+1)*2.d0*E_i*sinchi0*exp((chi0*chi0-n*n*pi*pi)*tau_t)*n*pi/(n*n*pi*pi-chi0*chi0)
+     if (z < 1.d-6) then
+        Ec = Ec + term*n*pi/chi0
+        Fc = 0.d0
+     else
+        Ec = Ec + term*sin(n*pi*z)/sin(chi0*z)
+        Fc = Fc - Q*Q/3.d0 * sinchi0/(tau_a+tau_s)*n*pi/chi0*cos(n*pi*z)/sin(chi0*z)*term*(1.d0-tan(n*pi*z)/tan(chi0*z)*chi0/(n*pi))
+     endif
+     
+     if (abs(term/Ec)<1.d-8)  exit
+     n = n+1
+  enddo
+!  write(*,*) "E_c/F_c loop done!!!, n=", n 
+  
+  E = Ec/Q**4
+  F = Fc/Q**4
+end subroutine OS_rad_analytic_new
+
+FUNCTION os_func_toy(eta,tau,RoM,M)
+  USE nrtype
+  IMPLICIT NONE
+  REAL(DP), INTENT(IN) :: eta,tau,RoM,M
+  REAL(DP) :: os_func_toy
+  os_func_toy = sqrt(RoM**3*M*M/8.d0)*(eta + sin(eta)) - tau
+
+END FUNCTION os_func_toy

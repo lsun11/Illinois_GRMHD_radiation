@@ -1,0 +1,14 @@
+# Main make.code.defn file for thorn bhns
+
+# Source files in this directory
+SRCS = diagnostics.F90 compute_b2.C diagnostics_local.F90 diagnostics_local2.F90 diagnostics_global0.F90 \
+	get_ah_radius_in_dirn.C sanitycheck_restore_Aij.F90 \
+	read_inputfile_lowlevel.C read_inputfile_lowlevel_bhspin.C read_inputfile_driver.F90 \
+	initialdata_local.F90 initialdata_local2.F90 initialdata_global2.F90 initialdata_global.F90 \
+	\
+	driver_setup_emfields_part1_Pmax.F90 \
+	driver_setup_emfields_part2-local-setBi.F90 \
+	driver_setup_emfields_part3-global-Integrate_compute_avgbetam1.F90 \
+	driver_setup_emfields_part4-local-rescaleB_set_conservs.F90 \
+	\
+	fill_in_bh_Afields_part1_interpolate_to_spheres.F90 bhns_fill_Ai_BH_interior.C fill_in_bh_Afields_part2_fill_interior.F90 compute_B_from_A.F90

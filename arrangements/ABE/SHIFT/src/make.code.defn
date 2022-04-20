@@ -1,0 +1,13 @@
+# Main make.code.defn file for thorn shift
+
+# Source files in this directory
+SRCS =	driver_bcs.F90 driver_timestepping.F90 Initial_Shift.F90 InitSymBound.C MoL_registration.C shift_postinitialdata.F90 CheckParameters.C Startup.C MoL_registration.C \
+	hyperbolic_shift_bc_driver.F90  hyperbolic_shift_bc_lowlevel.F90  hyperbolic_shift_RHS.C  hyperbolic_shift_timestepping.F90 \
+	hbpuncture_shift_bc_lowlevel.F90 hbpuncture_shift_bc_driver.F90 hbpuncture_shift_timestepping.F90 hbpuncture_shift_RHS.C hbpuncture_shift_upwind.C \
+	puncture_firstorder_shift_timestepping.F90 puncture_firstorder_shift_bc_driver.F90 puncture_firstorder_shift_RHS.C puncture_firstorder_shift_upwind.C \
+	fill_shift_symmetry_ghostzones.F90 driver_post_bcs.F90 \
+	\
+	hbpuncture_shift_RHS_2ndorderbdry.C hbpuncture_shift_upwind_2ndorderbdry.C hbpuncture_shift_upwind_4thorderbdry.C \
+	\
+	hbpuncture_simple_shift_RHS.C
+

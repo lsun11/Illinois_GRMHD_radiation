@@ -1,0 +1,27 @@
+# Interface definition for thorn shocktests
+
+implements: mhd_shock
+inherits: grid
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+
+USES INCLUDE: Symmetry.h
+USES INCLUDE: Cartoon2D.h
+
+protected:
+
+private:
+REAL mhd_shock_VolInt TYPE=scalar
+{
+  shock_restmass_VolInt
+} "volume integrals"
+
+cctk_real mhd_shock_private type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+ shock_rest_mass_integrand
+} "rest-mass integrand"

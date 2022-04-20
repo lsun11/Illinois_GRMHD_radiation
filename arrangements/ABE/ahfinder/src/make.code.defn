@@ -1,0 +1,15 @@
+# Main make.code.defn file for thorn AHFinder
+# Source files in this directory
+
+SRCS += AHFinder_dat.F90 AHFinder.F90 \
+        AHFinder_fun.F90 AHFinder_exp.F90 AHFinder_dis.F90 AHFinder_int.F90 \
+        AHFinder_min.F90 AHFinder_pow.F90 AHFinder_leg.F90 \
+        AHFinder_flow.F90 AHFinder_mask.F90 AHFinder_output.F90 \
+        AHFinder_find3.F90 AHFinder_calcsigma.F90 \
+        AHFinder_initguess.F90 AHFinder_gau.F90 SetSym.F90 \
+        AHFinder_ParamCheck.F90 \
+        Startup.c Output.c AHFinder-bbh.F90
+
+#ifeq ($(shell uname), Darwin)
+#  F90FLAGS += -N11
+#endif

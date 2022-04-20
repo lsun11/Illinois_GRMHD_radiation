@@ -1,0 +1,47 @@
+# Interface definition for thorn CarpetReduce
+
+IMPLEMENTS: reduce
+friend: BSSN
+
+
+uses include header: defs.hh
+uses include header: dist.hh
+uses include header: vect.hh
+
+uses include header: carpet.hh
+
+uses include header: carpet_typecase.hh
+
+uses include header: loopcontrol.h
+
+CCTK_INT FUNCTION \
+    SymmetryTableHandleForGrid (CCTK_POINTER_TO_CONST IN cctkGH)
+REQUIRES FUNCTION SymmetryTableHandleForGrid
+
+CCTK_INT FUNCTION     \
+    MultiPatch_GetMap \
+        (CCTK_POINTER_TO_CONST IN cctkGH)
+USES FUNCTION MultiPatch_GetMap
+
+CCTK_INT FUNCTION                           \
+    MultiPatch_GetBoundarySpecification     \
+        (CCTK_INT IN map,                   \
+         CCTK_INT IN size,                  \
+         CCTK_INT OUT ARRAY nboundaryzones, \
+         CCTK_INT OUT ARRAY is_internal,    \
+         CCTK_INT OUT ARRAY is_staggered,   \
+         CCTK_INT OUT ARRAY shiftout)
+USES FUNCTION MultiPatch_GetBoundarySpecification
+
+CCTK_INT FUNCTION                           \
+    GetBoundarySpecification                \
+        (CCTK_INT IN size,                  \
+         CCTK_INT OUT ARRAY nboundaryzones, \
+         CCTK_INT OUT ARRAY is_internal,    \
+         CCTK_INT OUT ARRAY is_staggered,   \
+         CCTK_INT OUT ARRAY shiftout)
+REQUIRES FUNCTION GetBoundarySpecification
+
+
+
+REAL weight TYPE=gf TAGS='prolongation="none" InterpNumTimelevels=1 checkpoint="no"' "Weight function"

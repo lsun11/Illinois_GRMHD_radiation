@@ -1,0 +1,49 @@
+# Interface definition for thorn WaveMoL
+# $Header: /cactusdevcvs/CactusExamples/WaveMoL/interface.ccl,v 1.1.1.1 2004/06/26 14:49:02 hawke Exp $
+
+implements: wavemol
+
+USES INCLUDE: Symmetry.h
+
+CCTK_INT FUNCTION MoLRegisterEvolvedGroup(CCTK_INT IN EvolvedIndex, \
+                                          CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrained(CCTK_INT IN ConstrainedIndex)
+
+REQUIRES FUNCTION MoLRegisterEvolvedGroup
+REQUIRES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION Boundary_SelectGroupForBC(CCTK_POINTER_TO_CONST IN GH, \
+  CCTK_INT IN faces, CCTK_INT IN boundary_width, CCTK_INT IN table_handle, \
+  CCTK_STRING IN var_name, CCTK_STRING IN bc_name)
+REQUIRES FUNCTION Boundary_SelectGroupForBC
+
+public
+
+cctk_real scalarevolvemol_scalar type = GF Timelevels = 3 tags='tensortypealias="Scalar"'
+{
+  phi
+  phit
+} "The scalar field and time derivative"
+
+cctk_real scalarevolvemol_vector type = GF Timelevels = 3 tags='tensortypealias="U"'
+{
+  phix
+  phiy
+  phiz
+} "The scalar field spatial derivatives"
+
+cctk_real scalarrhsmol_scalar type = GF Timelevels = 1
+{
+  phirhs
+  phitrhs
+} "The right hand side for the scalar field"
+
+cctk_real scalarrhsmol_vector type = GF Timelevels = 1
+{
+  phixrhs
+  phiyrhs
+  phizrhs
+} "The right hand side for the scalar field derivatives"
+
+cctk_real energy type = GF Timelevels = 1 "The energy of the field"
+

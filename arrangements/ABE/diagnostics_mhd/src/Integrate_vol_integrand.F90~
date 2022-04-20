@@ -1,0 +1,221 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+!--------------------------------------------------
+!     Perform volume integration for matter quantities
+!     Note:
+!     When a CCTK_Reduce() sum is called in a Carpet simulation, it actually sums the integrand*weight function.
+!     The weight function is set to 1/(cctk_levfac(1)*cctk_levfac(2)*cctk_levfac(3)) in non-
+!     ghostzone regions of the grid, where e.g., cctk_levfac(1)=1 on the coarsest level and
+!     it increases from there by factors of 2 as the grids get finer.
+!     This is why we multiply by cctk_delta_space's (the coarsest gridspacing).
+!--------------------------------------------------
+      subroutine Integrate_vol_integrand_mhd(CCTK_ARGUMENTS)
+      
+      implicit none
+
+      DECLARE_CCTK_ARGUMENTS
+      DECLARE_CCTK_PARAMETERS
+      DECLARE_CCTK_FUNCTIONS
+
+      real*8  :: VolIntegral,VolIntegral2,VolIntegral3,VolIntegral4,d3x
+      integer :: vindex,handle,ierr
+
+      d3x = cctk_delta_space(1)*cctk_delta_space(2)*cctk_delta_space(3)
+
+      if(MOD(cctk_iteration,Compute_VolIntegrands_Every)==0) then
+     call CCTK_ReductionHandle(handle,"sum")
+     call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand")
+     call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+         
+     call CCTK_ReductionHandle(handle,"sum")
+     call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand2")
+     call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral2, 1, vindex)
+         
+     call CCTK_ReductionHandle(handle,"sum")
+     call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand3")
+     call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral3, 1, vindex)
+         
+     call CCTK_ReductionHandle(handle,"sum")
+     call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand4")
+     call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral4, 1, vindex)
+         
+
+     if(WhichIntegral==100) then
+         T_VolInt = VolIntegral*d3x
+     else if(WhichIntegral==101) then
+         M0_VolInt = VolIntegral*d3x
+     else if(WhichIntegral==102) then
+         Minternal_VolInt = VolIntegral*d3x
+     else if(WhichIntegral==103) then
+         em_energy_VolInt = VolIntegral*d3x
+         VolIntegral=0.D0
+         if (num_BHs .ne. 0) then
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand2")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            em_energy_outsideBH_VolInt = VolIntegral*d3x
+
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand3")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            em_energy_outsideradius1_VolInt = VolIntegral*d3x
+
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand4")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            em_energy_outsideradius2_VolInt = VolIntegral*d3x
+         else
+            em_energy_outsideBH_VolInt = em_energy_VolInt
+         end if
+    	 else if(WhichIntegral==104) then
+         em_energy2_VolInt = VolIntegral*d3x
+     	 else if(WhichIntegral==105) then
+         b_phi_VolInt = VolIntegral*d3x
+     	 else if(WhichIntegral==106) then
+	 write(*,*) "inside diagnostics_mhd:Intergrate_vol_integrand.f90, VolIntegral and d3x are", VolIntegral,d3x
+         CoMx_VolInt = VolIntegral*d3x
+	 write(*,*) "inside diagnostics_mhd:Intergrate_vol_integrand.f90, CoMx_VolInt is",CoMx_VolInt
+         VolIntegral=0.D0
+         call CCTK_ReductionHandle(handle,"sum")
+         call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand2")
+         call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+         CoMy_VolInt = VolIntegral*d3x
+         VolIntegral=0.D0
+         call CCTK_ReductionHandle(handle,"sum")
+         call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand3")
+         call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+         CoMz_VolInt = VolIntegral*d3x
+
+         call CCTK_ReductionHandle(handle,"sum")
+         call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand4")
+         call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+         CoM_VolInt_denominator = VolIntegral*d3x
+         
+         !write(*,*) "CoM:",CoMx_VolInt*2/.15,CoMy_VolInt*2/.15,CoMz_VolInt*2/.15,d3x,VolIntegral*2/.15
+      else if(WhichIntegral==107) then
+         M0_AH_VolInt = VolIntegral*d3x
+      else if(WhichIntegral==119) then
+         M0_escape30M = VolIntegral*d3x
+      else if(WhichIntegral==120) then
+         M0_escape50M = VolIntegral*d3x
+      else if(WhichIntegral==121) then
+         M0_escape70M = VolIntegral*d3x
+      else if(WhichIntegral==122) then
+         M0_escape100M = VolIntegral*d3x
+      else if(WhichIntegral==108) then
+         if(cctk_iteration==0) then
+            initial_monopole_value = VolIntegral*d3x
+         end if
+         
+         monopole_VolInt = VolIntegral*d3x - initial_monopole_value
+
+         VolIntegral=0.D0
+         if (num_BHs .ne. 0) then
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand2")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            monopole_outsideBH_VolInt = VolIntegral*d3x
+         else
+            monopole_outsideBH_VolInt = monopole_VolInt
+         end if
+     	 else if(WhichIntegral==109) then 
+         half_b2_u0_VolInt = VolIntegral*d3x
+
+         VolIntegral=0.D0
+         call CCTK_ReductionHandle(handle,"sum")
+         call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand3")
+         call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+         Tem0_0_VolInt = VolIntegral*d3x
+         
+         if (num_BHs .ne. 0) then
+            VolIntegral=0.D0
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand2")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            half_b2_u0_outsideBH_VolInt = VolIntegral*d3x
+            
+            VolIntegral=0.D0 
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand4")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            Tem0_0_outsideBH_VolInt = VolIntegral*d3x
+         else
+            half_b2_u0_outsideBH_VolInt = half_b2_u0_VolInt
+            Tem0_0_outsideBH_VolInt = Tem0_0_VolInt
+         end if
+      else if(WhichIntegral==110) then 
+         Tfluid0_0_VolInt = VolIntegral*d3x
+         
+         if (num_BHs .ne. 0) then
+            VolIntegral=0.D0
+            call CCTK_ReductionHandle(handle,"sum")
+            call CCTK_VarIndex(vindex,"diagnostics_vacuum::VolIntegrand2")
+            call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+            Tfluid0_0_outsideBH_VolInt = VolIntegral*d3x
+         else
+            Tfluid0_0_outsideBH_VolInt = Tfluid0_0_VolInt
+         end if			      
+      else if(WhichIntegral==111) then
+         brem_qei_VolInt = VolIntegral*d3x
+         write(*,*) "brem_qei_VolInt: ",brem_qei_VolInt
+      else if(WhichIntegral==112) then 
+         brem_qee_VolInt = VolIntegral*d3x
+         write(*,*) "brem_q_ee_VolInt: ",brem_qee_VolInt
+      else if(WhichIntegral==113) then
+         synch_VolInt = VolIntegral*d3x 
+         write(*,*) "synch_VolInt: ",synch_VolInt
+      else if(WhichIntegral==114) then
+         M0_horiz_VolInt = VolIntegral*d3x
+         M0_r1_VolInt = VolIntegral2*d3x
+         M0_r2_VolInt = VolIntegral3*d3x
+         M0_r3_VolInt = VolIntegral4*d3x
+      else if(WhichIntegral==115) then
+         fluid_energy_horiz_VolInt = VolIntegral*d3x 
+         fluid_energy_r1_VolInt = VolIntegral2*d3x 
+         fluid_energy_r2_VolInt = VolIntegral3*d3x 
+         fluid_energy_r3_VolInt = VolIntegral4*d3x 
+!!     else if(WhichIntegral==114) then
+!!     em_energy_between_VolInt = VolIntegral*d3x
+      else if(WhichIntegral==116) then
+         fluid_J_horiz_VolInt = VolIntegral*d3x 
+         fluid_J_r1_VolInt = VolIntegral2*d3x 
+         fluid_J_r2_VolInt = VolIntegral3*d3x 
+         fluid_J_r3_VolInt = VolIntegral4*d3x 
+      else if(WhichIntegral==117) then
+         minternal_horiz_VolInt = VolIntegral*d3x 
+         minternal_r1_VolInt = VolIntegral2*d3x 
+         minternal_r2_VolInt = VolIntegral3*d3x 
+         minternal_r3_VolInt = VolIntegral4*d3x 
+      else if(WhichIntegral==118) then
+         minternal_cold_horiz_VolInt = VolIntegral*d3x 
+         minternal_cold_r1_VolInt = VolIntegral2*d3x 
+         minternal_cold_r2_VolInt = VolIntegral3*d3x 
+         minternal_cold_r3_VolInt = VolIntegral4*d3x 
+      else if(WhichIntegral==123) then
+         density_modes_r0 = VolIntegral*d3x
+      else if(WhichIntegral==124) then
+         density_modes_r1 = VolIntegral*d3x
+         density_modes_i1 = VolIntegral2*d3x
+         density_modes_r2 = VolIntegral3*d3x
+         density_modes_i2 = VolIntegral4*d3x
+      else if(WhichIntegral==125) then
+         density_modes_r3 = VolIntegral*d3x
+         density_modes_i3 = VolIntegral2*d3x
+         density_modes_r4 = VolIntegral3*d3x
+         density_modes_i4 = VolIntegral4*d3x
+      else if(WhichIntegral==126) then
+         density_modes_r5 = VolIntegral*d3x
+         density_modes_i5 = VolIntegral2*d3x
+         density_modes_r6 = VolIntegral3*d3x
+         density_modes_i6 = VolIntegral4*d3x
+      else if(WhichIntegral==130) then
+         rad_energy_VolInt = VolIntegral*d3x
+
+!!     else if(WhichIntegral==116) then
+!!     em_J_between_VolInt = VolIntegral*d3x
+      end if
+      end if
+      end subroutine Integrate_vol_integrand_mhd

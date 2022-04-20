@@ -1,0 +1,59 @@
+!------------------------------------------------
+! Master timestepping driver for the shift thorn
+!------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine shift_timestepping(CCTK_ARGUMENTS)
+  
+  implicit none
+  
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8                :: dX,dY,dZ
+
+write(*,*) "Start shift_timestepping!!!!!!"
+
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  !cowling_enable=1 disables bssn+lapse+shift
+  if (Spatial_Gauge.eq.0 .or. Spatial_Gauge.eq.3 .or. cowling_enable.eq.1) then
+     call zero_shift_timestepping(CCTK_PASS_FTOF)
+  else if (Spatial_Gauge.eq.1) then
+     call hyperbolic_shift_timestepping(CCTK_PASS_FTOF)
+  else if (Spatial_Gauge.eq.5) then
+     call hbpuncture_shift_timestepping(CCTK_PASS_FTOF)
+  else if (Spatial_Gauge.eq.6) then
+     call puncture_firstorder_shift_timestepping(CCTK_PASS_FTOF)
+  else if (Spatial_Gauge.eq.7) then
+     call hbpuncture_shift_SIMPLE_RHS(cctkGH,cctk_lsh,cctk_nghostzones,dX,dY,dZ, &
+          eta, &
+          shiftx,shifty,shiftz, &
+          shiftx_rhs,shifty_rhs,shiftz_rhs, &
+          Gammax,Gammay,Gammaz, &
+          X,Y,Z,eta_final_value,eta_falloff_enable,eta_falloff_radius,eta_falloff_dr, &
+          shiftxt_rhs,shiftyt_rhs,shiftzt_rhs)
+  end if
+  
+end subroutine shift_timestepping
+
+subroutine zero_shift_timestepping(CCTK_ARGUMENTS)
+  implicit none
+  
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+  
+  ! Copy shift
+  !
+  shiftx_rhs = 0.D0
+  shifty_rhs = 0.D0
+  shiftz_rhs = 0.D0
+  
+end subroutine zero_shift_timestepping

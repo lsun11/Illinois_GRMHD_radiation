@@ -1,0 +1,45 @@
+# Schedule definitions for thorn Cartoon2D
+# $Header: /cactusdevcvs/BetaThorns/Cartoon2D/schedule.ccl,v 1.11 2008/02/27 05:46:33 schnetter Exp $
+
+if (cartoon_active)
+{
+  STORAGE: excision_variables
+
+  schedule Cartoon2D_CheckTensorTypes at CCTK_PARAMCHECK
+  {
+    LANG: C
+    OPTIONS: meta
+  } "Check tensor type definitions for consistency"
+
+  schedule Cartoon2D_InitExcisionVars at CCTK_BASEGRID
+  {
+    LANG: C
+    OPTIONS: global
+  } "Initialize the excision variables"
+
+  if (allow_grid_resize)
+  {
+    schedule Cartoon2D_SetGrid at CCTK_RECOVER_PARAMETERS
+    {
+      LANG: C
+    } "Adjust grid sizes"
+  }
+
+  schedule Cartoon2D_RegisterSymmetries in SymmetryRegister
+  {
+    LANG: C
+    OPTIONS: global
+  } "Register symmetry boundaries"
+
+  schedule Cartoon2D_CheckParameters at CCTK_PARAMCHECK
+  {
+    LANG: C
+    OPTIONS: meta
+  } "Check Cartoon2D parameters"
+
+  # Apply cartoon boundary conditions after physical boundaries:
+  schedule Cartoon_ApplyBoundaries in BoundaryConditions after Boundary_ApplyPhysicalBCs
+  {
+    LANG: C
+  } "Apply Cartoon boundary conditions"
+}

@@ -1,0 +1,491 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine BHNS_insert_radiation_after_checkpoint(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+
+  integer, dimension(3)                    :: ext
+  real*8                                   :: dX,dY,dZ, xc,yc,zc,rad
+  real*8                                   :: x_NS_CoM_coord,y_NS_CoM_coord,fs4pi
+  real*8                                   :: x_NS_CoM_coord2,y_NS_CoM_coord2
+  real*8                                   :: vx_CM,vy_CM
+  real*8                                   :: T_fluid_cgs, n_nucleon, P_th_cgs, Eng_th_cgs, P_th
+  real*8,allocatable,dimension(:,:,:)      :: A_phi,A_phix,A_phiy,A_phiz
+  real*8,dimension(1,3)                    :: points_CM
+  integer                                  :: AXISYM,EQUATORIAL, i,j,k
+  integer                                  :: OCTANT
+  integer                                  :: vindex
+  integer                                  :: repairs_rad_needed
+  real*8, parameter                        :: SYM = 1.d0, ANTI = -1.d0
+  real*8, parameter                        :: rad_const_cgs = 7.5646e-15, G_cgs = 6.6743015e-8, c_cgs = 29979245800.0
+  real*8, parameter                        :: kb_cgs = 1.380649e-16, c2k = 1.0e-5,k2c = 1.0e5, m_n_cgs = 1.674927485e-24 
+  real*8, parameter                        :: fac2 = 0.99d0
+  CCTK_REAL reduction_value
+
+
+parameter(EQUATORIAL = 1, OCTANT = 2, AXISYM = 4)
+
+if(CCTK_ITERATION .eq. iteration_to_insert_rad .and. iteration_to_insert_rad.gt.0) then
+   write(*,*) "inserting radiation at iteration:",CCTK_ITERATION
+   
+   fs4pi = sqrt(4.d0*acos(-1.d0))
+   ext = cctk_lsh
+  
+  if((use_new_bhns_initial_data.eq.3).or.(use_new_bhns_initial_data.eq.4)) then
+
+        ! compute the position of the NSs                                                                                
+        x_NS_CoM_coord = Box1X_VolInt1/Box1denom_VolInt1
+        y_NS_CoM_coord = Box1Y_VolInt1/Box1denom_VolInt1
+
+        x_NS_CoM_coord2 = Box1X_VolInt2/Box1denom_VolInt2
+        y_NS_CoM_coord2 = Box1Y_VolInt2/Box1denom_VolInt2
+     else
+        ! compute the position of the NS                                                                           
+        x_NS_CoM_coord = Box1X_VolInt/Box1denom_VolInt
+        y_NS_CoM_coord = Box1Y_VolInt/Box1denom_VolInt
+     end if
+
+
+     if(center_Bfields_around_BH_instead==1) then
+        x_NS_CoM_coord = CoMx_VolInt/CoM_VolInt_denominator !initial_ns_coord_x 
+        y_NS_CoM_coord = CoMy_VolInt/CoM_VolInt_denominator !initial_ns_coord_y                                                                                          
+     end if
+
+
+     write(*,*) "INSIDE RADIATION SETUP: x,y of ns:",x_NS_CoM_coord,y_NS_CoM_coord
+     write(*,*) "INSIDE RADIATION SETUP: Pmax:",bhns_P_max,p_c
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                         
+     ! FIRST, WE SET UP RADIATION ON _P LEVEL:                                                                              
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                                                              
+     ! The E_rad are set based on T_fluid. We don't have T_fluid_p or T_fluid_p_p, so we must compute that using the primitives solver.                                                      
+     ! The primitives solver depends on gupij, so first compute gupij, based on gij_p:                             
+ 
+     temp1 = 1.D0/(gxx_p * gyy_p * gzz_p + gxy_p * gyz_p * gxz_p + gxz_p * gxy_p * gyz_p &
+          - gxz_p * gyy_p * gxz_p - gxy_p * gxy_p * gzz_p - gxx_p * gyz_p * gyz_p)
+
+      gupxx =   ( gyy_p * gzz_p - gyz_p * gyz_p )* temp1
+      gupxy = - ( gxy_p * gzz_p - gyz_p * gxz_p )* temp1
+      gupxz =   ( gxy_p * gyz_p - gyy_p * gxz_p )* temp1
+      gupyy =   ( gxx_p * gzz_p - gxz_p * gxz_p )* temp1
+      gupyz = - ( gxx_p * gyz_p - gxy_p * gxz_p )* temp1
+      gupzz =   ( gxx_p * gyy_p - gxy_p * gxy_p )* temp1
+
+     write(*,*) "HELLO BEFORE _P primitives! (eps_thermal)"
+
+   ! Next compute primitives, based on _p conservatives:                                                                                                                                              
+     if(primitives_solver==11) then
+        !SKIP INITIAL GUESS.  THIS IS NOT NEEDED ANYWAY.                                                                                                             
+        !Here we use the HARM primitives solver, with a new prescription that minimizes changes to                                                        
+        !  conservatives without applying the "Font" fix.                                                                                                                   
+        !We intend to make the below function truly generic, but currently it only supports Gamma=2.                                                                      
+        !  It can be trivially extended for arbitrary Gamma-law EOS's, but will require work for more                                                                                
+        !  generic EOS's.                                                                                                                                                       
+        !We hope the below function will eventually be used in place of other primitives solver options,                                                           
+        !  since it can be easily extended to use your desired technique for solving primitives.               
+
+        call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+             phi_p,gxx_p,gxy_p,gxz_p,gyy_p,gyz_p,gzz_p, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             lapm1_p,shiftx_p,shifty_p,shiftz_p, &
+             Bx,By,Bz, &
+             eps_tot, eps_thermal, eps_cld, P_cld,&
+             ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+             ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+             mhd_st_x_p,mhd_st_y_p,mhd_st_z_p,tau_p,rho_star_p, rhoYe_p,&
+             vx,vy,vz,P,rho_b,h,u0, &
+             rho_b_atm,tau_atm, rho_b_max,&
+             x_NS_CoM_coord, y_NS_CoM_coord, x_NS_CoM_coord2, y_NS_CoM_coord2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+             neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+             temp1,temp2,temp3,temp4,temp5, &
+             primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse, 0,compute_microphysics, &
+             microphysics_scheme, T_fluid_cgs_atm, rad_fix)
+
+        
+        !SKIP COMPUTATION OF METRIC SOURCE TERMS.  THAT WOULD BE UNNECESSARY!  
+     else
+        write(*,*) "ERROR. Primitives solver != 11 NOT ALLOWED when setting B fields from checkpoint."
+        stop
+     end if
+     
+
+     write(*,*) "1. Done primitives_generic!!!!!!!!!!!!!!!!!"
+
+     !                                                    
+     ! Compute the eps_thermal
+     !  
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              T_fluid_cgs = max(1.0e1, T_fluid(i,j,k)/(kb_cgs * G_cgs) * c_cgs**4.0*k2c)
+
+	      if (rad_fix == 1) then
+              	 E_rad(i,j,k) = 7.0/16.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+	      else
+	         E_rad(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+	      end if 
+
+              F_radx(i,j,k) = 0.0
+              F_rady(i,j,k) = 0.0
+              F_radz(i,j,k) = 0.0
+              
+              if (E_rad(i,j,k) .lt. Erad_atm_cut) then
+                 E_rad(i,j,k) = Erad_atm_cut
+              end if
+      
+              ! Reset T based on E.     
+              T_fluid_cgs = (E_rad(i,j,k) * 8.0/7.0 * c_cgs**4/G_Cgs/rad_const_cgs * c2k**2)**0.25
+              T_fluid(i,j,k) = T_fluid_cgs * (kb_cgs * G_cgs) / (c_cgs**4.0*k2c)
+
+              if (microphysics_scheme==1) then
+              !if (rad_fix == 1) then
+                  E_rad_nue(i,j,k) = 7.0/16.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+              !else
+              !   E_rad_nue(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+              !end if
+                 E_rad_nue(i,j,k) = Erad_atm_cut
+                 F_radx_nue(i,j,k) = 0.0
+                 F_rady_nue(i,j,k) = 0.0
+                 F_radz_nue(i,j,k) = 0.0
+                 
+                 if (E_rad_nue(i,j,k) .lt. Erad_atm_cut) then
+                    E_rad_nue(i,j,k) = Erad_atm_cut
+                 end if
+              
+              !if (rad_fix == 1) then
+                  E_rad_nux(i,j,k) = 7.0/4.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+              !else
+              !   E_rad_nux(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+              !end if
+
+                 E_rad_nux(i,j,k) = Erad_atm_cut
+                 F_radx_nux(i,j,k) = 0.0
+                 F_rady_nux(i,j,k) = 0.0
+                 F_radz_nux(i,j,k) = 0.0
+
+                 if (E_rad_nux(i,j,k) .lt. Erad_atm_cut) then
+                    E_rad_nux(i,j,k) = Erad_atm_cut
+                 end if
+              end if
+           end do
+        end do
+     end do
+     !
+     ! Now the P and eps have been updated, now update the conservatives
+     !
+
+     ! Recompute conservatives to be consistent with current radiation primitive variables.
+     if(rad_evolve_enable==1) then
+         call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+         tau_rad_p, S_rad_x_p, S_rad_y_p,S_rad_z_p, &
+         E_rad, F_radx, F_rady, F_radz, F_rad0, F_rad_scalar, &
+         P_radxx, P_radyy, P_radzz,P_radxy, P_radxz, P_radyz, &
+         phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+         gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+         vx, vy, vz, u0, chi_rad,zeta_rad, &
+         Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+
+         if (microphysics_scheme==1) then
+            call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+                 tau_rad_nue_p, S_rad_x_nue_p, S_rad_y_nue_p,S_rad_z_nue_p, &
+                 E_rad_nue, F_radx_nue, F_rady_nue, F_radz_nue, F_rad0_nue, F_rad_scalar_nue, &
+                 P_radxx_nue, P_radyy_nue, P_radzz_nue,P_radxy_nue, P_radxz_nue, P_radyz_nue, &
+                 phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+                 gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                 vx, vy, vz, u0, chi_rad_nue,zeta_rad_nue, &
+                 Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+            call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+                 tau_rad_nux_p, S_rad_x_nux_p, S_rad_y_nux_p,S_rad_z_nux_p, &
+                 E_rad_nux, F_radx_nux, F_rady_nux, F_radz_nux, F_rad0_nux, F_rad_scalar_nux, &
+                 P_radxx_nux, P_radyy_nux, P_radzz_nux,P_radxy_nux, P_radxz_nux, P_radyz_nux, &
+                 phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+                 gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                 vx, vy, vz, u0, chi_rad_nux,zeta_rad_nux, &
+                 Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+         end if
+      end if
+
+      write(*,*) "1. Done recompute_conserv_rad_bhns!!!!!!!"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                         
+  ! NEXT, _P_P LEVEL: 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                                                             
+      ! The eps_thermal are set based on rho_b. We don't have rho_b_p or rho_b_p_p, so we must compute that using the primitives solver.                                                         
+      ! The primitives solver depends on gupij, so first compute gupij, based on gij_p:                                                                                                               
+
+     temp1 = 1.D0/(gxx_p_p * gyy_p_p * gzz_p_p + gxy_p_p * gyz_p_p * gxz_p_p + gxz_p_p * gxy_p_p * gyz_p_p &
+          - gxz_p_p * gyy_p_p * gxz_p_p - gxy_p_p * gxy_p_p * gzz_p_p - gxx_p_p * gyz_p_p * gyz_p_p)
+
+      gupxx =   ( gyy_p_p * gzz_p_p - gyz_p_p * gyz_p_p )* temp1
+      gupxy = - ( gxy_p_p * gzz_p_p - gyz_p_p * gxz_p_p )* temp1
+      gupxz =   ( gxy_p_p * gyz_p_p - gyy_p_p * gxz_p_p )* temp1
+      gupyy =   ( gxx_p_p * gzz_p_p - gxz_p_p * gxz_p_p )* temp1
+      gupyz = - ( gxx_p_p * gyz_p_p - gxy_p_p * gxz_p_p )* temp1
+      gupzz =   ( gxx_p_p * gyy_p_p - gxy_p_p * gxy_p_p )* temp1
+
+     write(*,*) "HELLO BEFORE _P_P primitives! (eps_thermal)"
+
+   ! Next compute primitives, based on _p_p conservatives:                             
+
+                                                       
+     if(primitives_solver==11) then
+        call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+             phi_p_p,gxx_p_p,gxy_p_p,gxz_p_p,gyy_p_p,gyz_p_p,gzz_p_p, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             lapm1_p_p,shiftx_p_p,shifty_p_p,shiftz_p_p, &
+             Bx,By,Bz, &
+             eps_tot, eps_thermal, eps_cld, P_cld,&
+             ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+             ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+             mhd_st_x_p_p,mhd_st_y_p_p,mhd_st_z_p_p,tau_p_p,rho_star_p_p, rhoYe_p_p,&
+             vx,vy,vz,P,rho_b,h,u0, &
+             rho_b_atm,tau_atm, rho_b_max,&
+             x_NS_CoM_coord, y_NS_CoM_coord, x_NS_CoM_coord2, y_NS_CoM_coord2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+             neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+             temp1,temp2,temp3,temp4,temp5, &
+             primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse, 0,compute_microphysics, &
+             microphysics_scheme, T_fluid_cgs_atm, rad_fix)
+
+
+        !SKIP COMPUTATION OF METRIC SOURCE TERMS.  THAT WOULD BE UNNECESSARY!                                                                                                                                        
+     else
+        write(*,*) "ERROR. Primitives solver != 11 NOT ALLOWED when setting B fields from checkpoint."
+        stop
+     end if
+
+
+     write(*,*) "2. Done primitives_generic!!!!!!!!!!!!!!!!!1"
+
+
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              T_fluid_cgs = max(1.0e1, T_fluid(i,j,k)/(kb_cgs * G_cgs) * c_cgs**4.0*k2c)
+
+              E_rad(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+              F_radx(i,j,k) = 0.0
+              F_rady(i,j,k) = 0.0
+              F_radz(i,j,k) = 0.0
+
+              if (E_rad(i,j,k) .lt. Erad_atm_cut) then
+                 E_rad(i,j,k) = Erad_atm_cut
+              end if
+
+              ! Reset T based on E.   
+              T_fluid_cgs = (E_rad(i,j,k) * 8.0/7.0 * c_cgs**4/G_Cgs/rad_const_cgs * c2k**2)**0.25
+              T_fluid(i,j,k) = T_fluid_cgs * (kb_cgs * G_cgs) / (c_cgs**4.0*k2c)
+
+              if (microphysics_scheme==1) then
+!                 E_rad_nue(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+                 E_rad_nue(i,j,k) = Erad_atm_cut
+                 F_radx_nue(i,j,k) = 0.0
+                 F_rady_nue(i,j,k) = 0.0
+                 F_radz_nue(i,j,k) = 0.0
+
+                 if (E_rad_nue(i,j,k) .lt. Erad_atm_cut) then
+                    E_rad_nue(i,j,k) = Erad_atm_cut
+                 end if
+
+!                 E_rad_nux(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+                 E_rad_nux(i,j,k) = Erad_atm_cut
+                 F_radx_nux(i,j,k) = 0.0
+                 F_rady_nux(i,j,k) = 0.0
+                 F_radz_nux(i,j,k) = 0.0
+
+                 if (E_rad_nux(i,j,k) .lt. Erad_atm_cut) then
+                    E_rad_nux(i,j,k) = Erad_atm_cut
+                 end if
+              end if              
+           end do
+        end do
+     end do
+
+
+     ! Recompute conservatives to be consistent with current radiation primitive variables.                                                                                       
+     if(rad_evolve_enable==1) then
+         call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+         tau_rad_p_p, S_rad_x_p_p, S_rad_y_p_p,S_rad_z_p_p, &
+         E_rad, F_radx, F_rady, F_radz, F_rad0, F_rad_scalar, &
+         P_radxx, P_radyy, P_radzz,P_radxy, P_radxz, P_radyz, &
+         phi_p_p, lapm1_p_p, shiftx_p_p, shifty_p_p, shiftz_p_p, gxx_p_p, gxy_p_p, gxz_p_p, gyy_p_p, gyz_p_p, gzz_p_p, &
+         gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+         vx, vy, vz, u0, chi_rad,zeta_rad, &
+         Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+
+         if (microphysics_scheme==1) then
+            call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+                 tau_rad_nue_p, S_rad_x_nue_p, S_rad_y_nue_p,S_rad_z_nue_p, &
+                 E_rad_nue, F_radx_nue, F_rady_nue, F_radz_nue, F_rad0_nue, F_rad_scalar_nue, &
+                 P_radxx_nue, P_radyy_nue, P_radzz_nue,P_radxy_nue, P_radxz_nue, P_radyz_nue, &
+                 phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+                 gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                 vx, vy, vz, u0, chi_rad_nue,zeta_rad_nue, &
+                 Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+            call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+                 tau_rad_nux_p, S_rad_x_nux_p, S_rad_y_nux_p,S_rad_z_nux_p, &
+                 E_rad_nux, F_radx_nux, F_rady_nux, F_radz_nux, F_rad0_nux, F_rad_scalar_nux, &
+                 P_radxx_nux, P_radyy_nux, P_radzz_nux,P_radxy_nux, P_radxz_nux, P_radyz_nux, &
+                 phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+                 gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                 vx, vy, vz, u0, chi_rad_nux,zeta_rad_nux, &
+                 Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+         end if
+      end if
+      write(*,*) "2. Done recompute_conserv_rad_bhns!!!!!!!"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! FINALLY, LATEST LEVEL (neither _p_p nor _p):   
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                       
+
+     temp1 = 1.D0/(gxx * gyy * gzz + gxy * gyz * gxz + gxz * gxy * gyz &
+          - gxz * gyy * gxz - gxy * gxy * gzz - gxx * gyz * gyz)
+
+      gupxx =   ( gyy * gzz - gyz * gyz )* temp1
+      gupxy = - ( gxy * gzz - gyz * gxz )* temp1
+      gupxz =   ( gxy * gyz - gyy * gxz )* temp1
+      gupyy =   ( gxx * gzz - gxz * gxz )* temp1
+      gupyz = - ( gxx * gyz - gxy * gxz )* temp1
+      gupzz =   ( gxx * gyy - gxy * gxy )* temp1
+
+      write(*,*) "HELLO BEFORE primitives! (eps_thermal)"
+   ! Next compute primitives, based on  conservatives:                                                                               
+     if(primitives_solver==11) then                             
+
+        call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+             phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             lapm1,shiftx,shifty,shiftz, &
+             Bx,By,Bz, &
+             eps_tot, eps_thermal, eps_cld, P_cld,&
+             ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+             ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+             mhd_st_x,mhd_st_y,mhd_st_z,tau,rho_star, rhoYe,&
+             vx,vy,vz,P,rho_b,h,u0, &
+             rho_b_atm,tau_atm, rho_b_max,&
+             x_NS_CoM_coord, y_NS_CoM_coord, x_NS_CoM_coord2, y_NS_CoM_coord2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+             neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+             temp1,temp2,temp3,temp4,temp5, &
+             primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse, 0,compute_microphysics, &
+             microphysics_scheme, T_fluid_cgs_atm, rad_fix)
+
+     else
+        write(*,*) "ERROR. Primitives solver != 11 NOT ALLOWED when setting B fields from checkpoint."
+        stop
+     end if
+
+
+     write(*,*) "3. Done primitives_generic!!!!!!!!!!!!!!!!!1"
+
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              T_fluid_cgs = max(1.0e1, T_fluid(i,j,k)/(kb_cgs * G_cgs) * c_cgs**4.0*k2c)
+
+              E_rad(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+              F_radx(i,j,k) = 0.0
+              F_rady(i,j,k) = 0.0
+              F_radz(i,j,k) = 0.0
+
+              if (E_rad(i,j,k) .lt. Erad_atm_cut) then
+                 E_rad(i,j,k) = Erad_atm_cut
+              end if
+
+              ! Reset T based on E.      
+              T_fluid_cgs = (E_rad(i,j,k) * 8.0/7.0 * c_cgs**4/G_Cgs/rad_const_cgs * c2k**2)**0.25
+              T_fluid(i,j,k) = T_fluid_cgs * (kb_cgs * G_cgs) / (c_cgs**4.0*k2c)
+
+              if (microphysics_scheme==1) then
+                 E_rad_nue(i,j,k) = Erad_atm_cut
+!                 E_rad_nue(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+                 F_radx_nue(i,j,k) = 0.0
+                 F_rady_nue(i,j,k) = 0.0
+                 F_radz_nue(i,j,k) = 0.0
+
+                 if (E_rad_nue(i,j,k) .lt. Erad_atm_cut) then
+                    E_rad_nue(i,j,k) = Erad_atm_cut
+                 end if
+
+                 E_rad_nux(i,j,k) = Erad_atm_cut
+!                E_rad_nux(i,j,k) = 7.0/8.0 * rad_const_cgs * T_fluid_cgs**4 * G_cgs / c_cgs**4 * c2k**(-2)
+                 F_radx_nux(i,j,k) = 0.0
+                 F_rady_nux(i,j,k) = 0.0
+                 F_radz_nux(i,j,k) = 0.0
+
+                 if (E_rad_nux(i,j,k) .lt. Erad_atm_cut) then
+                    E_rad_nux(i,j,k) = Erad_atm_cut
+                 end if
+              end if   
+           end do
+        end do
+     end do
+
+
+     ! Recompute conservatives to be consistent with current radiation primitive variables.                                                                                       
+     if(rad_evolve_enable==1) then
+         call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+         tau_rad, S_rad_x, S_rad_y,S_rad_z, &
+         E_rad, F_radx, F_rady, F_radz, F_rad0, F_rad_scalar, &
+         P_radxx, P_radyy, P_radzz,P_radxy, P_radxz, P_radyz, &
+         phi, lapm1, shiftx, shifty, shiftz, gxx, gxy, gxz, gyy, gyz, gzz, &
+         gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+         vx, vy, vz, u0, chi_rad,zeta_rad, &
+         Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+
+         if (microphysics_scheme==1) then
+            call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+                 tau_rad_nue_p, S_rad_x_nue_p, S_rad_y_nue_p,S_rad_z_nue_p, &
+                 E_rad_nue, F_radx_nue, F_rady_nue, F_radz_nue, F_rad0_nue, F_rad_scalar_nue, &
+                 P_radxx_nue, P_radyy_nue, P_radzz_nue,P_radxy_nue, P_radxz_nue, P_radyz_nue, &
+                 phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+                 gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                 vx, vy, vz, u0, chi_rad_nue,zeta_rad_nue, &
+                 Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+            call recompute_conserv_rad_bhns(cctkGH,cctk_lsh, &
+                 tau_rad_nux_p, S_rad_x_nux_p, S_rad_y_nux_p,S_rad_z_nux_p, &
+                 E_rad_nux, F_radx_nux, F_rady_nux, F_radz_nux, F_rad0_nux, F_rad_scalar_nux, &
+                 P_radxx_nux, P_radyy_nux, P_radzz_nux,P_radxy_nux, P_radxz_nux, P_radyz_nux, &
+                 phi_p, lapm1_p, shiftx_p, shifty_p, shiftz_p, gxx_p, gxy_p, gxz_p, gyy_p, gyz_p, gzz_p, &
+                 gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                 vx, vy, vz, u0, chi_rad_nux,zeta_rad_nux, &
+                 Psi6threshold, rad_closure_scheme, Erad_atm_cut)
+         end if
+      end if
+
+      write(*,*) "3. Done recompute_conserv_rad_bhns!!!!!!!"
+
+      ! Set the gauge variable to zero.
+      psi6phi = 0.D0
+      psi6phi_p = 0.D0
+      psi6phi_p_p = 0.D0
+      
+      ! recompute u0 velocity                                                                                                                                             
+      call reset_u0(cctk_lsh,phi,lapm1,shiftx,shifty,shiftz,gxx,gxy,gxz,gyy,gyz,gzz,vx,vy,vz,u0,X,Y,Z)
+      
+   end if
+   
+   
+   ! Final check!!!
+   do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              if (E_rad(i,j,k) .lt. 0.d0) then
+                 write(*,*) "Inside BHNS_insert_radiation_after_checkpoint, final check!!!! E_rad < 0.0"
+                 write(*,*) "E_rad(i,j,k), F_radx(i,j,k), F_rady(i,j,k), F_radz(i,j,k), F_rad0(i,j,k)=", E_rad(i,j,k), F_radx(i,j,k), F_rady(i,j,k), F_radz(i,j,k), F_rad0(i,j,k)
+                 write(*,*) "tau_rad(i,j,k), S_rad_x(i,j,k), S_rad_y(i,j,k), S_rad_z(i,j,k)=", tau_rad(i,j,k), S_rad_x(i,j,k), S_rad_y(i,j,k), S_rad_z(i,j,k)
+                 write(*,*) "rho_b(i,j,k), P(i,j,k), vx(i,j,k), vy(i,j,k), vz(i,j,k), u0(i,j,k)=", rho_b(i,j,k), P(i,j,k), vx(i,j,k), vy(i,j,k), vz(i,j,k), u0(i,j,k)
+              end if
+           end do
+        end do
+     end do
+
+
+end subroutine BHNS_insert_radiation_after_checkpoint
+
+

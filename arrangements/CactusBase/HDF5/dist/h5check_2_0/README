@@ -1,0 +1,54 @@
+README
+------
+This is V2.0 release of the HDF5 format checker. 
+
+The software is set up to work with the HDF5 File Format 
+Specification Version 1.1 and Version 2.0. 
+
+src/  holds h5check library code.
+tool/ holds the source code of the h5check tool.
+test/ holds the test suite of the h5check tool.
+doc/  holds all document related to the tool
+
+========
+To build:
+========
+Assuming gcc, gmake and h5cc are in your $PATH, just do
+    % ./configure
+    % gmake
+    
+The default compiler and HDF5 library compiler are set to gcc and h5cc.
+If you want to use a different C compiler and/or h5cc command, do
+    % make CC=gcc H5CC=$mypath/h5cc
+
+To set different compiler flags use CFLAGS variable, e.g.
+     % env CFLAGS=-O2 ./configure
+This command will set the compiling to "gcc -O2".
+    
+============
+To run tests:
+============
+    % gmake check
+
+==========
+To install:
+==========
+To install,
+    % gmake install
+These go to h5check/{bin,lib} of the built directory by default.  If you want
+to install it somewhere else like /usr/software/{bin,lib},
+    % gmake prefix=/usr/software install
+
+===================
+Platforms tested:
+===================
+Linux 2.6 (32/64bits), Solaris 10 (32/64bits), FreeBSD 6.3 (32/64bits),
+MacOSX 10.6.3 
+
+========
+Question:
+========
+Email help@hdfgroup.org.
+
+---------------
+Last update: Apr 20, 2010

@@ -1,0 +1,247 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine bhns_regridder_reader_driver_part2_primitives_etc(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8 :: dX,dY,dZ
+  real*8                :: xNS1,yNS1,xNS2,yNS2
+  integer               :: i,j,k, rad
+  real*8                :: xcenter,ycenter,zcenter,horizdirn_x,horizdirn_y,horizdirn_z,distfrombhcenter
+  real*8                :: rho_fail_max_step,M_fail_step
+  integer               :: repairs_needed,ignore_ghostzones
+  integer               :: proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax
+  integer               :: glob_imax,glob_jmax,glob_kmax
+  integer, dimension(3) :: ext
+
+  ext = cctk_lsh
+
+  glob_imax = ext(1)
+  glob_jmax = ext(2)
+  glob_kmax = ext(3)
+  proc_imin = -100
+  proc_jmin = -100
+  proc_kmin = -100
+  proc_imax = -1
+  proc_jmax = -1
+  proc_kmax = -1
+
+
+
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  ! compute the position of the NSs (iter > 0)                                                                                                                              
+     if (num_CO == 2) then
+        xNS1 = Box1X_VolInt1/Box1denom_VolInt1
+        yNS1 = Box1Y_VolInt1/Box1denom_VolInt1
+
+        xNS2 = Box1X_VolInt2/Box1denom_VolInt2
+        yNS2 = Box1Y_VolInt2/Box1denom_VolInt2
+     else
+        ! compute the position of the NS                                                                                                                                         
+        xNS1 = Box1X_VolInt/Box1denom_VolInt
+        yNS1 = Box1Y_VolInt/Box1denom_VolInt
+     end if
+
+  
+write(*,*) "START bhns_regridder_reader_driver_part2_primitives_etc!!!!!"
+! Set primitives & metric source terms.
+  if(primitives_solver==11) then
+     !Here we use the HARM primitives solver, with a new prescription that minimizes changes to
+     !  conservatives without applying the "Font" fix.
+     !We intend to make the below function truly generic, but currently it only supports Gamma-law EOS.
+     !We hope the below function will eventually be used in place of other primitives solver options,
+     !  since it can be easily extended to use your desired technique for solving primitives.
+     call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+          phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          lapm1,shiftx,shifty,shiftz, &
+          Bx,By,Bz, &
+          eps_tot, eps_thermal, eps_cld, P_cld,&
+          ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+          ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+          mhd_st_x,mhd_st_y,mhd_st_z,tau,rho_star, &
+          vx,vy,vz,P,rho_b,h,u0, &
+          rho_b_atm,tau_atm, rho_b_max,&
+          xNS1, yNS1, xNS2, yNS2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+          neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+          temp1,temp2,temp3,temp4,temp5, &
+          primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse, rad_evolve_enable,compute_microphysics, &
+          microphysics_scheme, T_fluid_cgs_atm, rad_fix)
+     write(*,*) "after primitives, before metric source terms!"
+
+     !The goal of the below function is to just update the metric source terms.  We should
+     !  really get rid of the old h,w,st_i,Ei gridfunctions...
+     !Currently this only works for Gamma-law EOS's but could be extended for arbitary EOSs
+     !  with some work.
+     call metric_source_terms_and_misc_vars(cctkGH,cctk_lsh, &
+          rho,Sx,Sy,Sz, &
+          Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+          tau_rad, S_rad_x,S_rad_y, S_rad_z,&
+          rhoYe, Y_e,&
+          E_rad, F_radx, F_rady, F_radz,F_rad0, F_rad_scalar,&
+          h,w,st_x,st_y,st_z, &
+          Ex,Ey,Ez, &
+          sbt,sbx,sby,sbz, &
+          lapm1,shiftx,shifty,shiftz, &
+          phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          P,rho_b,u0,vx,vy,vz, &
+          Bx,By,Bz, &
+          rho_star,mhd_st_x,mhd_st_y,mhd_st_z, &
+          neos,ergo_star, ergo_sigma,&
+          rho_tab, P_tab,eps_tab,k_tab,gamma_tab,&
+          rho_b_atm, enable_OS_collapse,rad_evolve_enable, rad_closure_scheme,Psi6threshold, Erad_atm_cut)
+
+     write(*,*) "after metric source terms!"
+
+     if(rad_evolve_enable==1 .and. rad_closure_scheme == 1) then
+        call primitive_vars_rad_cpp(ext,cctk_nghostzones, X, Y, Z, &
+             rho_star, &
+             tau_rad,S_rad_x,S_rad_y,S_rad_z, &
+             Sx, Sy, Sz, rho, &
+             Sxx, Sxy, Sxz, Syy, Syz, Szz,&
+             E_rad,F_radx,F_rady,F_radz, F_rad0, F_rad_scalar,&
+             P_radxx, P_radyy, P_radzz, P_radxy, P_radxz, P_radyz, &
+             phi, lapm1, shiftx, shifty, shiftz, gxx, gxy, gxz, gyy, gyz, gzz, &
+             gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+             vx, vy, vz, u0, chi_rad, zeta_rad,&
+             cctkGH, temp6, 0, repairs_needed, Psi6threshold, Erad_atm_cut)
+     end if
+
+  else if(primitives_solver==2) then
+  
+     !primitive solver (next function call) overwrites h_p.  We want to keep _p values.                                                       
+     !$omp parallel do                                                                                                                                                      
+           do k=1,cctk_lsh(3)
+              do j=1,cctk_lsh(2)
+                 do i=1,cctk_lsh(1)
+                    h_p(i,j,k) = h(i,j,k)
+                 end do
+              end do
+           end do
+ 
+           ignore_ghostzones = 0
+           
+           if((MOD(cctk_iteration,64)==0) .and. 1==0) then
+              xcenter = bh_posn_x(1)
+              ycenter = bh_posn_y(1)
+              zcenter = bh_posn_z(1)
+              
+              horizdirn_x = 0.D0
+              horizdirn_y = 0.D0
+              horizdirn_z = 100000.D0
+              call get_ah_radius_in_dirn(cctkGH,horizdirn_x,horizdirn_y,horizdirn_z,horiz_radius);
+
+              do k=1,cctk_lsh(3)
+                 do j=1,cctk_lsh(2)
+                    do i=1,cctk_lsh(1)
+                       distfrombhcenter = sqrt((x(i,j,k)-xcenter)**2 + (y(i,j,k)-ycenter)**2 + (z(i,j,k)-zcenter)**2)
+                       if(distfrombhcenter.lt.horiz_radius*0.5D0) then
+                          rho_star(i,j,k) = -1.D0
+                       end if
+                    end do
+                 end do
+              end do
+           end if
+
+           if (enable_OS_collapse==1 .and. rad_evolve_enable==1.and.rad_closure_scheme==0) then
+              write(*,*) "Start to cutoff rad variables outside OS star, at radius grater than", OS_surf_rad
+              do k=1,cctk_lsh(3)
+                 do j=1,cctk_lsh(2)
+                    do i=1,cctk_lsh(1)
+                       if(isnan(tau_rad(i,j,k)).or.isnan(S_rad_x(i,j,k))) then
+                          write(*,*) "In driver_primitives_and_bcs_v2, before primitive_vars_hybrid2_cpp, tau_rad and S_rad_x=", tau_rad(i,j,k), S_rad_x(i,j,k)
+                          write(*,*) "X,Y,Z=", X(i,j,k), Y(i,j,k), Z(i,j,k)
+                       end if
+                       rad = sqrt(X(i,j,k)**2+Y(i,j,k)**2+Z(i,j,k)**2)
+                       !if (rho_b(i,j,k) .lt. rho_cent*Erad_cut) then                                                                                                            
+!                       if (rad .gt. OS_surf_rad) then
+!                          tau_rad(i,j,k) = 0.d0
+!                          T_fluid(i,j,k) = 0.d0
+!                          S_rad_x(i,j,k) = 0.d0
+!                          S_rad_y(i,j,k) = 0.d0
+!                          S_rad_z(i,j,k) = 0.d0
+!                       end if
+                       end do
+                    end do
+                 end do
+                 write(*,*) "end of cutoff rad variables outside OS star"
+           end if
+
+              do k=1,cctk_lsh(3)
+                 do j=1,cctk_lsh(2)
+                    do i=1,cctk_lsh(1)
+                       if(isnan(tau_rad(i,j,k)).or.isnan(S_rad_x(i,j,k))) then
+                          write(*,*) "In driver_primitives_and_bcs_v2, before primitive_vars_hybrid2_cpp, tau_rad and S_rad_x=", tau_rad(i,j,k), S_rad_x(i,j,k)
+                          write(*,*) "X,Y,Z=", X(i,j,k), Y(i,j,k), Z(i,j,k)
+                       end if
+                    end do
+                 end do
+              end do
+
+
+           call primitive_vars_hybrid2_cpp(ext,cctk_nghostzones,X,Y,Z, &
+                rho_star,tau,st_x,st_y,st_z, &
+                mhd_st_x,mhd_st_y,mhd_st_z, rhoYe,&
+                tau_rad,S_rad_x,S_rad_y,S_rad_z,&
+                neos, ergo_star, ergo_sigma,&
+                rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+                w,temp1,rho_b,rho,P,h,Sx,Sy,Sz, &
+                Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+                E_rad,F_radx,F_rady,F_radz, F_rad0, F_rad_scalar, Y_e, eps_thermal,&
+                phi,lapm1,shiftx,shifty,shiftz, &
+                gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+                h_p,u0,rho_b_max,rho_b_atm, &
+                rho_fail_max_step,M_fail_step,rhos_max, &
+                Bx,By,Bz,Ex,Ey,Ez, &
+                vx,vy,vz, &
+                sbt,sbx,sby,sbz,&
+                xNS1,yNS2, xNS2, yNS2,M_B, rad_T_fac,rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+                proc_imin,proc_jmin,proc_kmin, &
+                proc_imax,proc_jmax,proc_kmax, &
+                glob_imax,glob_jmax,glob_kmax, &
+                Symmetry,pfloor,excision_enable, &
+                excision_zone_gf, tau_stildefix_enable,tau_atm,temp4,cctkGH,ignore_ghostzones, &
+                enable_shocktest_primitive_mode,repairs_needed,rad_closure_scheme, &
+                rad_const, enable_OS_collapse, compute_microphysics, Psi6threshold, Erad_atm_cut)
+
+           if(rad_evolve_enable==1 .and. rad_closure_scheme == 1) then
+              call   primitive_vars_rad_cpp(ext,cctk_nghostzones, X, Y, Z, &
+                   rho_star, &
+                   tau_rad,S_rad_x,S_rad_y,S_rad_z, &
+                   Sx, Sy, Sz, rho, &
+                   Sxx, Sxy, Sxz, Syy, Syz, Szz,&
+                   E_rad,F_radx,F_rady,F_radz, F_rad0, F_rad_scalar,&
+                   P_radxx, P_radyy, P_radzz, P_radxy, P_radxz, P_radyz,&
+                   phi, lapm1, shiftx, shifty, shiftz, gxx, gxy, gxz, gyy, gyz, gzz, &
+                   gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                   vx, vy, vz, u0, chi_rad, zeta_rad,&
+                   cctkGH, temp6, ignore_ghostzones, repairs_needed, Psi6threshold, Erad_atm_cut)
+           end if
+           
+           write(*,*) "End of call primitive_vars_rad_cpp"
+                      
+  end if
+
+  !Following lines are (empirically speaking) ESSENTIAL for excision runs:
+  call Derivs(cctk_lsh,X,Y,Z,dX,dY,dZ,phi,phix,phiy,phiz,Symmetry) 
+  call Derivs(cctk_lsh,X,Y,Z,dX,dY,dZ,lapm1,lapsex,lapsey,lapsez,Symmetry) 
+  call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,phi,phix,phiy,phiz)
+  call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,lapm1,lapsex,lapsey,lapsez)
+
+  ! Initialize t_last, M0dot_last and int_M0dot: variables necessary to compute the
+  !  time integrated M0 flux across BH
+  t_last = 0.d0
+  M0dot_last = 0.d0
+  int_M0dot = 0.d0
+
+end subroutine bhns_regridder_reader_driver_part2_primitives_etc

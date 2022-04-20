@@ -1,0 +1,13 @@
+# Main make.code.defn file for thorn CPPUtils
+
+# Source files in this directory
+SRCS = utils_bisec.cc \
+    utils_cactus.cc \
+    utils_filter.cc \
+    utils_metric.cc \
+    utils_newton.cc \
+    utils_regfalsi.cc \
+    utils_valencia.cc
+
+# Subdirectories containing source files
+SUBDIRS =

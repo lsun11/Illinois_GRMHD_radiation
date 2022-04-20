@@ -1,0 +1,35 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+!--------------------------------------------------
+! Perform volume integration for matter quantities
+! Note:
+! When CCTK_Reduce() is called in a Carpet simulation, it actually sums the integrand*weight function.
+!    The weight function is set to 1/(cctk_levfac(1)*cctk_levfac(2)*cctk_levfac(3)) in non-
+!    ghostzone regions of the grid, where e.g., cctk_levfac(1)=1 on the coarsest level and
+!    it increases from there by factors of 2 as the grids get finer.
+!    This is why we multiply by cctk_delta_space's (the coarsest gridspacing).
+!--------------------------------------------------
+subroutine Integrate_vol_integrand_mhd_OS(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8  :: VolIntegral,dx
+  integer :: vindex,handle,ierr
+
+  if(MOD(cctk_iteration,out_every)==0) then
+     dx = cctk_delta_space(1)
+
+     call CCTK_ReductionHandle(handle,"sum")
+
+     call CCTK_VarIndex(vindex,"OS_toy::shock_rest_mass_integrand")
+     call CCTK_Reduce(ierr,cctkGH, -1, handle, 1, CCTK_VARIABLE_REAL, VolIntegral, 1, vindex)
+     shock_restmass_VolInt = VolIntegral*dx
+  end if
+end subroutine Integrate_vol_integrand_mhd_shock

@@ -1,0 +1,10 @@
+# Main make.code.defn file for thorn em_extraction
+# $Header:$
+
+# Source files in this directory
+SRCS = diagnostics.F90 ang_freq_ofBfield_driver.F90 ang_freq_of_mag_field_lines.C InitSym_Om.F90
+
+#SRCS = diagnostics.F90 em_extraction_driver.F90 em_extraction_lowlevel.F90 em_extraction_postregrid.F90 InitSym_em.F90 surface_integral_phi2_phi0.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

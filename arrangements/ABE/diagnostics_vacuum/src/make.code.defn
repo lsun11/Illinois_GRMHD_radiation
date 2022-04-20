@@ -1,0 +1,34 @@
+# Main make.code.defn file for thorn bssn
+
+# Source files in this directory
+SRCS =	output_data_to_file.F90 set_SymmFactor.F90 \
+	\
+	find_extremum_coords.F90 gamcheck.C \
+	\
+	Integrate_vol_integrand.F90 vol_integrand-excise_bhs.F90 \
+	vol_integrand-adm_mass.F90 \
+	vol_integrand-angular_momentum-driver.F90 vol_integrand-angular_momentum-lowlevel.C \
+	vol_integrand-Ham_constraint-driver.F90 vol_integrand-Ham_constraint_excised-driver.F90 \
+	vol_integrand-mom_constraint-driver.F90 vol_integrand-mom_constraint_excised-driver.F90 \
+	vol_integrand-Gam_constraint-driver.F90 vol_integrand-M_Ham_constraint_excised-driver.F90 \
+	vol_integrand-Jz_mom_constraint_excised-driver.F90 \
+	vol_integrand-P_mom_constraint_excised-driver.F90 komar_mass_integrand.F90 \
+	\
+	setup_surface_integration.F90 setup_multiple_surfaces.F90 \
+	surface_integrals-j_surf_offcenter.F90 surface_integrals-j_surf_offcenter_comp.F90 \
+	surface_integrals-M_surf_fisheye.F90 surface_integrals-M_surf_NOfish_offcenter.F90 \
+	surface_integrals-p_surfv2.F90 surface_integrals-komar_massv2.F90 \
+	\
+	interp_center_carp.F90 interp_driver_carp.F90 interp_driver_carp_multgfs.F90 \
+	\
+	initialize_bh_positions.C update_bh_positions.C BH_local_diagnostics.F90 surface_integrals-p_surf_offcenter.F90
+
+# Old surface integration routines: uses old, deprecated interpolation interface
+#	surface_integrals-j_surf.F90 surface_integrals-j_surf_punc.F90 \
+#	surface_integrals-p_surf.F90 surface_integrals-surf_mass.F90 \
+#	surface_integrals-komar_mass.F90 surface_integrals-surf_mass2.F90 \
+#	surface_integrals-surf_mass2_fisheye.F90 surface_integrals-surf_mass2_fisheye_punc.F90 \
+
+
+# Subdirectories containing source files
+SUBDIRS = 

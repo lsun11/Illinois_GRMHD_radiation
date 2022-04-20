@@ -1,0 +1,15 @@
+# Main make.code.defn file for thorn wdns
+
+# Source files in this directory
+SRCS = diagnostics.F90 sanitycheck_restore_Aij.F90 \
+	read_inputfile_lowlevel.C read_inputfile_lowlevel_lorene.C read_inputfile_lowlevel_lorene2.C read_inputfile_driver.F90 \
+	initialdata_local.F90 initialdata_local2.F90 initialdata_global2.F90 initialdata_global.F90 \
+	\
+	driver_setup_emfields_part1_Pmax.F90 \
+	driver_setup_emfields_part2-local-setBi.F90 \
+	driver_setup_emfields_part3-global-Integrate_compute_avgbetam1.F90 \
+	driver_setup_emfields_part4-local-rescaleB_set_conservs.F90 calculate_u_0_PoPcold_driver.F90 \
+	driver_setup_emfields_part2-local-setBi_after_checkpoint.F90 compute_gupij_wdns.C \
+	compute_B_from_A.F90 calculate_u_0_PoPcold_lowlevel.C check_for_nans.C diagnostics_global0.F90 \
+	diagnostics_local2.F90 diagnostics_local.F90
+

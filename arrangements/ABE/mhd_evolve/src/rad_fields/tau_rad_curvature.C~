@@ -1,0 +1,231 @@
+//--------------------------------------------------------------------
+// Add the extrinsic curvature terms to tau_rad_rhs 
+//--------------------------------------------------------------------
+
+#define THIRD 0.333333333333333333333333333
+#define SQR(x) ((x) * (x))
+
+#include "math.h"
+#include "cctk.h"
+#include <stdio.h>
+#include "primitives_solver_header.h"
+
+extern "C" void CCTK_FCALL CCTK_FNAME(tau_rad_curvature_cpp)
+  (const cGH **cctkGH,int *cctk_lsh, int *nghostzones, int *Symmetry,
+   double *tau_rad_rhs, double *E_rad,
+   double *F_radx,double *F_rady,double *F_radz,
+   double *u0,double *vx,double *vy,double *vz,
+   double *alpha,double *betax,double *betay,double *betaz,
+   double *phi,double *trK,
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+   double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,
+   double *dX,double *dY,double *dZ, int *rad_closure_scheme, double *Erad_atm_cut);
+
+extern "C" void tau_rad_curvature_cpp(const cGH *cctkGH,int *cctk_lsh, int *nghostzones, int Symmetry,
+				      double *tau_rad_rhs, double *E_rad,
+				      double *F_radx,double *F_rady,double *F_radz,
+				      double *u0,double *vx,double *vy,double *vz,
+				      double *alpha,double *betax,double *betay,double *betaz,
+				      double *phi,double *trK,
+				      double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+				      double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+				      double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,
+				      double dX,double dY,double dZ, int rad_closure_scheme, double Erad_atm_cut) {
+
+  double sqrtmfourpi = 1.0/sqrt(4.0*M_PI);
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart = 0;
+  int jstart = 0;
+  int kstart = 0;
+  int iend = cctk_lsh[0];
+  int jend = cctk_lsh[1];
+  int kend = cctk_lsh[2];
+  
+#pragma omp parallel for
+  for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    double alphaL = 1.0+alpha[index];
+    double alphaLm1 = 1.0/alphaL;
+    double Psi4 = exp(4.0*phi[index]);
+    double Psim4 = 1.0/Psi4;
+    double sqrtg = alphaL *exp(6.0*phi[index]); // Psi4 * sqrt(Psi4); // == alphaL*exp(6.0*phi)
+    
+    double betaxL = betax[index];
+    double betayL = betay[index];
+    double betazL = betaz[index];
+
+    double gxxL = gxx[index];
+    double gxyL = gxy[index];
+    double gxzL = gxz[index];
+    double gyyL = gyy[index];
+    double gyzL = gyz[index];
+    double gzzL = gzz[index];
+
+    double AxxL = Axx[index];
+    double AxyL = Axy[index];
+    double AxzL = Axz[index];
+    double AyyL = Ayy[index];
+    double AyzL = Ayz[index];
+    double AzzL = Azz[index];
+
+    double trKL = trK[index];
+    double u0L  = u0[index];
+
+    double E_radL  = E_rad[index];
+
+    double F_radxL = F_radx[index];
+    double F_radyL = F_rady[index];
+    double F_radzL = F_radz[index];
+
+    double vxL = vx[index];
+    double vyL = vy[index];
+    double vzL = vz[index];
+
+    double u_xL = Psi4*(gxxL*(betaxL+vxL) +
+			gxyL*(betayL+vyL) +
+			gxzL*(betazL+vzL))*u0L;
+    double u_yL = Psi4*(gxyL*(betaxL+vxL) +
+			gyyL*(betayL+vyL) +
+                   gyzL*(betazL+vzL))*u0L;
+    double u_zL = Psi4*(gxzL*(betaxL+vxL) +
+			gyzL*(betayL+vyL) +
+			gzzL*(betazL+vzL))*u0L;
+    double uxL = u0L*vxL;
+    double uyL = u0L*vyL;
+    double uzL = u0L*vzL;
+                                                                                     
+    double u_0L = -(1.0 + uxL*u_xL + uyL*u_yL + uzL*u_zL)/u0L;
+
+
+    double shift_xL = Psi4* (betaxL*gxxL + betayL*gxyL + betazL*gxzL);   
+    double shift_yL = Psi4* (betaxL*gxyL + betayL*gyyL + betazL*gyzL);
+    double shift_zL = Psi4* (betaxL*gxzL + betayL*gyzL + betazL*gzzL);
+
+    double F_rad0L = - (F_radxL*u_xL + F_radyL*u_yL + F_radzL*u_zL)/u_0L;
+    double F_rad_xL = Psi4 * (gxxL * F_radxL + gxyL * F_radyL + gxzL * F_radzL) + shift_xL*F_rad0L; 
+    double F_rad_yL = Psi4 * (gxyL * F_radxL + gyyL * F_radyL + gyzL * F_radzL) + shift_yL*F_rad0L;   
+    double F_rad_zL = Psi4 * (gxzL * F_radxL + gyzL * F_radzL + gzzL * F_radzL) + shift_zL*F_rad0L;   
+    double F_rad_0L = - (F_rad_xL*uxL + F_rad_yL*uyL + F_rad_zL*uzL)/u0L;
+    
+    double tau_rad_rhsL;
+    // Now add extrinsic curvature terms to tau_rad_rhs
+    if(rad_closure_scheme == 0){
+    double P_radL = E_radL/3.0;
+    
+    tau_rad_rhsL = tau_rad_rhs[index] + (sqrtg*(E_radL + P_radL)*SQR(u0L))*Psi4* ( 
+										  (AxxL+THIRD*gxxL*trKL)*SQR(vxL+betaxL) + 
+										  2.0*(AxyL+THIRD*gxyL*trKL)*(vxL+betaxL)*(vyL+betayL) + 
+										  2.0*(AxzL+THIRD*gxzL*trKL)*(vxL+betaxL)*(vzL+betazL) + 
+										  (AyyL+THIRD*gyyL*trKL)*SQR(vyL+betayL) + 
+										  2.0*(AyzL+THIRD*gyzL*trKL)*(vyL+betayL)*(vzL+betazL) + 
+										  (AzzL+THIRD*gzzL*trKL)*SQR(vzL+betazL) );
+    
+    tau_rad_rhsL += 2.0* (sqrtg*u0L)*Psi4* ( 
+					    (AxxL+THIRD*gxxL*trKL)*(F_rad0L*betaxL*(betaxL+vxL)+ F_radxL*(vxL + betaxL)) +
+					    (AyyL+THIRD*gyyL*trKL)*(F_rad0L*betayL*(betayL+vyL)+ F_radyL*(vyL + betayL)) +
+					    (AzzL+THIRD*gzzL*trKL)*(F_rad0L*betazL*(betazL+vzL)+ F_radzL*(vzL + betazL)) +
+					    (AxyL+THIRD*gxyL*trKL)*((F_rad0L*betaxL+F_radxL)*(vyL + betayL) + (F_rad0L*betayL+F_radyL)*(vxL + betaxL)) +
+					    (AxzL+THIRD*gxzL*trKL)*((F_rad0L*betaxL+F_radxL)*(vzL + betazL) + (F_rad0L*betazL+F_radzL)*(vxL + betaxL)) +
+					    (AyzL+THIRD*gyzL*trKL)*((F_rad0L*betayL+F_radyL)*(vzL + betazL) + (F_rad0L*betazL+F_radzL)*(vyL + betayL)) );
+    
+    tau_rad_rhs[index] = tau_rad_rhsL + sqrtg*(P_radL)*trKL;
+        
+    }
+    else{
+      tau_rad_rhsL = tau_rad_rhs[index] + (sqrtg*E_radL*SQR(u0L))*Psi4* (
+									 (AxxL+THIRD*gxxL*trKL)*SQR(vxL+betaxL) +
+									 2.0*(AxyL+THIRD*gxyL*trKL)*(vxL+betaxL)*(vyL+betayL) +
+									 2.0*(AxzL+THIRD*gxzL*trKL)*(vxL+betaxL)*(vzL+betazL) +
+									 (AyyL+THIRD*gyyL*trKL)*SQR(vyL+betayL) +
+									 2.0*(AyzL+THIRD*gyzL*trKL)*(vyL+betayL)*(vzL+betazL) +
+									 (AzzL+THIRD*gzzL*trKL)*SQR(vzL+betazL) );
+
+      tau_rad_rhsL += 2.0* (sqrtg*u0L)*Psi4* (
+					      (AxxL+THIRD*gxxL*trKL)*(F_rad0L*betaxL*(betaxL+vxL)+ F_radxL*(vxL + betaxL)) +
+					      (AyyL+THIRD*gyyL*trKL)*(F_rad0L*betayL*(betayL+vyL)+ F_radyL*(vyL + betayL)) +
+					      (AzzL+THIRD*gzzL*trKL)*(F_rad0L*betazL*(betazL+vzL)+ F_radzL*(vzL + betazL)) +
+					      (AxyL+THIRD*gxyL*trKL)*((F_rad0L*betaxL+F_radxL)*(vyL + betayL) + (F_rad0L*betayL+F_radyL)*(vxL + betaxL)) +
+					      (AxzL+THIRD*gxzL*trKL)*((F_rad0L*betaxL+F_radxL)*(vzL + betazL) + (F_rad0L*betazL+F_radzL)*(vxL + betaxL)) +
+					      (AyzL+THIRD*gyzL*trKL)*((F_rad0L*betayL+F_radyL)*(vzL + betazL) + (F_rad0L*betazL+F_radzL)*(vyL + betayL)) );
+
+      double P_radxxL,P_radyyL,P_radzzL,P_radxyL,P_radxzL,P_radyzL; 
+      double Fksq = F_rad_xL*F_radxL +  F_rad_yL*F_radyL +  F_rad_zL*F_radzL; 
+      double Fasq = F_rad_0L*F_rad0L +  F_rad_xL*F_radxL +  F_rad_yL*F_radyL +  F_rad_zL*F_radzL;
+
+      double zeta;
+      double zeta_temp = sqrt(fabs(F_rad_0L*F_rad0L + F_rad_xL*F_radxL +  F_rad_yL*F_radyL +  F_rad_zL*F_radzL )/SQR(E_radL));
+      /*
+      if ( zeta_temp < 1.0e-20){
+	if (E_radL > Erad_atm_cut){
+	  zeta=0.0;
+	}
+	else{
+	  zeta = 1.0;
+	}
+      }
+*/
+      double zeta_cut= Erad_atm_cut*1.5;
+      if (E_radL <= zeta_cut){
+	zeta = 1.0;
+      }
+      else{
+	zeta = zeta_temp;
+      }
+
+      double chi = 1/3.0 + SQR(zeta)*(6.0-2.0*zeta+6.0*SQR(zeta))/15.0;
+      
+      compute_M1(P_radxxL, F_radxL, F_radxL, Fasq, E_radL, gupxx[index], betaxL, betaxL, alpha[index], uxL, uxL, chi, Psim4, Erad_atm_cut);                         
+      compute_M1(P_radyyL, F_radyL, F_radyL, Fasq, E_radL, gupyy[index], betayL, betayL, alpha[index], uyL, uyL, chi, Psim4, Erad_atm_cut); 
+      compute_M1(P_radzzL, F_radzL, F_radzL, Fasq, E_radL, gupzz[index], betazL, betazL, alpha[index], uzL, uzL, chi, Psim4, Erad_atm_cut);      
+      compute_M1(P_radxyL, F_radxL, F_radyL, Fasq, E_radL, gupxy[index], betaxL, betayL, alpha[index], uxL, uyL, chi, Psim4, Erad_atm_cut);         
+      compute_M1(P_radxzL, F_radxL, F_radzL, Fasq, E_radL, gupxz[index], betaxL, betazL, alpha[index], uxL, uzL, chi, Psim4, Erad_atm_cut);            
+      compute_M1(P_radyzL, F_radyL, F_radzL, Fasq, E_radL, gupyz[index], betayL, betazL, alpha[index], uyL, uzL, chi, Psim4, Erad_atm_cut);    
+
+      double P_rad0xL = - (P_radxxL*u_xL +P_radxyL*u_yL +P_radxzL*u_zL)/u_0L;
+      double P_rad0yL = - (P_radxyL*u_xL +P_radyyL*u_yL +P_radyzL*u_zL)/u_0L;
+      double P_rad0zL = - (P_radxzL*u_xL +P_radyzL*u_yL +P_radzzL*u_zL)/u_0L;
+      double P_rad00L = - (P_rad0xL*u_xL +P_rad0yL*u_yL +P_rad0zL*u_zL)/u_0L;
+
+      tau_rad_rhsL += sqrtg*Psi4* ( 
+	                           (AxxL+THIRD*gxxL*trKL)*(P_rad00L*betaxL*betaxL + 2.0*P_rad0xL*betaxL + P_radxxL) +
+	                           (AyyL+THIRD*gyyL*trKL)*(P_rad00L*betayL*betayL + 2.0*P_rad0yL*betayL + P_radyyL) +    
+				   (AzzL+THIRD*gzzL*trKL)*(P_rad00L*betazL*betazL + 2.0*P_rad0zL*betazL + P_radzzL) +
+				   2.0*((AxyL+THIRD*gxyL*trKL)*(P_rad00L*betaxL*betayL + P_rad0xL*betayL + P_rad0yL*betaxL + P_radxyL) +
+					(AxzL+THIRD*gxzL*trKL)*(P_rad00L*betaxL*betazL + P_rad0xL*betazL + P_rad0zL*betaxL + P_radxzL) +
+					(AyzL+THIRD*gyzL*trKL)*(P_rad00L*betazL*betayL + P_rad0zL*betayL + P_rad0yL*betazL + P_radyzL)));
+
+     
+      tau_rad_rhs[index] = tau_rad_rhsL; 
+    }
+  }
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(tau_rad_curvature_cpp)
+  (const cGH **cctkGH,int *cctk_lsh, int *nghostzones, int *Symmetry,
+   double *tau_rad_rhs, double *E_rad,
+   double *F_radx,double *F_rady,double *F_radz,
+   double *u0,double *vx,double *vy,double *vz,
+   double *alpha,double *betax,double *betay,double *betaz,
+   double *phi,double *trK,
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+   double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,
+   double *dX,double *dY,double *dZ, int *rad_closure_scheme, double *Erad_atm_cut)
+{
+  tau_rad_curvature_cpp(*cctkGH,cctk_lsh, nghostzones, *Symmetry,
+			tau_rad_rhs, E_rad, 
+			F_radx,F_rady,F_radz,
+			u0,vx,vy,vz,
+			alpha,betax,betay,betaz,
+			phi,trK,
+			gxx,gxy,gxz,gyy,gyz,gzz,
+			gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,
+			Axx,Axy,Axz,Ayy,Ayz,Azz,
+			*dX,*dY,*dZ, *rad_closure_scheme, *Erad_atm_cut);
+}
+
+
+
+

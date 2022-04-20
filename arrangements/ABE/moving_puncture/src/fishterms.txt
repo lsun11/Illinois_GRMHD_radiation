@@ -1,0 +1,334 @@
+!-----------------------------------------------------------------------------
+!
+! $Id: laguna_initial_metric.f90,v 1.1.1.1 2006/02/23 17:48:41 zetienne Exp $
+!
+!-----------------------------------------------------------------------------
+
+!-----------------------------------------------------------------------------
+!
+! Find Laguna PRD 69, 104020 (2004) metric initial data for boosted BH
+!
+!-----------------------------------------------------------------------------
+  subroutine laguna_initial_metric(ex, x, y, z,            &
+                    Axx, Axy, Axz, Ayy, Ayz, Azz, alpha, Bx,By,Bz, phi, &
+                    gxx,gxy,gxz,gyy,gyz,gzz, &
+                    gupxx,gupyy,gupzz,gupxy,gupxz,gupyz, & 
+                    Gammax,Gammay,Gammaz, &
+                    PhysicalRadius,RadiusDerivative,RadD2, &
+                    bigP,addshift,cl,Mass,Symmetry)
+  implicit none
+
+!
+! Input parameters:
+!
+  integer, dimension(3),     intent(in) :: ex
+  real*8,  dimension(ex(1)), intent(in) :: x
+  real*8,  dimension(ex(2)), intent(in) :: y
+  real*8,  dimension(ex(3)), intent(in) :: z
+  integer, intent(in)                   :: addshift,Symmetry
+  real*8, intent(in)                    :: bigP,cl,Mass
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(in) :: PhysicalRadius,RadiusDerivative,RadD2
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: Axx,Axy,Axz,Ayy,Ayz,Azz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: gxx,gxy,gxz,gyy,gyz,gzz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: gupxx,gupxy,gupxz,gupyy,gupyz,gupzz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: Gammax,Gammay,Gammaz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: alpha,Bx,By,Bz,phi
+
+!
+! Other variables:
+!
+  integer :: i,j,k,m,n
+  integer :: imin,jmin,kmin,imax,jmax,kmax
+  real*8  :: el(0:3),boo(0:3),phh(0:3),eta(0:3,0:3),pel(0:3,0:3)
+  real*8  :: r,phii,bigR,bigS,rp1,st,ct,sp,cp,P0,P2
+  real*8  :: u0,u2,v0,v2,nx,ny,nz,pknk,xi2,yj2,zk2
+  real*8  :: betar,betat,betax,betay,betaz,u,v,lapsei
+
+  real*8 :: rp,rd,phii_p,axxp,ayyp,azzp,axyp,axzp,ayzp,jxx,jyy,jzz,jxy,jxz,jyz
+  real*8 :: p1,dx1,dy1,dz1,dxp,dyp,dzp,rd2,g2,g3
+  real*8 :: jxxx,jxxy,jxxz,jyyx,jyyy,jyyz,jzzx,jzzy,jzzz,jxyx,jxyy,jxyz,jxzx,jxzy,jxzz
+  real*8 :: jyzx,jyzy,jyzz
+  real*8 :: dr,ddr,juxx,juyy,juzz,juxy,juxz,juyz
+
+!  real*8,  dimension(ex(1),ex(2),ex(3)) :: qxx,qxy,qxz,qyy,qyz,qzz,q
+  real*8, parameter :: zeo=0.d0,one=1.d0,two=2.d0,thr=3.d0
+  real*8, parameter :: f1o3=1.d0/3.d0,inbd=1.d0,hlf=0.5d0,fou=4.d0
+
+!~~~~~> Interface
+
+  interface
+    real*8 function radius(x,y,z,Symmetry)
+      implicit none
+      real*8,  intent(in) :: x,y,z
+      integer, intent(in) :: Symmetry
+    end function radius
+  end interface
+
+!
+! Input translation
+!
+  imin = lbound(phi,1)
+  jmin = lbound(phi,2)
+  kmin = lbound(phi,3)
+  imax = ubound(phi,1)
+  jmax = ubound(phi,2)
+  kmax = ubound(phi,3)
+
+!
+! go to each gridpoint...
+!
+  do k = kmin, kmax
+   do j = jmin, jmax
+    do i = imin, imax
+!
+! I am redefining "cl" to be the initial position x_0 of the BH
+!
+       r=sqrt(x(i)**2+y(j)**2+z(k)**2)
+       rp=PhysicalRadius(i,j,k)
+       rp1=rp+1.0d0
+       rd=RadiusDerivative(i,j,k)
+       rd2=RadD2(i,j,k)
+! xi2, etc., are in PHYSICAL units
+       xi2=x(i)*rp/r
+       yj2=y(j)*rp/r
+       zk2=z(k)*rp/r
+
+       if(Symmetry.eq.4) then
+          zk2=zk2-cl
+       else if (Symmetry.eq.1) then
+          xi2=xi2-cl
+       else
+          write(6,*)'We have not programmed that symmetry yet'
+          write(6,*)'for the laguna initial data'
+          stop
+       endif
+
+       if(Symmetry.eq.4) then
+          ! Axisymmetry: momentum in z direction          
+          st = sqrt(1.0-zk2**2/rp**2)
+          ct = zk2/rp
+          cp = xi2/sqrt(xi2**2+yj2**2)
+          sp = yj2/sqrt(xi2**2+yj2**2)
+          P0=1.0
+          P2=1.5*zk2**2/rp**2-0.5d0
+          
+       else if (Symmetry.eq.1) then
+          ! Equatorial: momentum in x-direction
+          st = sqrt(1.0-xi2**2/rp**2)
+          ct = xi2/rp
+          cp = zk2/sqrt(zk2**2+yj2**2)
+          sp = yj2/sqrt(zk2**2+yj2**2)
+          P0=1.0
+          P2=1.5*xi2**2/rp**2-0.5d0
+          
+       endif
+          
+          ! Laguna eq. 4.48
+       u0=5.0d0/32.0d0*( 1.0d0/rp1 - 2.0d0/rp1**2 + 2.0d0/rp1**3 - 1.0d0/rp1**4 + 0.2d0/rp1**5)
+! Laguna eq. 4.49
+       u2=0.0125d0/rp*( 15.0d0/rp1 + 132.0d0/rp1**2 + 53.0d0/rp1**3 + 96.0d0/rp1**4 + 82.0d0/rp1**5 &
+                     + 84.0d0/rp/rp1**5 - 84/rp**2*log(rp1))
+! Laguna eq. 4.50
+!       v0=5.0d0/32.0d0*((cl-6.0)/rp1 + (cl+15.0)/rp1**2 - &
+!            (6.0*cl+20.0)/rp1**3 + (8.0*cl+15.0)/rp1**4 & 
+!            - (4.6*cl+6.0)/rp1**5 + (cl+1.0)/rp1**6)
+! Laguna eq. 4.51
+!       v2=0.0125/r**2*(-1.0*(201.0*cl+1020.0)/rp1 + &
+!            (275.0*cl+825.0)/rp1**2 - (287.0*cl+588.0)/rp1**3 &
+!            + (185.0*cl+283.0)/rp1**4 - (66.0*cl+80.0)/rp1**5 + &
+!            10.0*(cl+1.0)/rp1**6 &
+!            + 84.0/r*(cl+8.0)*log(rp1)-105.0)
+! Laguna eq. 4.52
+!       bigR = rp1**-6.0*( (cl-5.0)/8.0 + 0.75*(cl-5.0)*r + &
+!            0.0125*(151.0*cl-751)*r**2 &
+!            + 0.025*(103.0*cl - 503.0)*r**3 + 0.1875 * (11.0*cl-51.0)*r**4 &
+!            - 4.0*r**5) - 0.125*(cl-5.0)
+! Laguna eq. 4.53
+!       bigS = rp1**-6.0*( -1.0*(cl-5.0)/8.0 - 0.75*(cl-5.0)*r &
+!            - 0.0125*(149.0*cl-749)*r**2 &
+!            - 0.025*(97.0*cl - 497.0)*r**3 - 0.1875 * (9.0*cl-49.0)*r**4 &
+!            + 3.5*r**5) + 0.125*(cl-5.0)
+
+       u=bigP**2*(P0*u0+P2*u2)
+!       v=bigP**2*(P0*v0+P2*v2)
+
+       !       betar=bigP*bigR*ct
+       !       betat=bigP*bigS*st
+       
+       !       Bx(i,j,k)=betar*ct-betat*st
+       !       By(i,j,k)=betar*st*sp+betat*ct*sp
+       !       Bz(i,j,k)=betar*st*cp+betat*ct*cp
+       
+       phii_p=1.0+Mass*(u+0.5/rp)
+       phii=phii_p*(rp/r)**(1.0d0/3.0d0)*rd**(1.0d0/6.0d0)
+       
+       phi(i,j,k)=log(phii)
+       !       alpha(i,j,k)=(1.0+v-cl/r)/phii
+       alpha(i,j,k)=phii_p**(-2)
+       
+       
+       !
+       !-- the 3-metric and A_ij in physical coords
+       !
+       nx=xi2/rp
+       ny=yj2/rp
+       nz=zk2/rp
+       
+       if(Mass.gt.0) then
+          if(Symmetry.eq.4)then
+             ! Axisymmetry: momentum in z-direction
+             pknk=bigP*nz
+             Azzp = 1.5*phii_p**(-2)*(2.0*bigP*nz - (1.0 - nz**2) *pknk)/rp**2
+             Ayyp = 1.5*phii_p**(-2)*(-1.0)*(1.0-ny**2)*pknk/rp**2
+             Axxp = 1.5*phii_p**(-2)*(-1.0)*(1.0-nx**2)*pknk/rp**2
+             Ayzp = 1.5*phii_p**(-2)*(    bigP*ny +        nz*ny  *pknk)/rp**2
+             Axzp = 1.5*phii_p**(-2)*(    bigP*nx +        nz*nx  *pknk)/rp**2
+             Axyp = 1.5*phii_p**(-2)*nx*ny*pknk/rp**2
+             
+          else if (Symmetry.eq.1)then
+             ! Equatorial: momentum in x-direction
+             pknk=bigP*nx
+             Axxp = 1.5*phii_p**(-2)*(2.0*bigP*nx - (1.0 - nx**2) *pknk)/rp**2
+             Ayyp = 1.5*phii_p**(-2)*(-1.0)*(1.0-ny**2)*pknk/rp**2
+             Azzp = 1.5*phii_p**(-2)*(-1.0)*(1.0-nz**2)*pknk/rp**2
+             Axyp = 1.5*phii_p**(-2)*(    bigP*ny +        nx*ny  *pknk)/rp**2
+             Axzp = 1.5*phii_p**(-2)*(    bigP*nz +        nx*nz  *pknk)/rp**2
+             Ayzp = 1.5*phii_p**(-2)*ny*nz*pknk/rp**2
+          endif
+       else
+          Axxp=0.
+          Ayyp=0.
+          Azzp=0.
+          Axyp=0.
+          Axzp=0.
+          Ayzp=0.
+       endif
+       
+       !
+       !   Now the Jacobian terms (we need to transform the downstairs version)
+       !     
+       jxx=rp/r+nx**2*(rd-rp/r)
+       jyy=rp/r+ny**2*(rd-rp/r)
+       jzz=rp/r+nz**2*(rd-rp/r)
+       jxy=nx*ny*(rd-rp/r)
+       jxz=nx*nz*(rd-rp/r)
+       jyz=ny*nz*(rd-rp/r)
+
+       gxx(i,j,k)=((phii_p/phii)**4)*(jxx**2+jxy**2+jxz**2)
+       gyy(i,j,k)=((phii_p/phii)**4)*(jxy**2+jyy**2+jyz**2)
+       gzz(i,j,k)=((phii_p/phii)**4)*(jxz**2+jyz**2+jzz**2)
+       gxy(i,j,k)=((phii_p/phii)**4)*(jxx*jxy+jxy*jyy+jxz*jyz)
+       gxz(i,j,k)=((phii_p/phii)**4)*(jxx*jxz+jxy*jyz+jxz*jzz)
+       gyz(i,j,k)=((phii_p/phii)**4)*(jxy*jxz+jyy*jyz+jyz*jzz)
+       !  and then the upstairs one
+       juxx=r/rp+nx**2*(1.0d0/rd-r/rp)
+       juyy=r/rp+ny**2*(1.0d0/rd-r/rp)
+       juzz=r/rp+nz**2*(1.0d0/rd-r/rp)
+       juxy=nx*ny*(1.0d0/rd-r/rp)
+       juxz=nx*nz*(1.0d0/rd-r/rp)
+       juyz=ny*nz*(1.0d0/rd-r/rp)
+       
+       gupxx(i,j,k)=(phii/phii_p)**4*(juxx**2+juxy**2+juxz**2)
+       gupyy(i,j,k)=(phii/phii_p)**4*(juxy**2+juyy**2+juyz**2)
+       gupzz(i,j,k)=(phii/phii_p)**4*(juxz**2+juyz**2+juzz**2)
+       gupxy(i,j,k)=(phii/phii_p)**4*(juxx*juxy+juxy*juyy+juxz*juyz)
+       gupxz(i,j,k)=(phii/phii_p)**4*(juxx*juxz+juxy*juyz+juxz*juzz)
+       gupyz(i,j,k)=(phii/phii_p)**4*(juxy*juxz+juyy*juyz+juyz*juzz)
+       !
+       ! (phii/phii_p)^4 = (rp/r)^4/3 * (dr_p/dr_fish)^2/3
+       p1=(phii/phii_p)**4
+       ! dx1 is /partial_{x-bar} (rp/r)
+       dx1=nx/r*(rd-rp/r)
+       dy1=ny/r*(rd-rp/r)
+       dz1=nz/r*(rd-rp/r)
+       dxp=2.0d0/3.0d0*p1*(2.0*dx1*r/rp+rd2/rd*nx)
+       dyp=2.0d0/3.0d0*p1*(2.0*dy1*r/rp+rd2/rd*ny)
+       dzp=2.0d0/3.0d0*p1*(2.0*dz1*r/rp+rd2/rd*nz)
+       
+       Axx(i,j,k)=(1.0/phii)**4*(juxx**2*Axxp+juxy**2*Ayyp+juxz**2*Azzp+ &
+            2.0*(juxx*juxy*Axyp+juxx*juxz*Axzp+juxy*juxz*Ayzp))
+       Ayy(i,j,k)=(1.0/phii)**4*(juxy**2*Axxp+juyy**2*Ayyp+juyz**2*Azzp+ &
+            2.0*(juxy*juyy*Axyp+juxy*juyz*Axzp+juyy*juyz*Ayzp))
+       Azz(i,j,k)=(1.0/phii)**4*(juxz**2*Axxp+juyz**2*Ayyp+juzz**2*Azzp+ &
+            2.0*(juxz*juyz*Axyp+juxz*juzz*Axzp+juyz*juzz*Ayzp))
+       Axy(i,j,k)=(1.0/phii)**4*(juxx*juxy*Axxp+juxx*juyy*Axyp+juxx*juyz*Axzp+&
+            juxy*juxy*Axyp+juxy*juyy*Ayyp+juxy*juyz*Ayzp+&
+            juxz*juxy*Axzp+juxz*juyy*Ayzp+juxz*juyz*Azzp)
+       Axz(i,j,k)=(1.0/phii)**4*(juxx*juxz*Axxp+juxx*juyz*Axyp+juxx*juzz*Axzp+&
+            juxy*juxz*Axyp+juxy*juyz*Ayyp+juxy*juzz*Ayzp+&
+            juxz*juxz*Axzp+juxz*juyz*Ayzp+juxz*juzz*Azzp)
+       Ayz(i,j,k)=(1.0/phii)**4*(juxy*juxz*Axxp+juxy*juyz*Axyp+juxy*juzz*Axzp+&
+            juyy*juxz*Axyp+juyy*juyz*Ayyp+juyy*juzz*Ayzp+&
+            juyz*juxz*Axzp+juyz*juyz*Ayzp+juyz*juzz*Azzp)
+       
+       ! and now the Gamma's
+       !                   =del_ij       +del_ik  +del_jk  -terms
+       g2=rp/r-rd
+       g3=1.0/rd-r/rp
+
+       jxxx=nx*r/(rp**2)*g2+nx/r*g3+nx/r*g3-2*nx*nx*nx/r*g3 &
+            -nx*nx*nx*r/(rp**2)*g2-nx*nx*nx*rd2/rd**2
+       jxxy=ny*r/(rp**2)*g2                  -2*nx*nx*ny/r*g3 &
+            -nx*nx*ny*r/(rp**2)*g2-nx*nx*ny*rd2/rd**2
+       jxxz=nz*r/(rp**2)*g2                  -2*nx*nx*nz/r*g3 &
+            -nx*nx*nz*r/(rp**2)*g2-nx*nx*nz*rd2/rd**2
+       
+       jyyx=nx*r/(rp**2)*g2                  -2*ny*ny*nx/r*g3 &
+            -ny*ny*nx*r/(rp**2)*g2-ny*ny*nx*rd2/rd**2
+       jyyy=ny*r/(rp**2)*g2+ny/r*g3+ny/r*g3-2*ny*ny*ny/r*g3 &
+            -ny*ny*ny*r/(rp**2)*g2-ny*ny*ny*rd2/rd**2
+       jyyz=nz*r/(rp**2)*g2                  -2*ny*ny*nz/r*g3 &
+            -ny*ny*nz*r/(rp**2)*g2-ny*ny*nz*rd2/rd**2
+       
+       jzzx=nx*r/(rp**2)*g2                  -2*nz*nz*nx/r*g3 &
+            -nz*nz*nx*r/(rp**2)*g2-nz*nz*nx*rd2/rd**2
+       jzzy=ny*r/(rp**2)*g2                  -2*nz*nz*ny/r*g3 &
+            -nz*nz*ny*r/(rp**2)*g2-nz*nz*ny*rd2/rd**2
+       jzzz=nz*r/(rp**2)*g2+nz/r*g3+nz/r*g3-2*nz*nz*nz/r*g3 &
+            -nz*nz*nz*r/(rp**2)*g2-nz*nz*nz*rd2/rd**2
+       
+       jxyx=                       ny/r*g3-2*nx*ny*nx/r*g3 &
+            -nx*ny*nx*r/(rp**2)*g2-nx*ny*nx*rd2/rd**2 
+       jxyy=                       nx/r*g3-2*nx*ny*ny/r*g3 &
+            -nx*ny*ny*r/(rp**2)*g2-nx*ny*ny*rd2/rd**2 
+       jxyz=                               -2*nx*ny*nz/r*g3 &
+            -nx*ny*nz*r/(rp**2)*g2-nx*ny*nz*rd2/rd**2 
+       
+       jxzx=                       nz/r*g3-2*nx*nz*nx/r*g3 &
+            -nx*nz*nx*r/(rp**2)*g2-nx*nz*nx*rd2/rd**2 
+       jxzy=                               -2*nx*nz*ny/r*g3 &
+            -nx*nz*ny*r/(rp**2)*g2-nx*nz*ny*rd2/rd**2 
+       jxzz=                       nx/r*g3-2*nx*nz*nz/r*g3 &
+            -nx*nz*nz*r/(rp**2)*g2-nx*nz*nz*rd2/rd**2 
+       
+       jyzx=                               -2*ny*nz*nx/r*g3 &
+            -ny*nz*nx*r/(rp**2)*g2-ny*nz*nx*rd2/rd**2 
+       jyzy=                       nz/r*g3-2*ny*nz*ny/r*g3 &
+            -ny*nz*ny*r/(rp**2)*g2-ny*nz*ny*rd2/rd**2 
+       jyzz=                       ny/r*g3-2*ny*nz*nz/r*g3 &
+            -ny*nz*nz*r/(rp**2)*g2-ny*nz*nz*rd2/rd**2 
+       
+       Gammax(i,j,k)=dxp*(juxx**2+juxy**2+juxz**2)+ &
+            2.0*p1*(juxx*jxxx+juxy*jxyx+juxz*jxzx)+ &
+            dyp*(juxx*juxy+juxy*juyy+juxz*juyz)+ &
+            p1*(juxx*jxyy+juxy*jyyy+juxz*jyzy+ &
+            jxxy*juxy+jxyy*juyy+jxzy*juyz)+ &
+            dzp*(juxx*juxz+juxy*juyz+juxz*juzz)+ &
+            p1*(juxx*jxzz+juxy*jyzz+juxz*jzzz+ &
+            jxxz*juxz+jxyz*juyz+jxzz*juzz)
+       Gammay(i,j,k)=dxp*(juxx*juxy+juxy*juyy+juxz*juyz)+ &
+            p1*(juxx*jxyx+juxy*jyyx+juxz*jyzx+ &
+            jxxx*juxy+jxyx*juyy+jxzx*juyz)+ &
+            dyp*(juxy**2+juyy**2+juyz**2)+ &
+            2.0*p1*(juxy*jxyy+juyy*jyyy+juyz*jyzy)+ &
+            dzp*(juxy*juxz+juyy*juyz+juyz*juzz)+ &
+            p1*(juxy*jxzz+juyy*jyzz+juyz*jzzz+ &
+            jxyz*juxz+jyyz*juyz+jyzz*juzz)
+       Gammaz(i,j,k)=dxp*(juxx*juxz+juxy*juyz+juxz*juzz)+ &
+            p1*(juxx*jxzx+juxy*jyzx+juxz*jzzx+ &
+            jxxx*juxz+jxyx*juyz+jxzx*juzz)+ &
+            dyp*(juxy*juxz+juyy*juyz+juyz*juzz)+ &
+            p1*(juxy*jxzy+juyy*jyzy+juyz*jzzy+ &
+            jxyy*juxz+jyyy*juyz+jyzy*juzz)+ &
+            dzp*(juxz**2+juyz**2+juzz**2)+ &
+            2.0*p1*(juxz*jxzz+juyz*jyzz+juzz*jzzz)

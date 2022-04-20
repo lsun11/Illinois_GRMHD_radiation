@@ -1,0 +1,93 @@
+//------------------------------------------------------//
+// Advect B^i					       //
+//------------------------------------------------------//
+
+#include "cctk.h"
+#include "stdlib.h"
+#include "stdio.h"
+#include "math.h"
+
+#define NO_SYMM 0
+#define OCTANT  2
+#define AXISYM  4
+
+extern "C" void CCTK_FCALL CCTK_FNAME(advect_rad_tau_ct_cpp)
+  (int *flux_direction, const cGH **cctkGH,int *ext,double *X,double *Y,double *Z,double *tau_rad_rhs, 
+   double *tau_rad_flux,int &Symmetry, double *dX,double *dY,double *dZ);
+
+
+//
+extern "C" void advect_rad_tau_ct_cpp(int flux_direction, const cGH *cctkGH,int *ext,double *X,double *Y,double *Z, double *tau_rad_rhs,
+				      double *tau_rad_flux,int &Symmetry,double dX,double dY,double dZ) {
+
+
+  /*
+  double ddx=1.0/(X[CCTK_GFINDEX3D(cctkGH,1,0,0)]-X[CCTK_GFINDEX3D(cctkGH,0,0,0)]);
+  double ddy=1.0/(Y[CCTK_GFINDEX3D(cctkGH,0,1,0)]-Y[CCTK_GFINDEX3D(cctkGH,0,0,0)]);
+  double ddz=1.0/(Z[CCTK_GFINDEX3D(cctkGH,0,0,1)]-Z[CCTK_GFINDEX3D(cctkGH,0,0,0)]);
+  */
+
+  double dxi = 1.0/dX; 
+  double dyi = 1.0/dY; 
+  double dzi = 1.0/dZ; 
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int imin = 1;
+  int jmin = 1;
+  int kmin = 1;
+  int imax = ext[0] - 1;
+  int jmax = ext[1] - 1;
+  int kmax = ext[2] - 1;
+
+  //
+  //
+
+
+#pragma omp parallel for
+  for(int k=kmin;k<kmax;k++) for(int j=jmin;j<jmax;j++) for(int i=imin;i<imax;i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    int indexip1 = CCTK_GFINDEX3D(cctkGH,i+1,j,k);
+    int indexjp1 = CCTK_GFINDEX3D(cctkGH,i,j+1,k);
+    int indexkp1 = CCTK_GFINDEX3D(cctkGH,i,j,k+1);
+    if (flux_direction==1){
+      if (Symmetry!=AXISYM) 
+	{
+	tau_rad_rhs[index] +=  (tau_rad_flux[index]-tau_rad_flux[indexip1])*dxi;
+	} 
+      else 
+	{
+	tau_rad_rhs[index] +=   (tau_rad_flux[index]-tau_rad_flux[indexip1])*dxi;
+	}
+    }
+    else if (flux_direction==2){
+      if (Symmetry!=AXISYM) 
+	{
+        tau_rad_rhs[index] +=   (tau_rad_flux[index]-tau_rad_flux[indexjp1])*dyi;
+	} 
+      else 
+	{
+	tau_rad_rhs[index] +=   (tau_rad_flux[index]-tau_rad_flux[indexjp1])*dyi;
+	}
+    }
+    else if (flux_direction==3){
+      if (Symmetry!=AXISYM) 
+	{
+        tau_rad_rhs[index] +=  (tau_rad_flux[index]-tau_rad_flux[indexkp1])*dzi;
+	}
+      else 
+	{
+	tau_rad_rhs[index] +=  (tau_rad_flux[index]-tau_rad_flux[indexkp1])*dzi;
+	}
+    }
+ 
+  }
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(advect_rad_tau_ct_cpp)
+  (int *flux_direction, const cGH **cctkGH,int *ext,double *X,double *Y,double *Z,double *tau_rad_rhs,
+   double *tau_rad_flux,int &Symmetry,double *dX,double *dY,double *dZ)
+{
+  advect_rad_tau_ct_cpp(*flux_direction, *cctkGH,ext,X,Y,Z,tau_rad_rhs,
+			tau_rad_flux,Symmetry, *dX, *dY, *dZ);
+}
+

@@ -1,0 +1,57 @@
+# Interface definition for thorn diagnostics_mhd
+
+implements: diagnostics_mhd
+inherits: grid
+inherits: SpaceMask
+
+USES INCLUDE: Symmetry.h
+friend: fisheye diagnostics_vacuum
+
+####inherits: reduce
+
+protected:
+
+REAL volIntegrals_mhd TYPE=scalar TAGS='Checkpoint="no"'
+{
+  T_VolInt,M0_VolInt,M0_AH_VolInt,M0_escape30M,M0_escape50M,M0_escape70M,M0_escape100M,Minternal_VolInt,
+  Minternal_cold_VolInt,em_energy_VolInt,em_energy2_VolInt,em_energy_outsideBH_VolInt,
+  b_phi_VolInt,CoMx_VolInt,CoMy_VolInt,CoMz_VolInt,CoM_VolInt_denominator,
+  monopole_VolInt,monopole_outsideBH_VolInt,brem_qei_VolInt,brem_qee_VolInt,synch_VolInt,
+  M0_horiz_VolInt,M0_r1_VolInt,M0_r2_VolInt,M0_r3_VolInt,
+  fluid_energy_horiz_VolInt,fluid_energy_r1_VolInt,fluid_energy_r2_VolInt,fluid_energy_r3_VolInt,
+  em_energy_between_VolInt,
+  fluid_J_horiz_VolInt,fluid_J_r1_VolInt,fluid_J_r2_VolInt,fluid_J_r3_VolInt,
+  minternal_horiz_VolInt,minternal_r1_VolInt,minternal_r2_VolInt,minternal_r3_VolInt,
+  minternal_cold_horiz_VolInt,minternal_cold_r1_VolInt,minternal_cold_r2_VolInt,minternal_cold_r3_VolInt,
+  em_J_between_VolInt,half_b2_u0_VolInt, Tem0_0_VolInt,
+  half_b2_u0_outsideBH_VolInt,Tem0_0_outsideBH_VolInt, Tfluid0_0_VolInt,
+  Tfluid0_0_outsideBH_VolInt,em_energy_outsideradius1_VolInt,em_energy_outsideradius2_VolInt,
+  density_modes_r0,density_modes_r1,density_modes_i1,density_modes_r2,density_modes_i2,density_modes_r3,
+  density_modes_i3,  density_modes_r4,density_modes_i4,density_modes_r5,density_modes_i5,density_modes_r6,
+  density_modes_i6,rad_energy_VolInt
+}
+
+private:
+
+###########################################################################
+# Following needed for setting the original of BH and radii of AH from ahfinderdirect
+
+CCTK_INT FUNCTION HorizonCentroid(CCTK_INT IN horizon_number,CCTK_REAL OUT centroid_x, CCTK_REAL OUT centroid_y, CCTK_REAL OUT centroid_z)
+REQUIRES FUNCTION HorizonCentroid 
+
+CCTK_INT FUNCTION HorizonWasFound(CCTK_INT IN horizon_number)
+REQUIRES FUNCTION HorizonWasFound
+
+CCTK_INT FUNCTION HorizonLocalCoordinateOrigin                          \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_REAL OUT origin_x, CCTK_REAL OUT origin_y, CCTK_REAL OUT origin_z)
+REQUIRES FUNCTION HorizonLocalCoordinateOrigin
+
+CCTK_INT FUNCTION HorizonRadiusInDirection                              \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_INT IN N_points,                                               \
+    CCTK_REAL IN ARRAY x, CCTK_REAL IN ARRAY y, CCTK_REAL IN ARRAY z,   \
+    CCTK_REAL OUT ARRAY radius)
+REQUIRES FUNCTION HorizonRadiusInDirection
+
+###########################################################################

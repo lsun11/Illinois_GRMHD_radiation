@@ -1,0 +1,40 @@
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine bhns_regridder_unstagger_driver(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8  :: dx,dy,dz
+!  write (*,*) "Start bhns_regridder_unstagger_driver", CCTK_ITERATION, bhns_regrid_output_enable_iter
+  if(CCTK_ITERATION==bhns_regrid_output_enable_iter) then
+     write(*,*) "CCTK_ITERATION==bhns_regrid_output_enable_iter"
+     dx = CCTK_DELTA_SPACE(1)
+     dy = CCTK_DELTA_SPACE(2)
+     dz = CCTK_DELTA_SPACE(3)
+     
+     write(*,*) "Unstaggering now... dx=",dX
+
+     call bhns_regridder_unstagger(cctkGH,cctk_lsh,cctk_nghostzones, &
+          X,Y,Z,dX,dY,dZ, &
+          Ax,Ay,Az,psi6phi, &
+          Bxtilde,Bytilde,Bztilde,Blagrangemultiplier)
+
+     call bhns_regridder_unstagger(cctkGH,cctk_lsh,cctk_nghostzones, &
+          X,Y,Z,dX,dY,dZ, &
+          Ax_p,Ay_p,Az_p,psi6phi_p, &
+          Bxtilde_p,Bytilde_p,Bztilde_p,Blagrangemultiplier_p)
+
+     call bhns_regridder_unstagger(cctkGH,cctk_lsh,cctk_nghostzones, &
+          X,Y,Z,dX,dY,dZ, &
+          Ax_p_p,Ay_p_p,Az_p_p,psi6phi_p_p, &
+          Bxtilde_p_p,Bytilde_p_p,Bztilde_p_p,Blagrangemultiplier_p_p)
+
+  end if
+
+end subroutine bhns_regridder_unstagger_driver

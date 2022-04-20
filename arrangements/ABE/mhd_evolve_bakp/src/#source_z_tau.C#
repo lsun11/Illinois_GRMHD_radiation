@@ -1,0 +1,725 @@
+//-----------------------------------------------------------------------------
+// Add third-order accurate curvature terms to S_i_rhs
+//-----------------------------------------------------------------------------
+
+#include "math.h"
+#include "cctk.h"
+#include "stdio.h"
+
+#define SQR(x) ((x) * (x))
+#define D1_o3_cpp(gf,i,j,k) \
+	 ((   gf[CCTK_GFINDEX3D(cctkGH,i+1,j,k)] \
+	 - gf[CCTK_GFINDEX3D(cctkGH,i ,j,k)] ) * dxi )
+#define D2_o3_cpp(gf,i,j,k) \
+	 ((   gf[CCTK_GFINDEX3D(cctkGH,i,j+1,k)] \
+	 - gf[CCTK_GFINDEX3D(cctkGH,i ,j,k)] ) * dyi )
+#define D3_o3_cpp(gf,i,j,k) \
+	 ((   gf[CCTK_GFINDEX3D(cctkGH,i,j,k+1)] \
+	 - gf[CCTK_GFINDEX3D(cctkGH,i ,j,k)] ) * dzi )
+
+extern "C" void CCTK_FCALL CCTK_FNAME(mhd_source_z_tau_cpp)
+  (int *flux_direction, const cGH **cctkGH,int *cctk_lsh, int *nghostzones, int *Symmetry,
+   int *enable_HARM_energyvariable,
+   double *dX, double *dY,double *dZ, double *Z,
+   double *mhd_st_x_rhs, double *mhd_st_y_rhs, double *mhd_st_z_rhs, 
+   double *tau_rhs, double *rho_star, 
+   double *P, double *h, double *u0, 
+   double *vx, double *vy, double *vz,  
+   double *sbt, double *sbx, double *sby, double *sbz, 
+   double *alpha, double *betax, double *betay, double *betaz, 
+   double *phi, 
+   double *gxx, double *gxy, double *gxz, double *gyy, double *gyz, double *gzz, 
+   double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz, 
+   double *alpha_f, double *betax_f, double *betay_f, double *betaz_f, 
+   double *phi_f, 				 
+   double *gxx_f, double *gxy_f, double *gxz_f, double *gyy_f, double *gyz_f, double *gzz_f,
+   double *g4tt,double *g4tx,double *g4ty,double *g4tz,
+   double *g4tt_f,double *g4tx_f,double *g4ty_f,double *g4tz_f,
+   double *E_rad, double *F_rad0, double *F_radx, double *F_rady, double *F_radz, double *P_rad,
+   int *rad_closure_scheme, double &rad_opacity_abs, double &rad_opacity_sct, double &rad_const,
+   double *T_fluid);
+
+extern "C" void mhd_source_z_tau_cpp(int flux_direction, const cGH *cctkGH,int *cctk_lsh, int *nghostzones, int Symmetry,
+				     int enable_HARM_energyvariable,
+				     double dX, double dY,double dZ, double *Z,
+				     double *mhd_st_x_rhs, double *mhd_st_y_rhs, double *mhd_st_z_rhs, 
+				     double *tau_rhs, double *rho_star, 
+				     double *P, double *h, double *u0, 
+				     double *vx, double *vy, double *vz,  
+				     double *sbt, double *sbx, double *sby, double *sbz, 
+				     double *alpha, double *betax, double *betay, double *betaz, 
+				     double *phi, 
+				     double *gxx, double *gxy, double *gxz, double *gyy, double *gyz, double *gzz, 
+				     double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz, 
+				     double *alpha_f, double *betax_f, double *betay_f, double *betaz_f, 
+				     double *phi_f, 				 
+				     double *gxx_f, double *gxy_f, double *gxz_f, double *gyy_f, double *gyz_f, double *gzz_f,
+				     double *g4tt,double *g4tx,double *g4ty,double *g4tz,
+				     double *g4tt_f,double *g4tx_f,double *g4ty_f,double *g4tz_f,
+				     double *E_rad, double *F_rad0, double *F_radx, double *F_rady, double *F_radz, double *P_rad,
+				     int *rad_closure_scheme, double &rad_opacity_abs, double &rad_opacity_sct, double &rad_const,
+				     double *T_fluid) {
+
+  double sfpi = sqrt(4.0*M_PI);
+
+  int AXISYM = 4;
+
+  double f1os4pi = 1.0/sqrt(4.0*M_PI);
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  //NOTE: _f variables are defined everywhere except ijkmin, depending on flux_direction
+  //     I.e., flux_direction==1 -> _f imin's are not defined
+  //   Further, the D123_o3_cpp derivatives cannot read beyond ijk=cctk_lsh[012], depending on flux_direction again.
+  int istart = 1;
+  int jstart = 1;
+  int kstart = 1;
+  int iend = cctk_lsh[0]-1;
+  int jend = cctk_lsh[1]-1;
+  int kend = cctk_lsh[2]-1;
+
+  double dxi = 1.0/dX;
+  double dyi = 1.0/dY;
+  double dzi = 1.0/dZ;
+
+  if(Symmetry==4) {
+    jstart = 0;
+    jend = cctk_lsh[1];
+    jstart++;
+    jend--;
+  }
+  
+#pragma omp parallel for
+  for(int k=0;k<cctk_lsh[2];k++) for(int j=0;j<cctk_lsh[1];j++) for(int i=0;i<cctk_lsh[0];i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    double Psi4 = exp(4.0*phi[index]);
+    double al = 1.0 + alpha[index];
+
+    double Psi4_f = exp(4.0*phi_f[index]);
+    double al_f = 1.0 + alpha_f[index];
+
+    double gxxL = gxx[index];
+    double gxyL = gxy[index];
+    double gxzL = gxz[index];
+    double gyyL = gyy[index];
+    double gyzL = gyz[index];
+    double gzzL = gzz[index];
+
+    double gxx_fL = gxx_f[index];
+    double gxy_fL = gxy_f[index];
+    double gxz_fL = gxz_f[index];
+    double gyy_fL = gyy_f[index];
+    double gyz_fL = gyz_f[index];
+    double gzz_fL = gzz_f[index];
+
+    double betaxL = betax[index];
+    double betayL = betay[index];
+    double betazL = betaz[index];
+
+    double betax_fL = betax_f[index];
+    double betay_fL = betay_f[index];
+    double betaz_fL = betaz_f[index];
+    //----------------------------------------------------------------------------
+    // Compute the 4-metric, converting gij's from conformal to physical 
+    //----------------------------------------------------------------------------
+    g4tt[index] = -SQR(al) + Psi4*(gxxL*SQR(betaxL) + 2.0*gxyL*betaxL*betayL + 2.0*gxzL*betaxL*betazL + 
+				   gyyL*SQR(betayL) + 2.0*gyzL*betayL*betazL + gzzL*SQR(betazL));
+    g4tx[index] = Psi4*(gxxL*betaxL + gxyL*betayL + gxzL*betazL);
+    g4ty[index] = Psi4*(gxyL*betaxL + gyyL*betayL + gyzL*betazL);
+    g4tz[index] = Psi4*(gxzL*betaxL + gyzL*betayL + gzzL*betazL);
+    gxx[index] = Psi4*gxxL;
+    gxy[index] = Psi4*gxyL;
+    gxz[index] = Psi4*gxzL;
+    gyy[index] = Psi4*gyyL;
+    gyz[index] = Psi4*gyzL;
+    gzz[index] = Psi4*gzzL;
+
+    g4tt_f[index] = -SQR(al_f) + Psi4_f*(gxx_fL*SQR(betax_fL) + 2.0*gxy_fL*betax_fL*betay_fL + 2.0*gxz_fL*betax_fL*betaz_fL + 
+					 gyy_fL*SQR(betay_fL) + 2.0*gyz_fL*betay_fL*betaz_fL + gzz_fL*SQR(betaz_fL));
+    g4tx_f[index] = Psi4_f*(gxx_fL*betax_fL + gxy_fL*betay_fL + gxz_fL*betaz_fL);
+    g4ty_f[index] = Psi4_f*(gxy_fL*betax_fL + gyy_fL*betay_fL + gyz_fL*betaz_fL);
+    g4tz_f[index] = Psi4_f*(gxz_fL*betax_fL + gyz_fL*betay_fL + gzz_fL*betaz_fL);
+    gxx_f[index] = Psi4_f*gxx_fL;
+    gxy_f[index] = Psi4_f*gxy_fL;
+    gxz_f[index] = Psi4_f*gxz_fL;
+    gyy_f[index] = Psi4_f*gyy_fL;
+    gyz_f[index] = Psi4_f*gyz_fL;
+    gzz_f[index] = Psi4_f*gzz_fL;
+
+
+
+
+
+    //Test: compute T_fluid         
+
+
+	/**                                                   
+    double T_fluidL = T_fluid[index];
+    T_fluidL = P[index] * M_B/ rho_star[index];
+    T_fluid[index] = T_fluidL;
+    **/
+
+
+
+  }
+
+  if(flux_direction==1) {
+    //-----------------------------------------------------------------------------
+    // Compute the addition to mhd_st_x_rhs and tau_rhs
+    //-----------------------------------------------------------------------------
+#pragma omp parallel for
+    for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+      int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+      double al = 1.0 + alpha[index];
+      double al_f = 1.0 + alpha_f[index];
+      double betaxL = betax[index];
+      double betayL = betay[index];
+      double betazL = betaz[index];
+      double Psi = exp(phi[index]);
+      double Psi4 = Psi*Psi*Psi*Psi;
+      double Psim4 = 1.0/Psi4;
+      double Psi6 = Psi4*Psi*Psi;
+      double gxxL = gxx[index];
+      double gxyL = gxy[index];
+      double gxzL = gxz[index];
+      double gyyL = gyy[index];
+      double gyzL = gyz[index];
+      double gzzL = gzz[index];
+
+      double gupxxL = gupxx[index];
+      double gupxyL = gupxy[index];
+      double gupxzL = gupxz[index];
+      double gupyyL = gupyy[index];
+      double gupyzL = gupyz[index];
+      double gupzzL = gupzz[index];
+      // Divide b^{\mu} by alpha sqrt(4 pi) 
+      double sbtL = sbt[index]/al/sfpi;
+      double sbxL = sbx[index]/al/sfpi;
+      double sbyL = sby[index]/al/sfpi;
+      double sbzL = sbz[index]/al/sfpi;
+ 
+      double rho_starL = rho_star[index];
+      double u0L = u0[index];
+      double vxL = vx[index];
+      double vyL = vy[index];
+      double vzL = vz[index];
+      double hL = h[index];
+      double PL = P[index];
+
+      double E_radL = E_rad[index];
+      double P_radL;
+      if (rad_closure_scheme == 0){
+        P_radL = E_radL/3.0;
+      }
+      else{
+        P_radL = 0.0;
+      }
+
+      double F_radxL = F_radx[index];
+      double F_radyL = F_rady[index];
+      double F_radzL = F_radz[index];
+
+
+      double F_rad_xL = Psi4 * (gxxL * F_radxL + gxyL * F_radyL + gxzL * F_radzL);
+      double F_rad_yL = Psi4 * (gxyL * F_radxL + gyyL * F_radyL + gyzL * F_radzL);
+      double F_rad_zL = Psi4 * (gxzL * F_radxL + gyzL * F_radyL + gzzL * F_radzL);
+
+      double T_fluidL = T_fluid[index];
+
+
+      // Compute b^2.  Note that gij is PHYSICAL gij here, so NO Psi4 factor out front!
+      double b2 = -SQR(al*sbtL) + ( gxxL*SQR(sbxL+betaxL*sbtL) + 
+				    2.0*gxyL*(sbxL+betaxL*sbtL)*(sbyL+betayL*sbtL) + 
+				    2.0*gxzL*(sbxL+betaxL*sbtL)*(sbzL+betazL*sbtL) + 
+				    gyyL*SQR(sbyL+betayL*sbtL) + 
+				    2.0*gyzL*(sbyL+betayL*sbtL)*(sbzL+betazL*sbtL) + 
+				    gzzL*SQR(sbzL+betazL*sbtL) );
+      
+      // take derivatives of the four-metric:
+      double g4txm = D1_o3_cpp(g4tx_f,i,j,k);
+      double g4xym = D1_o3_cpp(gxy_f,i,j,k);
+      double g4xzm = D1_o3_cpp(gxz_f,i,j,k);
+      double g4tym = D1_o3_cpp(g4ty_f,i,j,k);
+      double g4yzm = D1_o3_cpp(gyz_f,i,j,k);
+      
+      double g4ttm = D1_o3_cpp(g4tt_f,i,j,k);
+      double g4tzm = D1_o3_cpp(g4tz_f,i,j,k);
+      double g4xxm = D1_o3_cpp(gxx_f,i,j,k);
+      double g4yym = D1_o3_cpp(gyy_f,i,j,k);
+      double g4zzm = D1_o3_cpp(gzz_f,i,j,k);
+
+      double u_xL = (gxxL*(betaxL+vxL) +
+                     gxyL*(betayL+vyL) +
+                     gxzL*(betazL+vzL))*Psi4*u0L;
+
+
+      double mhd_st_x_rhsL = mhd_st_x_rhs[index];
+
+
+      // add \sqrt{-g}/2 * T^{00}\partial_x g_{00}
+      mhd_st_x_rhsL += 0.5*( rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L) 
+			     - Psi6/al*(PL+0.5*b2) -al*Psi6*SQR(sbtL))*g4ttm;
+
+      //if(i==1 && j==1 && k==1) printf("gggg00 %.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\n",gxx_f[index],gxy_f[index],gxz_f[index],gyz_f[index],gyz_f[index],gzz_f[index]);
+
+      /*if(i==1 && j==1 && k==1) printf("gggg0 %.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\n",
+	mhd_st_x_rhsL,g4ttm,rho_starL,hL,u0L,al,Psi6,b2,u0L,PL,sbtL);*/
+      
+      // add \sqrt{-g} * T^{0i}\partial_x g_{0i} 
+      mhd_st_x_rhsL += ( rho_starL*hL*u0L*vxL + al*Psi6*b2*vxL*SQR(u0L) +  
+			 Psi6*betaxL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbxL)*g4txm + 
+        (rho_starL*hL*u0L*vyL + al*Psi6*b2*vyL*SQR(u0L) + 
+         Psi6*betayL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbyL)*g4tym + 
+        (rho_starL*hL*u0L*vzL + al*Psi6*b2*vzL*SQR(u0L) + 
+	 Psi6*betazL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbzL)*g4tzm;
+
+      //if(i==1 && j==1 && k==1) printf("gggg1 %.15e\n",mhd_st_x_rhsL);
+      
+      // add \sqrt{-g}/2 * T^{ij}\partial_x g_{ij}
+      mhd_st_x_rhsL += 0.5*(rho_starL*hL*u0L*vxL*vxL + al*Psi6*b2*SQR(vxL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupxxL*Psim4 - SQR(betaxL)*Psi6/al) 
+			    - al*Psi6*SQR(sbxL))*g4xxm;
+      mhd_st_x_rhsL += (rho_starL*hL*u0L*vxL*vyL + al*Psi6*b2*vxL*vyL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupxyL*Psim4 - betaxL*betayL*Psi6/al) 
+			- al*Psi6*sbxL*sbyL)*g4xym;
+      mhd_st_x_rhsL += (rho_starL*hL*u0L*vxL*vzL + al*Psi6*b2*vxL*vzL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupxzL*Psim4 - betaxL*betazL*Psi6/al) 
+			- al*Psi6*sbxL*sbzL)*g4xzm;
+      mhd_st_x_rhsL += 0.5*(rho_starL*hL*u0L*vyL*vyL + al*Psi6*b2*SQR(vyL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupyyL*Psim4 - SQR(betayL)*Psi6/al) 
+			    - al*Psi6*SQR(sbyL))*g4yym;
+      mhd_st_x_rhsL += (rho_starL*hL*u0L*vyL*vzL + al*Psi6*b2*vyL*vzL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupyzL*Psim4 - betayL*betazL*Psi6/al)  
+			- al*Psi6*sbyL*sbzL)*g4yzm;
+      mhd_st_x_rhsL += 0.5*(rho_starL*hL*u0L*vzL*vzL + al*Psi6*b2*SQR(vzL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupzzL*Psim4 - SQR(betazL)*Psi6/al)  
+			    - al*Psi6*SQR(sbzL))*g4zzm;
+      //if(i==1 && j==1 && k==1) printf("gggg2 %.15e\n",mhd_st_x_rhsL);
+
+      // Add radiation part of RHS (\sqrt{-g}*G_i = \sqrt{-g}*rho_star/(u^0*\sqrt{-g})*(opacity_abs*(E_rad - 4\pi*B)*u_x + (opacity_abs+opacity_sct)*F_rad_x)    ;
+      //printf ("TEST:rad_opacity_abs = %e, rad_opacity_sct = %e, rad_const = %e", rad_opacity_abs, rad_opacity_sct, rad_const);
+      mhd_st_x_rhsL += rho_starL/u0L* (rad_opacity_abs*(E_radL-rad_const*SQR(T_fluidL)*SQR(T_fluidL))*u_xL + 
+     				       (rad_opacity_abs+rad_opacity_sct)*F_rad_xL);
+
+
+      mhd_st_x_rhs[index] = mhd_st_x_rhsL;
+      
+      // add -\sqrt{-g} * (T^{00} \betaxL + T^{0x})\partial_x alpha to tau_rhs
+      // Note that in general, we would need to add time derivative terms of the metric to tau_rhs with the HARM energy variable.
+      //  However, the only time we set enable_HARM_energyvariable=1 is with a Cowling (usually disk) run.
+      if(enable_HARM_energyvariable==0) {
+	double alphax_f = D1_o3_cpp(alpha_f,i,j,k);
+
+	/*
+	tau_rhs[index] += - ( (rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L)
+			       - Psi6/al*(PL+0.5*b2) - al*Psi6*SQR(sbtL))*betaxL + 
+			      rho_starL*hL*u0L*vxL + al*Psi6*b2*vxL*SQR(u0L) - al*Psi6*sbtL*sbxL )*alphax_f;
+	*/
+
+	tau_rhs[index] += - ( (rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L)
+			       - Psi6/al*(PL+0.5*b2) - al*Psi6*SQR(sbtL))*betaxL 
+			      + rho_starL*hL*u0L*vxL + al*Psi6*b2*vxL*SQR(u0L) - al*Psi6*sbtL*sbxL )*alphax_f;
+	if(isnan(tau_rhs[index])){
+          printf("tau_rhs is nan found!!!! checkpoint 1!!!! rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct, F_rad0L= %e, %e, %e, %e, %e", rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct);
+            }
+
+      }
+    }
+  } else if(flux_direction==2 && Symmetry != AXISYM) {
+    //-----------------------------------------------------------------------------
+    // Compute the addition to mhd_st_y_rhs and tau_rhs
+    //-----------------------------------------------------------------------------
+#pragma omp parallel for
+    for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+      int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+      double al = 1.0 + alpha[index];
+      double al_f = 1.0 + alpha_f[index];
+      double betaxL = betax[index];
+      double betayL = betay[index];
+      double betazL = betaz[index];
+      double Psi = exp(phi[index]);
+      double Psi4 = Psi*Psi*Psi*Psi;
+      double Psim4 = 1.0/Psi4;
+      double Psi6 = Psi4*Psi*Psi;
+      double gxxL = gxx[index];
+      double gxyL = gxy[index];
+      double gxzL = gxz[index];
+      double gyyL = gyy[index];
+      double gyzL = gyz[index];
+      double gzzL = gzz[index];
+
+      double gupxxL = gupxx[index];
+      double gupxyL = gupxy[index];
+      double gupxzL = gupxz[index];
+      double gupyyL = gupyy[index];
+      double gupyzL = gupyz[index];
+      double gupzzL = gupzz[index];
+      // Divide b^{\mu} by alpha sqrt(4 pi) 
+      double sbtL = sbt[index]/al/sfpi;
+      double sbxL = sbx[index]/al/sfpi;
+      double sbyL = sby[index]/al/sfpi;
+      double sbzL = sbz[index]/al/sfpi;
+
+      double rho_starL = rho_star[index];
+      double u0L = u0[index];
+      double vxL = vx[index];
+      double vyL = vy[index];
+      double vzL = vz[index];
+      double hL = h[index];
+      double PL = P[index];
+
+      double E_radL = E_rad[index];
+      double P_radL;
+      if (rad_closure_scheme == 0){
+        P_radL = E_radL/3.0;
+      }
+      else{
+        P_radL = 0.0;
+      }
+     
+      double F_radxL = F_radx[index];
+      double F_radyL = F_rady[index];
+      double F_radzL = F_radz[index];
+
+      double F_rad_xL = Psi4 * (gxxL * F_radxL + gxyL * F_radyL + gxzL * F_radzL);
+      double F_rad_yL = Psi4 * (gxyL * F_radxL + gyyL * F_radyL + gyzL * F_radzL);
+      double F_rad_zL = Psi4 * (gxzL * F_radxL + gyzL * F_radyL + gzzL * F_radzL);
+
+      double T_fluidL = T_fluid[index];
+
+      // Compute b^2.  Note that gij is PHYSICAL gij here, so NO Psi4 factor out front!
+      double b2 = -SQR(al*sbtL) + ( gxxL*SQR(sbxL+betaxL*sbtL) + 
+				    2.0*gxyL*(sbxL+betaxL*sbtL)*(sbyL+betayL*sbtL) + 
+				    2.0*gxzL*(sbxL+betaxL*sbtL)*(sbzL+betazL*sbtL) + 
+				    gyyL*SQR(sbyL+betayL*sbtL) + 
+				    2.0*gyzL*(sbyL+betayL*sbtL)*(sbzL+betazL*sbtL) + 
+				    gzzL*SQR(sbzL+betazL*sbtL) );
+      //-----------------------------------------------------------------------------
+      // Compute the addition to mhd_st_x_rhs and tau_rhs
+      //-----------------------------------------------------------------------------
+      
+      // take derivatives of the four-metric:
+      double g4txm = D2_o3_cpp(g4tx_f,i,j,k);
+      double g4xym = D2_o3_cpp(gxy_f,i,j,k);
+      double g4xzm = D2_o3_cpp(gxz_f,i,j,k);
+      double g4tym = D2_o3_cpp(g4ty_f,i,j,k);
+      double g4yzm = D2_o3_cpp(gyz_f,i,j,k);
+      
+      double g4ttm = D2_o3_cpp(g4tt_f,i,j,k);
+      double g4tzm = D2_o3_cpp(g4tz_f,i,j,k);
+      double g4xxm = D2_o3_cpp(gxx_f,i,j,k);
+      double g4yym = D2_o3_cpp(gyy_f,i,j,k);
+      double g4zzm = D2_o3_cpp(gzz_f,i,j,k);
+
+      double u_yL = (gxyL*(betaxL+vxL) + 
+		     gyyL*(betayL+vyL) + 
+		     gyzL*(betazL+vzL))*Psi4*u0L;
+
+      double mhd_st_y_rhsL = mhd_st_y_rhs[index];
+
+
+
+      // add \sqrt{-g}/2 * T^{00}\partial_y g_{00}
+      mhd_st_y_rhsL += 0.5*( rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L) 
+			     - Psi6/al*(PL+0.5*b2) -al*Psi6*SQR(sbtL))*g4ttm;
+
+      // add \sqrt{-g} * T^{0i}\partial_y g_{0i} 
+      mhd_st_y_rhsL += ( rho_starL*hL*u0L*vxL + al*Psi6*b2*vxL*SQR(u0L) + 
+			 Psi6*betaxL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbxL)*g4txm + 
+	(rho_starL*hL*u0L*vyL + al*Psi6*b2*vyL*SQR(u0L) + 
+	 Psi6*betayL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbyL)*g4tym + 
+	(rho_starL*hL*u0L*vzL + al*Psi6*b2*vzL*SQR(u0L) + 
+	 Psi6*betazL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbzL)*g4tzm;
+      
+      // add \sqrt{-g}/2 * T^{ij}\partial_y g_{ij}
+      mhd_st_y_rhsL += 0.5*(rho_starL*hL*u0L*vxL*vxL + al*Psi6*b2*SQR(vxL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupxxL*Psim4 - SQR(betaxL)*Psi6/al) 
+			    - al*Psi6*SQR(sbxL))*g4xxm;
+      mhd_st_y_rhsL += (rho_starL*hL*u0L*vxL*vyL + al*Psi6*b2*vxL*vyL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupxyL*Psim4 - betaxL*betayL*Psi6/al) 
+			- al*Psi6*sbxL*sbyL)*g4xym;
+      mhd_st_y_rhsL += (rho_starL*hL*u0L*vxL*vzL + al*Psi6*b2*vxL*vzL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupxzL*Psim4 - betaxL*betazL*Psi6/al) 
+			- al*Psi6*sbxL*sbzL)*g4xzm;
+      mhd_st_y_rhsL += 0.5*(rho_starL*hL*u0L*vyL*vyL + al*Psi6*b2*SQR(vyL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupyyL*Psim4 - SQR(betayL)*Psi6/al) 
+			    - al*Psi6*SQR(sbyL))*g4yym;
+      mhd_st_y_rhsL += (rho_starL*hL*u0L*vyL*vzL + al*Psi6*b2*vyL*vzL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupyzL*Psim4 - betayL*betazL*Psi6/al) 
+			- al*Psi6*sbyL*sbzL)*g4yzm;
+      mhd_st_y_rhsL += 0.5*(rho_starL*hL*u0L*vzL*vzL + al*Psi6*b2*SQR(vzL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupzzL*Psim4 - SQR(betazL)*Psi6/al) 
+			    - al*Psi6*SQR(sbzL))*g4zzm;
+
+
+      // Add radiation part of RHS;        
+      mhd_st_y_rhsL += rho_starL/u0L* (rad_opacity_abs*(E_radL-rad_const*SQR(T_fluidL)*SQR(T_fluidL))*u_yL +
+      		       (rad_opacity_abs+rad_opacity_sct)*F_rad_yL);
+
+      
+      mhd_st_y_rhs[index] = mhd_st_y_rhsL;
+
+      // add -\sqrt{-g} * (T^{00} \betayL + T^{0y})\partial_y alpha to tau_rhs
+      // Note that in general, we would need to add time derivative terms of the metric to tau_rhs with the HARM energy variable.
+      //  However, the only time we set enable_HARM_energyvariable=1 is with a Cowling (usually disk) run.
+      if(enable_HARM_energyvariable==0) {
+	double alphay_f = D2_o3_cpp(alpha_f,i,j,k);
+        tau_rhs[index] += - ( (rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L)
+			       - Psi6/al*(PL+0.5*b2) - al*Psi6*SQR(sbtL))*betayL +
+                              rho_starL*hL*u0L*vyL + al*Psi6*b2*vyL*SQR(u0L) - al*Psi6*sbtL*sbyL )*alphay_f;
+	/*
+	tau_rhs[index] += - ( (rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L) 
+			       - Psi6/al*(PL+0.5*b2) - al*Psi6*SQR(sbtL))*betayL + 
+			      rho_starL*hL*u0L*vyL + al*Psi6*b2*vyL*SQR(u0L) - al*Psi6*sbtL*sbyL )*alphay_f;
+	*/      
+
+        if(isnan(tau_rhs[index])){
+          printf("tau_rhs is nan found!!!! checkpoint 2!!!! rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct, F_rad0L= %e, %e, %e, %e, %e", rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct);
+            }
+
+
+      }
+    }
+  } else if(flux_direction==3) {
+    //-----------------------------------------------------------------------------
+    // Compute the addition to mhd_st_z_rhs and tau_rhs
+    //-----------------------------------------------------------------------------
+#pragma omp parallel for
+    for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+      int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+      double al = 1.0 + alpha[index];
+      double al_f = 1.0 + alpha_f[index];
+      double betaxL = betax[index];
+      double betayL = betay[index];
+      double betazL = betaz[index];
+      double Psi = exp(phi[index]);
+      double Psi4 = Psi*Psi*Psi*Psi;
+      double Psim4 = 1.0/Psi4;
+      double Psi6 = Psi4*Psi*Psi;
+      double gxxL = gxx[index];
+      double gxyL = gxy[index];
+      double gxzL = gxz[index];
+      double gyyL = gyy[index];
+      double gyzL = gyz[index];
+      double gzzL = gzz[index];
+
+      double gupxxL = gupxx[index];
+      double gupxyL = gupxy[index];
+      double gupxzL = gupxz[index];
+      double gupyyL = gupyy[index];
+      double gupyzL = gupyz[index];
+      double gupzzL = gupzz[index];
+      // Divide b^{\mu} by alpha sqrt(4 pi) 
+      double sbtL = sbt[index]/al/sfpi;
+      double sbxL = sbx[index]/al/sfpi;
+      double sbyL = sby[index]/al/sfpi;
+      double sbzL = sbz[index]/al/sfpi;
+
+      double rho_starL = rho_star[index];
+      double u0L = u0[index];
+      double vxL = vx[index];
+      double vyL = vy[index];
+      double vzL = vz[index];
+      double hL = h[index];
+      double PL = P[index];
+
+      double E_radL = E_rad[index];
+      double P_radL;
+      if (rad_closure_scheme == 0){
+        P_radL = E_radL/3.0;
+      }
+      else{
+        P_radL = 0.0;
+      }
+
+      double F_radxL = F_radx[index];
+      double F_radyL = F_rady[index];
+      double F_radzL = F_radz[index];
+
+      double F_rad_xL = Psi4 * (gxxL * F_radxL + gxyL * F_radyL + gxzL * F_radzL);
+      double F_rad_yL = Psi4 * (gxyL * F_radxL + gyyL * F_radyL + gyzL * F_radzL);
+      double F_rad_zL = Psi4 * (gxzL * F_radxL + gyzL * F_radyL + gzzL * F_radzL);
+
+      double T_fluidL = T_fluid[index];
+
+      // Compute b^2.  Note that gij is PHYSICAL gij here, so NO Psi4 factor out front!
+      double b2 = -SQR(al*sbtL) + ( gxxL*SQR(sbxL+betaxL*sbtL) + 
+				    2.0*gxyL*(sbxL+betaxL*sbtL)*(sbyL+betayL*sbtL) + 
+				    2.0*gxzL*(sbxL+betaxL*sbtL)*(sbzL+betazL*sbtL) + 
+				    gyyL*SQR(sbyL+betayL*sbtL) + 
+				    2.0*gyzL*(sbyL+betayL*sbtL)*(sbzL+betazL*sbtL) + 
+				    gzzL*SQR(sbzL+betazL*sbtL) );
+      
+      // take derivatives of the four-metric:
+      double g4txm = D3_o3_cpp(g4tx_f,i,j,k);
+      double g4xym = D3_o3_cpp(gxy_f,i,j,k);
+      double g4xzm = D3_o3_cpp(gxz_f,i,j,k);
+      double g4tym = D3_o3_cpp(g4ty_f,i,j,k);
+      double g4yzm = D3_o3_cpp(gyz_f,i,j,k);
+      
+      double g4ttm = D3_o3_cpp(g4tt_f,i,j,k);
+      double g4tzm = D3_o3_cpp(g4tz_f,i,j,k);
+      double g4xxm = D3_o3_cpp(gxx_f,i,j,k);
+      double g4yym = D3_o3_cpp(gyy_f,i,j,k);
+      double g4zzm = D3_o3_cpp(gzz_f,i,j,k);
+
+      double u_zL = (gxzL*(betaxL+vxL) +
+                     gxzL*(betayL+vyL) +
+                     gzzL*(betazL+vzL))*Psi4*u0L;
+
+
+      double mhd_st_z_rhsL = mhd_st_z_rhs[index];
+      
+      // add \sqrt{-g}/2 * T^{00}\partial_z g_{00}
+      mhd_st_z_rhsL += 0.5*( rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L) 
+			     - Psi6/al*(PL+0.5*b2) -al*Psi6*SQR(sbtL))*g4ttm;
+
+      // add \sqrt{-g} * T^{0i}\partial_z g_{0i} 
+      mhd_st_z_rhsL += ( rho_starL*hL*u0L*vxL + al*Psi6*b2*vxL*SQR(u0L) + 
+			 Psi6*betaxL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbxL)*g4txm + 
+	(rho_starL*hL*u0L*vyL + al*Psi6*b2*vyL*SQR(u0L) + 
+	 Psi6*betayL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbyL)*g4tym + 
+	(rho_starL*hL*u0L*vzL + al*Psi6*b2*vzL*SQR(u0L) + 
+	 Psi6*betazL/al*(PL+0.5*b2) - al*Psi6*sbtL*sbzL)*g4tzm;
+
+      // add \sqrt{-g}/2 * T^{ij}\partial_z g_{ij}
+      mhd_st_z_rhsL += 0.5*(rho_starL*hL*u0L*vxL*vxL + al*Psi6*b2*SQR(vxL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupxxL*Psim4 - SQR(betaxL)*Psi6/al) 
+			    - al*Psi6*SQR(sbxL))*g4xxm;
+      mhd_st_z_rhsL += (rho_starL*hL*u0L*vxL*vyL + al*Psi6*b2*vxL*vyL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupxyL*Psim4 - betaxL*betayL*Psi6/al) 
+			- al*Psi6*sbxL*sbyL)*g4xym;
+      mhd_st_z_rhsL += (rho_starL*hL*u0L*vxL*vzL + al*Psi6*b2*vxL*vzL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupxzL*Psim4 - betaxL*betazL*Psi6/al) 
+			- al*Psi6*sbxL*sbzL)*g4xzm;
+      mhd_st_z_rhsL += 0.5*(rho_starL*hL*u0L*vyL*vyL + al*Psi6*b2*SQR(vyL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupyyL*Psim4 - SQR(betayL)*Psi6/al) 
+			    - al*Psi6*SQR(sbyL))*g4yym;
+      mhd_st_z_rhsL += (rho_starL*hL*u0L*vyL*vzL + al*Psi6*b2*vyL*vzL*SQR(u0L) + 
+			(PL+0.5*b2)*(al*Psi6*gupyzL*Psim4 - betayL*betazL*Psi6/al) 
+			- al*Psi6*sbyL*sbzL)*g4yzm;
+      mhd_st_z_rhsL += 0.5*(rho_starL*hL*u0L*vzL*vzL + al*Psi6*b2*SQR(vzL*u0L) + 
+			    (PL+0.5*b2)*(al*Psi6*gupzzL*Psim4 - SQR(betazL)*Psi6/al) 
+			    - al*Psi6*SQR(sbzL))*g4zzm;
+
+      // Add radiation part of RHS;      
+      mhd_st_z_rhsL += rho_starL/u0L* (rad_opacity_abs*(E_radL-rad_const*SQR(T_fluidL)*SQR(T_fluidL))*u_zL +
+                              (rad_opacity_abs+rad_opacity_sct)*F_rad_zL);
+
+      mhd_st_z_rhs[index] = mhd_st_z_rhsL;
+
+      // add -\sqrt{-g} * (T^{00} \betazL + T^{0z})\partial_z alpha to tau_rhs
+      // Note that in general, we would need to add time derivative terms of the metric to tau_rhs with the HARM energy variable.
+      //  However, the only time we set enable_HARM_energyvariable=1 is with a Cowling (usually disk) run.
+      if(enable_HARM_energyvariable==0) {
+	double alphaz_f = D3_o3_cpp(alpha_f,i,j,k);
+	tau_rhs[index] += - ( (rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L) 
+			       - Psi6/al*(PL+0.5*b2) - al*Psi6*SQR(sbtL))*betazL + 
+			      rho_starL*hL*u0L*vzL + al*Psi6*b2*vzL*SQR(u0L) - al*Psi6*sbtL*sbzL )*alphaz_f;
+	/*
+        tau_rhs[index] += - ( (rho_starL*hL*u0L + al*Psi6*b2*SQR(u0L)
+                               - Psi6/al*(PL+0.5*b2) - al*Psi6*SQR(sbtL))*betazL +
+                              rho_starL*hL*u0L*vzL + al*Psi6*b2*vzL*SQR(u0L) - al*Psi6*sbtL*sbzL )*alphaz_f;
+	*/
+	if(isnan(tau_rhs[index])){
+          printf("tau_rhs is nan found!!!! checkpoint 3!!!! rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct, F_rad0L= %e, %e, %e, %e, %e", rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct);
+	    }
+
+
+      }
+    }
+  }
+
+
+  //Finally, add the scalar radiation term on tau_rhs (alpha * (rho_star/u^0) * (opacity_abs*(E-4pi*B)*u^0 +  (opacity_abs + opacity_sct)*F^0)   );
+#pragma omp parallel for
+  for(int k=0;k<cctk_lsh[2];k++) for(int j=0;j<cctk_lsh[1];j++) for(int i=0;i<cctk_lsh[0];i++) {
+	int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+	double al = 1.0 + alpha[index];
+	double rho_starL = rho_star[index];
+	double E_radL = E_rad[index];
+	double u0L = u0[index];
+	double F_rad0L = F_rad0[index];
+	double T_fluidL = T_fluid[index];
+	
+	tau_rhs[index] += al*rho_starL/u0L*(rad_opacity_abs*(E_radL-rad_const*SQR(T_fluidL)*SQR(T_fluidL)) + 
+					    (rad_opacity_abs+rad_opacity_sct)*F_rad0L);
+
+      
+	if(isnan(tau_rhs[index]){
+	  printf("tau_rhs is nan found!!!! checkpoint 4!!!! rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct, F_rad0L= %e, %e, %e, %e, %e \n", rad_opacity_abs, E_radL, rad_const, T_fluidL, rad_opacity_sct);
+	}
+
+      }
+
+
+  //----------------------------------------------------------------------------
+  // Convert 3-metric back to conformal from physical
+  //----------------------------------------------------------------------------
+     
+#pragma omp parallel for
+  for(int k=0;k<cctk_lsh[2];k++) for(int j=0;j<cctk_lsh[1];j++) for(int i=0;i<cctk_lsh[0];i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    double Psim4 = exp(-4.0*phi[index]);
+    double Psim4_f = exp(-4.0*phi_f[index]);
+
+    gxx[index] *= Psim4;
+    gxy[index] *= Psim4;
+    gxz[index] *= Psim4;
+    gyy[index] *= Psim4;
+    gyz[index] *= Psim4;
+    gzz[index] *= Psim4;
+
+    gxx_f[index] *= Psim4_f;
+    gxy_f[index] *= Psim4_f;
+    gxz_f[index] *= Psim4_f;
+    gyy_f[index] *= Psim4_f;
+    gyz_f[index] *= Psim4_f;
+    gzz_f[index] *= Psim4_f;
+      }
+
+
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(mhd_source_z_tau_cpp)
+  (int *flux_direction, const cGH **cctkGH,int *cctk_lsh, int *nghostzones, int *Symmetry,
+   int *enable_HARM_energyvariable,
+   double *dX, double *dY,double *dZ, double *Z,
+   double *mhd_st_x_rhs, double *mhd_st_y_rhs, double *mhd_st_z_rhs, 
+   double *tau_rhs, double *rho_star, 
+   double *P, double *h, double *u0, 
+   double *vx, double *vy, double *vz,  
+   double *sbt, double *sbx, double *sby, double *sbz, 
+   double *alpha, double *betax, double *betay, double *betaz, 
+   double *phi, 
+   double *gxx, double *gxy, double *gxz, double *gyy, double *gyz, double *gzz, 
+   double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz, 
+   double *alpha_f, double *betax_f, double *betay_f, double *betaz_f, 
+   double *phi_f, 				 
+   double *gxx_f, double *gxy_f, double *gxz_f, double *gyy_f, double *gyz_f, double *gzz_f,
+   double *g4tt,double *g4tx,double *g4ty,double *g4tz,
+   double *g4tt_f,double *g4tx_f,double *g4ty_f,double *g4tz_f,
+   double *E_rad, double *F_rad0, double *F_radx, double *F_rady, double *F_radz, double *P_rad,
+   int *rad_closure_scheme, double &rad_opacity_abs, double &rad_opacity_sct, double &rad_const,
+   double *T_fluid) 
+{
+  mhd_source_z_tau_cpp(*flux_direction, *cctkGH,cctk_lsh,nghostzones,*Symmetry,
+		       *enable_HARM_energyvariable,
+		       *dX, *dY,*dZ, Z,
+		       mhd_st_x_rhs, mhd_st_y_rhs, mhd_st_z_rhs, 
+		       tau_rhs, rho_star, 
+		       P, h, u0, 
+		       vx, vy, vz,  
+		       sbt, sbx, sby, sbz, 
+		       alpha, betax, betay, betaz, 
+		       phi, 
+		       gxx, gxy, gxz, gyy, gyz, gzz, 
+		       gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, 
+		       alpha_f, betax_f, betay_f, betaz_f, 
+		       phi_f, 				 
+		       gxx_f, gxy_f, gxz_f, gyy_f, gyz_f, gzz_f,
+		       g4tt,g4tx,g4ty,g4tz,
+		       g4tt_f,g4tx_f,g4ty_f,g4tz_f,
+		       E_rad,F_rad0,F_radx,F_rady,F_radz,P_rad,
+		       rad_closure_scheme,rad_opacity_abs,rad_opacity_sct, rad_const,
+		       T_fluid);
+}

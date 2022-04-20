@@ -1,0 +1,4 @@
+# Configuration definition for thorn BSSN_MoL
+# $Header: /cactusdevcvs/CactusExamples/WaveMoL/configuration.ccl,v 1.1.1.1 2004/06/26 14:49:02 hawke Exp $
+
+REQUIRES CartGrid3D Boundary

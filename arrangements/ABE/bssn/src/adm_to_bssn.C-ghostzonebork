@@ -1,0 +1,135 @@
+#include "cctk.h"
+#include "math.h"
+
+#define F1o3 0.3333333333333333333333333333
+#define F1o12 0.0833333333333333333333333333
+
+#define SQR(x) ((x) * (x))
+
+#define KRANC_C
+#define FD_C2
+#include "GenericFD.h"
+
+
+extern "C" void CCTK_FCALL CCTK_FNAME(convert_cpp)
+  (const cGH **cctkGH,int *cctk_lsh,double *phi,
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz);
+
+extern "C" void CCTK_FCALL CCTK_FNAME(setgamma_cpp)
+  (const cGH **cctkGH,int *cctk_lsh, 
+   double *dx,double *dy,double *dz,
+   double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz, 
+   double *Gammax, double *Gammay, double *Gammaz);
+
+
+//-----------------------------------------------------------------------------
+// convert physical to tilde metric, compute phi, and invert metric
+//-----------------------------------------------------------------------------
+extern "C" void convert_cpp(const cGH *cctkGH,int *cctk_lsh,double *phi,
+			    double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+			    double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz) {
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart,jstart,kstart;
+  istart=jstart=kstart=0;
+  int iend = cctk_lsh[0];
+  int jend = cctk_lsh[1];
+  int kend = cctk_lsh[2];
+
+  for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    
+    double gxxL = gxx[index];
+    double gxyL = gxy[index];
+    double gxzL = gxz[index];
+    double gyyL = gyy[index];
+    double gyzL = gyz[index];
+    double gzzL = gzz[index];
+
+    // compute and check determinant
+    double det =  gxxL * gyyL * gzzL + gxyL * gyzL * gxzL + gxzL * gxyL * gyzL 
+      - gxzL * gyyL * gxzL - gxyL * gxyL * gzzL - gxxL * gyzL * gyzL;
+
+    // determine phi
+
+    phi[index] = F1o12 * log(det);
+
+    double det_to_them1o3 = pow(det,-F1o3);
+    // divide metric by determinant
+    gxxL = gxxL*det_to_them1o3;
+    gxyL = gxyL*det_to_them1o3;
+    gxzL = gxzL*det_to_them1o3;
+    gyyL = gyyL*det_to_them1o3;
+    gyzL = gyzL*det_to_them1o3;
+    gzzL = gzzL*det_to_them1o3;
+
+    // Invert metric...
+    //
+    gupxx[index] =   ( gyyL * gzzL - gyzL * gyzL );// / det
+    gupxy[index] = - ( gxyL * gzzL - gyzL * gxzL );// / det
+    gupxz[index] =   ( gxyL * gyzL - gyyL * gxzL );// / det
+    gupyy[index] =   ( gxxL * gzzL - gxzL * gxzL );// / det
+    gupyz[index] = - ( gxxL * gyzL - gxyL * gxzL );// / det
+    gupzz[index] =   ( gxxL * gyyL - gxyL * gxyL );// / det
+
+    gxx[index] = gxxL;
+    gxy[index] = gxyL;
+    gxz[index] = gxzL;
+    gyy[index] = gyyL;
+    gyz[index] = gyzL;
+    gzz[index] = gzzL;
+
+  }
+}
+
+//-----------------------------------------------------------------------------
+// Set Gamma^i's
+//-----------------------------------------------------------------------------
+extern "C" void setgamma_cpp(const cGH *cctkGH,int *cctk_lsh, 
+			 double dx,double dy,double dz,
+			 double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz, 
+			 double *Gammax, double *Gammay, double *Gammaz) {
+  /* Initialise finite differencing variables.  NEED THIS FOR GenericFD.h */
+#include "../../GenFD_decl_set_varCPP.h"
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart = 1;
+  int jstart = 1;
+  int kstart = 1;
+  int iend = cctk_lsh[0] - 1;
+  int jend = cctk_lsh[1] - 1;
+  int kend = cctk_lsh[2] - 1;
+
+  for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    Gammax[index] = -(D1gf(gupxx,i,j,k) + D2gf(gupxy,i,j,k) + D3gf(gupxz,i,j,k));
+    Gammay[index] = -(D1gf(gupxy,i,j,k) + D2gf(gupyy,i,j,k) + D3gf(gupyz,i,j,k));
+    Gammaz[index] = -(D1gf(gupxz,i,j,k) + D2gf(gupyz,i,j,k) + D3gf(gupzz,i,j,k));
+  }    
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(convert_cpp)
+  (const cGH **cctkGH,int *cctk_lsh,double *phi,
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz)
+{
+  convert_cpp(*cctkGH,cctk_lsh,phi,
+	      gxx,gxy,gxz,gyy,gyz,gzz,
+	      gupxx,gupxy,gupxz,gupyy,gupyz,gupzz);
+}
+
+
+
+extern "C" void CCTK_FCALL CCTK_FNAME(setgamma_cpp)
+  (const cGH **cctkGH,int *cctk_lsh, 
+   double *dx,double *dy,double *dz,
+   double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz, 
+   double *Gammax, double *Gammay, double *Gammaz)
+{
+  setgamma_cpp(*cctkGH,cctk_lsh, 
+	   *dx,*dy,*dz,
+	   gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, 
+	   Gammax, Gammay, Gammaz);
+}
+

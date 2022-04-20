@@ -1,0 +1,28 @@
+
+
+    // Check that the metric is conformally flat
+    
+    double eps = 1.e-12;
+    for(int k=0;k<nz;k++){
+      for(int j=0;j<ny;j++){
+	for(int i=0;i<nx;i++){
+	  int ind = CCTK_GFINDEX3D(cctkGH,i,j,k);
+	  double psi4 = psi[ind]*psi[ind]*psi[ind]*psi[ind];
+	  double g_xx = gxx[ind]/psi4;
+	  double g_xy = gxy[ind]/psi4;
+	  double g_xz = gxz[ind]/psi4;
+	  double g_yy = gyy[ind]/psi4;
+	  double g_yz = gyz[ind]/psi4;
+	  double g_zz = gzz[ind]/psi4;
+	  
+
+	  if ( fabs(g_xx-1.) > eps && fabs(g_xy-1.) > eps && fabs(g_xz-1.) > eps && fabs(g_yy-1.) > eps && fabs(g_yz-1.) > eps && fabs(g_zz-1.) > eps){
+	    printf("Stopping: metric is not conformally flat\n");
+	    exit(1);
+	  }
+
+	}
+      }
+    }
+
+    printf("Cocal: done with metric\n");

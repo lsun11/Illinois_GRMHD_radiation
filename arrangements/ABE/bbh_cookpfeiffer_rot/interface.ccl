@@ -1,0 +1,47 @@
+# Interface definition for thorn bbh_cookpfeiffer_rot
+# $Header:$
+
+implements: bbh_cookpfeiffer_rot
+
+inherits: grid
+
+# FOLLOWING LINE IS FOR MOVING REFINEMENT BOXES
+inherits: CarpetRegrid2 SphericalSurface
+
+#TESTING
+inherits: SpaceMask
+
+friend: bssn
+friend: shift
+friend: lapse
+friend: diagnostics_vacuum
+friend: gw_extraction
+friend: fisheye
+
+USES INCLUDE: Symmetry.h
+
+protected:
+
+private:
+
+###########################################################################
+# Following needed for setting the original of BH and radii of AH from ahfinderdirect
+
+CCTK_INT FUNCTION HorizonWasFound(CCTK_INT IN horizon_number)
+REQUIRES FUNCTION HorizonWasFound
+
+CCTK_INT FUNCTION HorizonLocalCoordinateOrigin                          \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_REAL OUT origin_x, CCTK_REAL OUT origin_y, CCTK_REAL OUT origin_z)
+REQUIRES FUNCTION HorizonLocalCoordinateOrigin
+
+CCTK_INT FUNCTION HorizonRadiusInDirection                              \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_INT IN N_points,                                               \
+    CCTK_REAL IN ARRAY x, CCTK_REAL IN ARRAY y, CCTK_REAL IN ARRAY z,   \
+    CCTK_REAL OUT ARRAY radius)
+REQUIRES FUNCTION HorizonRadiusInDirection
+
+###########################################################################
+
+

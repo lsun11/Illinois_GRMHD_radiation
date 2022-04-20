@@ -1,0 +1,71 @@
+# Interface definition for thorn OS_toy
+
+implements: OS_toy
+inherits: grid
+
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+
+USES INCLUDE: Symmetry.h
+USES INCLUDE: Cartoon2D.h
+
+protected:
+
+private:
+REAL mhd_OS_VolInt TYPE=scalar
+{
+  OS_restmass_VolInt
+} "volume integrals"
+
+cctk_real mhd_OS_private type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+ OS_rest_mass_integrand
+} "rest-mass integrand"
+
+
+REAL OS_center_diagnostics TYPE=scalar
+{
+  tau_center_OS
+} "variables necessary to compute quantities at the origin"
+
+cctk_real analytic type = GF
+{
+ rho_b_analytic
+} "analytic stuff"
+
+
+REAL particle_tracer_coord TYPE ARRAY DISTRIB=CONSTANT DIM=2 SIZE=narr,4
+{
+coord, slope, coordt, slopet, slopem
+}"particle tracers"
+
+cctk_real v_previous type=GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+ vx_p, vy_p, vz_p, u0_p
+} "velocity variables at previous level"
+
+REAL pcle_stuff TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=narr
+{
+areal_radius,gxx_pcle,gxz_pcle,gzz_pcle,phi_pcle,rho_b_pcle,P_pcle,u0_pcle,E_rad_pcle,Ec_pcle,eta,Q,F_radx_pcle,Fc_pcle,z_anal,rho_b_anal,Ec_anal,Fc_anal,E_anal,F_anal,E_rad_gradient,F_coeff
+}
+
+REAL more_pcle_stuff TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=narr,3
+{
+  pos
+}
+
+
+REAL Tracer TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=narr
+{
+  u0_p_int,vx_p_int,vy_p_int,vz_p_int, u0_int,vx_int,vy_int,vz_int
+}
+
+REAL OS_stellar_surface TYPE=scalar
+{
+  OS_surf_rad
+} "OS star stellar surface"

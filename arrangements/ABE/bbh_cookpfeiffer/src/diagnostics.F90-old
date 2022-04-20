@@ -1,0 +1,843 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+!----------------------
+! Do bbhcp diagnostics
+!----------------------
+subroutine bbhcp_diagnostics(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3)                    :: ext,ext_noghost
+  real*8, dimension(30)                    :: export_data
+  character, dimension(30)                 :: data_headers*20
+  character                                :: filename*30,file_suffix*10
+  real*8                                   :: dT,dX,dY,dZ,xmax,ymax,zmax,old_surf_radius
+  real*8                                   :: RestMass,ADMMass,Jtot,temp,resid,resid_norm
+  real*8                                   :: resid_x,resid_y,resid_z,resid_mom_norm
+  real*8                                   :: dIntegral
+  real*8                                   :: gxres,gyres,gzres
+  real*8                                   :: multfactor
+  real*8                                   :: detmin,detmax,Kmin,Kmax
+  integer                                  :: interpolate_order
+
+  !Needed for GW extraction:
+  real*8                                   :: Mass_GW,hplus,hcross
+  real*8                                   :: psi4r,psi4i
+  integer                                  :: nmodes_moncrief
+  real*8,dimension(2)                      :: gw_amplitudes
+  !End GW extraction variables  
+
+  real*8, dimension(1,3)       :: pointcoords
+  real*8, dimension(1)          :: psiinterp
+
+  real*8, dimension(1)         :: rpsi2interp
+
+  integer                                  :: adjimin, adjjmin, adjkmin
+  integer                                  :: adjimax, adjjmax, adjkmax
+  CCTK_REAL :: reduction_value
+  CCTK_INT :: red_tmp
+  integer :: header_flag,handle,dummy
+  integer :: ii,index,num_cols
+  integer :: ierr,myproc_rank
+  integer :: NO_SYMM, EQUATORIAL, OCTANT, PI_SYMM, AXISYM
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+
+  ext = cctk_lsh
+
+  dT = CCTK_DELTA_TIME
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  if(trA_detg_enforce.ne.2) then
+     !First perform sanity check.  Already done if trA_detg_enforce==2!
+     call sanitycheck_restore_Aij(cctkGH,cctk_lsh,gxx,gxy,gxz,gyy,gyz,gzz, &
+          Axx,Axy,Axz,Ayy,Ayz,Azz)
+     !     call sanitycheck_restore_Aij(cctkGH,cctk_lsh,gxx,gxy,gxz,gyy,gyz,gzz, &
+     !          Axx,Axy,Axz,Ayy,Ayz,Azz)
+  end if
+
+  call statpunc_dump_binfiles(CCTK_PASS_FTOF)
+
+  call CCTK_ReductionHandle(handle,"maximum")
+  call CCTK_VarIndex(index,"grid::X")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,xmax,1,index)
+
+  call compute_adj_minmax(ext,X,Y,Z,Symmetry, &
+       adjimin,adjimax,adjjmin,adjjmax,adjkmin,adjkmax, &
+       multfactor,cctk_nghostzones,xmax)
+
+  !  call setup_global_coord_arrays(CCTK_PASS_FTOF)
+
+  !header_flag == 1 -> write file headers
+  if(CCTK_TIME == 0.D0) then
+     header_flag = 1
+  else
+     header_flag = 0
+  end if
+
+  !--------------------------------------------------------------------------------!
+
+  filename = 'binary_bh.mon'
+  num_cols = 4
+  export_data = 0.D0
+
+  data_headers(1) = 'Time'
+  export_data(1) = CCTK_TIME
+
+  data_headers(2) = 'lapsemin'
+  call CCTK_ReductionHandle(handle,"minimum")
+  call CCTK_VarIndex(index,"lapse::lapm1")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,export_data(2),1,index)
+  export_data(2) = export_data(2) + 1.D0
+
+  data_headers(3) = 'Psi_punc1'
+  pointcoords(1,1) = Xbh1
+  pointcoords(1,2) = Ybh1
+  pointcoords(1,3) = Zbh1
+  call interpolate_pointset(cctkGH,cctk_nghostzones,1,1,cctk_lsh,cctk_gsh,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,psi,psiinterp)
+  export_data(3) = psiinterp(1)
+
+  data_headers(4) = 'Psi_punc2'
+  pointcoords(1,1) = Xbh2
+  pointcoords(1,2) = Ybh2
+  pointcoords(1,3) = Zbh2
+  call interpolate_pointset(cctkGH,cctk_nghostzones,1,1,cctk_lsh,cctk_gsh,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,psi,psiinterp)
+  export_data(4) = psiinterp(1)
+
+
+  if(CCTK_MyProc(CCTKGH) .eq. 0) then
+     call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+  end if
+  !--------------------------------------------------------------------------------!
+  filename = 'binary_bh.don'
+  num_cols = 3
+  export_data = 0.D0
+
+  data_headers(1) = 'Time'
+  export_data(1) = CCTK_TIME
+
+  PsiTau = r*psi*psi
+
+  data_headers(3) = 'psi2rintrp'
+
+  do ii=1,5
+     write(data_headers(2),310)ii
+310  FORMAT('xcoord',I2)
+     pointcoords(1,1) = Xbh1 - ii * dX - 2.D0*dX
+     pointcoords(1,2) = Ybh1
+     pointcoords(1,3) = Zbh1
+
+     call interpolate_pointset(cctkGH,cctk_nghostzones,1,2,cctk_lsh,cctk_gsh,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,PsiTau,rpsi2interp)
+     export_data(2) = pointcoords(1,1)
+     export_data(3) = rpsi2interp(1)
+
+     if(CCTK_MyProc(CCTKGH) .eq. 0) then
+        call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+     end if
+  end do
+
+  do ii=1,5
+     write(data_headers(2),311)ii
+311  FORMAT('xcoord',I2)
+     pointcoords(1,1) = Xbh1 + ii * dX + 2.D0*dX
+     pointcoords(1,2) = Ybh1
+     pointcoords(1,3) = Zbh1
+
+     call interpolate_pointset(cctkGH,cctk_nghostzones,1,2,cctk_lsh,cctk_gsh,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,PsiTau,rpsi2interp)
+     export_data(2) = pointcoords(1,1)
+     export_data(3) = rpsi2interp(1)
+
+     if(CCTK_MyProc(CCTKGH) .eq. 0) then
+        call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+     end if
+  end do
+
+  !--------------------------------------------------------------------------------!
+  filename = 'binary_bh.kon'
+  num_cols = 7
+  export_data = 0.D0
+
+  data_headers(1) = 'Time'
+  export_data(1) = CCTK_TIME
+
+  data_headers(2) = 'Xbh1'
+  export_data(2) = Xbh1
+
+  data_headers(3) = 'Ybh1'
+  export_data(3) = Ybh1
+
+  data_headers(4) = 'Zbh1'
+  export_data(4) = Zbh1
+
+  data_headers(5) = 'Xbh2'
+  export_data(5) = Xbh2
+
+  data_headers(6) = 'Ybh2'
+  export_data(6) = Ybh2
+
+  data_headers(7) = 'Zbh2'
+  export_data(7) = Zbh2
+
+  if(CCTK_MyProc(CCTKGH) .eq. 0) then
+     call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+  end if
+
+  !--------------------------------------------------------------------------------!
+
+  if(MOD(cctk_iteration,out_every).eq.0) then
+     do ii=1,nsurf
+
+        surf_radius=surfvec(ii)
+        rbr=rbrvec(ii)
+        drbdr=drbrvec(ii)
+        ddrbddr=ddrbrvec(ii)
+
+        if(nsurf.eq.1) then
+           filename = 'binary_bh.jon'
+        else
+           write(filename,31)ii
+31         FORMAT('binary_bh.jon.',I1)
+        endif
+
+        num_cols = 9
+
+        data_headers(1) = "Time"
+        export_data(1) = CCTK_TIME
+
+        data_headers(2) = "fishradius"
+        export_data(2) = surfvec(ii)
+
+        data_headers(3) = "physradius"
+        export_data(3) = rbrvec(ii)*surfvec(ii)
+
+        data_headers(4) = "Mass_sur"
+        call surf_Mass2_fisheye(CCTK_PASS_FTOF)
+        export_data(4) = out_surf_int_sum
+
+        data_headers(5) = "Ang_mom"
+        call J_surf_integral(CCTK_PASS_FTOF)
+        export_data(5) = out_surf_int_sum
+
+        data_headers(6) = "Komar Mass"
+        call Derivs(ext,X,Y,Z,dX,dY,dZ,lapm1,lapsex,lapsey,lapsez,Symmetry)       
+        call Komar_Mass(CCTK_PASS_FTOF)
+        export_data(6) = out_surf_int_sum
+
+        data_headers(7) = "P_x"
+        data_headers(8) = "P_y"
+        data_headers(9) = "P_z"
+        call P_surf_integral(CCTK_PASS_FTOF)
+        export_data(7) = out_surf_px
+        export_data(8) = out_surf_py
+        export_data(9) = out_surf_pz
+
+        if(CCTK_MyProc(CCTKGH) .eq. 0) then
+           call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+        end if
+     end do
+  end if
+  !--------------------------------------------------------------------------------!
+
+  filename = 'binary_bh.con'
+  num_cols = 28
+
+  data_headers(1) = "Time"
+  export_data(1) = CCTK_TIME
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Ham. Constraint: bbhcp-excluding version.
+!!! WARNING: Do not turn on constraint damping (ch2 parameter)
+!!!          if this is setting PsiRes!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  data_headers(2) = "Ham Res2P1.1"
+  export_data(2) = 0.D0
+  PsiTau = PsiRes
+  call vol_integrand_excise_two_punctures(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,1.1D0*BigM,Xbh2,Ybh2,Zbh2,1.1D0*BigM)
+
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  PsiTau = PsiNorm
+  dIntegral = 0.D0
+  call vol_integrand_excise_two_punctures(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,1.1D0*BigM,Xbh2,Ybh2,Zbh2,1.1D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(2) = resid/resid_norm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(3) = "Ham Res2P0.6"
+  export_data(3) = 0.D0
+  PsiTau = PsiRes
+  call vol_integrand_excise_two_punctures(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.6D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  PsiTau = PsiNorm
+  dIntegral = 0.D0
+  call vol_integrand_excise_two_punctures(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(3) = resid/resid_norm
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(4) = "HamResAnn0.2-0.3a"
+  export_data(4) = 0.D0
+  PsiTau = PsiRes
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  PsiTau = PsiNorm
+  dIntegral = 0.D0
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(4) = resid/resid_norm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(5) = "HamResAnn0.2-0.3b"
+  export_data(5) = 0.D0
+  PsiTau = PsiRes/PsiNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  export_data(5) = sqrt(resid)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(6) = "HamResAnn0.3-0.6a"
+  export_data(6) = 0.D0
+  PsiTau = PsiRes
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  PsiTau = PsiNorm
+  dIntegral = 0.D0
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(6) = resid/resid_norm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(7) = "HamResAnn0.3-0.6b"
+  export_data(7) = 0.D0
+  PsiTau = PsiRes/PsiNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  export_data(7) = sqrt(resid)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(8) = "Ham ResShP1"
+  export_data(8) = 0.D0
+  PsiTau = PsiRes
+  call vol_integrand_one_spherical_shell(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.0D0,0.6D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  PsiTau = PsiNorm
+  dIntegral = 0.D0
+  call vol_integrand_one_spherical_shell(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.0D0,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(8) = resid/resid_norm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(9) = "Ham ResShP2"
+  export_data(9) = 0.D0
+  PsiTau = PsiRes
+  call vol_integrand_one_spherical_shell(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh2,Ybh2,Zbh2,0.0D0,0.6D0*BigM)
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  PsiTau = PsiNorm
+  dIntegral = 0.D0
+  call vol_integrand_one_spherical_shell(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh2,Ybh2,Zbh2,0.0D0,0.6D0)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(9) = resid/resid_norm
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  data_headers(10) = "Haml Res"
+  !************ HAMILTONIAN CONSTRAINT ************!
+  PsiTau = PsiRes
+  ! First compute L2 norm of PsiRes.  
+  !   Note I don't need to Sync since I don't care
+  !        about the ghost zones.
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  !Next compute the norm of PsiNorm:
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiNorm,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(10) = resid/resid_norm
+  !************ END HAMILTONIAN CONSTRAINT ************!
+
+  !************ MOMENTUM CONSTRAINT ************!
+  data_headers(11) = "Momx 2Ann0.2-0.3a"
+  data_headers(12) = "Momy 2Ann0.2-0.3a"
+  data_headers(13) = "Momz 2Ann0.2-0.3a"
+
+  PsiTau = MRsx
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_x,CCTK_VARIABLE_REAL)
+  resid_x = sqrt(resid_x)
+
+  PsiTau = MRsy
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_y,CCTK_VARIABLE_REAL)
+  resid_y = sqrt(resid_y)
+
+  PsiTau = MRsz
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_z,CCTK_VARIABLE_REAL)
+  resid_z = sqrt(resid_z)
+
+  PsiTau = MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_mom_norm,CCTK_VARIABLE_REAL)
+  resid_mom_norm = sqrt(resid_mom_norm)
+
+  export_data(11)= resid_x/resid_mom_norm
+  export_data(12)= resid_y/resid_mom_norm
+  export_data(13)= resid_z/resid_mom_norm
+
+  !*********************************************!
+  data_headers(14) = "Momx 2Ann0.2-0.3b"
+  data_headers(15) = "Momy 2Ann0.2-0.3b"
+  data_headers(16) = "Momz 2Ann0.2-0.3b"
+
+  PsiTau = MRsx/MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_x,CCTK_VARIABLE_REAL)
+  export_data(14) = sqrt(resid_x)
+
+  PsiTau = MRsy/MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_y,CCTK_VARIABLE_REAL)
+  export_data(15) = sqrt(resid_y)
+
+  PsiTau = MRsz/MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.2D0*BigM,0.3D0*BigM,Xbh2,Ybh2,Zbh2,0.2D0*BigM,0.3D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_z,CCTK_VARIABLE_REAL)
+  export_data(16) = sqrt(resid_z)
+
+  !************ MOMENTUM CONSTRAINT ************!
+  data_headers(17) = "Momx 2Ann0.3-0.6a"
+  data_headers(18) = "Momy 2Ann0.3-0.6a"
+  data_headers(19) = "Momz 2Ann0.3-0.6a"
+
+  PsiTau = MRsx
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_x,CCTK_VARIABLE_REAL)
+  resid_x = sqrt(resid_x)
+
+  PsiTau = MRsy
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_y,CCTK_VARIABLE_REAL)
+  resid_y = sqrt(resid_y)
+
+  PsiTau = MRsz
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_z,CCTK_VARIABLE_REAL)
+  resid_z = sqrt(resid_z)
+
+  PsiTau = MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_mom_norm,CCTK_VARIABLE_REAL)
+  resid_mom_norm = sqrt(resid_mom_norm)
+
+  export_data(17) = resid_x/resid_mom_norm
+  export_data(18) = resid_y/resid_mom_norm
+  export_data(19) = resid_z/resid_mom_norm
+
+  !*********************************************!
+  data_headers(20) = "Momx 2Ann0.3-0.6b"
+  data_headers(21) = "Momy 2Ann0.3-0.6b"
+  data_headers(22) = "Momz 2Ann0.3-0.6b"
+
+  PsiTau = MRsx/MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_x,CCTK_VARIABLE_REAL)
+  export_data(20) = sqrt(resid_x)
+
+  PsiTau = MRsy/MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_y,CCTK_VARIABLE_REAL)
+  export_data(21) = sqrt(resid_y)
+
+  PsiTau = MRsz/MNorm
+  call vol_integrand_two_spherical_shells(ext,X,Y,Z, &
+       PsiTau,Symmetry, &
+       Xbh1,Ybh1,Zbh1,0.3D0*BigM,0.6D0*BigM,Xbh2,Ybh2,Zbh2,0.3D0*BigM,0.6D0*BigM)
+  call norm2_dv(ext,PsiTau,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_z,CCTK_VARIABLE_REAL)
+  export_data(22) = sqrt(resid_z)
+
+  !*********************************************!
+
+  data_headers(23) = "Momx Res"
+  data_headers(24) = "Momy Res"
+  data_headers(25) = "Momz Res"
+
+  call norm2_dv(ext,MRsx,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_x,CCTK_VARIABLE_REAL)
+  resid_x = sqrt(resid_x)
+
+  call norm2_dv(ext,MRsy,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_y,CCTK_VARIABLE_REAL)
+  resid_y = sqrt(resid_y)
+
+  call norm2_dv(ext,MRsz,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_z,CCTK_VARIABLE_REAL)
+  resid_z = sqrt(resid_z)
+
+  call norm2_dv(ext,MNorm,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_mom_norm,CCTK_VARIABLE_REAL)
+  resid_mom_norm = sqrt(resid_mom_norm)
+
+  export_data(23) = resid_x/resid_mom_norm
+  export_data(24) = resid_y/resid_mom_norm
+  export_data(25) = resid_z/resid_mom_norm
+
+  !************ END MOMENTUM CONSTRAINT ************!
+
+  data_headers(26) = "Gamx Res"
+  data_headers(27) = "Gamy Res"
+  data_headers(28) = "Gamz Res"
+  !************ GAMMA CONSTRAINT ************!
+  call gamcheck(cctkGH,cctk_lsh, cctk_nghostzones, Symmetry, &
+       dx,  dy,  dz,  &
+       gconx, gcony, gconz, &
+       Gammax, Gammay, Gammaz,  &
+       gupxx, gupxy, gupxz, gupyy, gupyz, gupzz)
+  call norm2_dv(ext,gconx,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,gxres,CCTK_VARIABLE_REAL)
+  export_data(26) = sqrt(gxres)
+
+  call norm2_dv(ext,gcony,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,gyres,CCTK_VARIABLE_REAL)
+  export_data(27) = sqrt(gyres)
+
+  call norm2_dv(ext,gconz,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,gzres,CCTK_VARIABLE_REAL)
+  export_data(28) = sqrt(gzres)
+  !************ END GAMMA CONSTRAINT ************!
+
+  if(CCTK_MyProc(CCTKGH) .eq. 0) then
+     call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+  end if
+  !--------------------------------------------------------------------------------!
+  ! Initialize several variables at t=0 
+  if (cctk_iteration==0) then
+     momentsr = 0.d0
+     momentsi = 0.d0
+     momentsr_old = 0.d0
+     momentsi_old = 0.d0
+     odd_momentsr_old = 0.d0
+     odd_momentsi_old = 0.d0
+     int_momentsr = 0.d0
+     int_momentsi = 0.d0
+  end if
+
+  if(MOD(cctk_iteration,out_every).eq.0) then
+
+     ! Gravitational wave extraction!
+     Mass_GW = 0.0D0
+
+     ! Initialize several variables at t=0
+     if (cctk_iteration==0) then
+        momentsr_old = 0.d0
+        momentsi_old = 0.d0
+        odd_momentsr_old = 0.d0
+        odd_momentsi_old = 0.d0
+        int_momentsr = 0.d0
+        int_momentsi = 0.d0
+        momentsr = 0.D0
+        momentsi = 0.D0
+     end if
+
+     !gw_amplitudes = 0.D0
+     hplus = 0.d0
+     hcross = 0.d0
+
+     nmodes_moncrief = ubound(momentsr,1)
+
+     call gw_wave_flux(cctkGH,cctk_nghostzones,radius_GW,Mass_GW,cctk_lsh,cctk_gsh, &
+          dT,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal, &
+          phi,gxx,gxy,gxz,gyy,gyz,gzz,momentsr,momentsi, &
+          momentsr_old,momentsi_old,odd_momentsr,odd_momentsi, &
+          odd_momentsr_old,odd_momentsi_old,int_momentsr,int_momentsi, &
+          hplus,hcross,theta_GW,phi_GW, &
+          PhysicalRadius,Radiusderivative)
+
+     filename = 'binary_bh-evenmodes.wave'
+     num_cols = 2*nmodes_moncrief + 1
+
+     data_headers(1) = "# Time"
+     export_data(1) = CCTK_TIME
+
+     do ii=1,nmodes_moncrief
+        data_headers(2*ii) = " " 
+        data_headers(2*ii+1) = " " 
+        export_data(2*ii) = momentsr(ii)
+        export_data(2*ii+1) = momentsi(ii)
+     end do
+
+     if(CCTK_MyProc(CCTKGH) .eq. 0) then
+        call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+     end if
+     !--------------------------------------------------------------------------------!
+
+     filename = 'binary_bh-oddmodes.wave'
+     num_cols = 2*nmodes_moncrief + 1
+
+     data_headers(1) = "# Time"
+     export_data(1) = CCTK_TIME
+
+     do ii=1,nmodes_moncrief
+        data_headers(2*ii) = " "
+        data_headers(2*ii+1) = " "
+        export_data(2*ii) = odd_momentsr(ii)
+        export_data(2*ii+1) = odd_momentsi(ii)
+     end do
+
+     if(CCTK_MyProc(CCTKGH) .eq. 0) then
+        call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+     end if
+  !--------------------------------------------------------------------------------!
+  end if
+
+end subroutine bbhcp_diagnostics

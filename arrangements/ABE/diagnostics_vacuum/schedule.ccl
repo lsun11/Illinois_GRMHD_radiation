@@ -1,0 +1,213 @@
+# Schedule definitions for thorn diagnostics_vacuum
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::BSSN_matter,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::phi_derivs,BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3], lapse::lapse_derivatives, lapse::lapse_vars_aux
+STORAGE: shift::shift_vars[3], shift::shift_vars_temp
+STORAGE: fisheye::fisheye_vars, excision::excision_int_gfs
+
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::diag_vacuum_gf diagnostics_vacuum::volIntegrals diagnostics_vacuum::bh_posns
+
+
+schedule setup_surface_integration at CCTK_ANALYSIS as one_surface after setup_global_coords after Setup_Fisheye_Coords
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Set up variables for surface integration routine (e.g., N_theta, N_phi, etc)"
+if(nsurf >= 1)
+{
+  schedule setup_multiple_surfaces at CCTK_ANALYSIS after one_surface as many_surfaces
+  {
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+  } "Set up multiple integration surfaces"
+}
+
+###########################################
+# POST_RECOVER_VARIABLES = after checkpoint
+schedule setup_surface_integration in CCTK_POST_RECOVER_VARIABLES as one_surface
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL 
+} "Set up variables for surface integration routine (e.g., N_theta, N_phi, etc)"
+
+if(nsurf >= 1)
+{
+schedule setup_multiple_surfaces in CCTK_POST_RECOVER_VARIABLES after one_surface as many_surfaces
+  {
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+  } "Set up multiple integration surfaces"
+}
+###########################################
+
+schedule initialize_bh_posns at CCTK_ANALYSIS after many_surfaces before M_ADM_integrand before poststep before update_bh_psns
+{
+  LANG:		C
+  OPTIONS:	GLOBAL
+} "Initialize BH positions to (0,0,0)."
+
+if(num_BHs > 0)
+{
+  schedule update_bh_posns at CCTK_ANALYSIS before M_ADM_integrand before poststep as update_bh_psns
+  {
+    LANG:		C
+    OPTIONS:	GLOBAL
+  } "Update bh positions"
+
+  # Very important to update bh_posn_{x,y,z} right after checkpoint.  Otherwise it'll be set to zero!
+  schedule update_bh_posns at CCTK_POST_RECOVER_VARIABLES before M_ADM_integrand before poststep as update_bh_psns
+  {
+    LANG:		C
+    OPTIONS:	GLOBAL
+  } "Update bh positions"
+}
+
+
+
+#############################################################################################
+# EVALUATE VOLUME INTEGRALS:
+######################
+# ADM MASS:
+######################
+schedule ADM_mass_integrand at CCTK_ANALYSIS as M_ADM_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in ADM mass volume integrand"
+schedule Integrate_vol_integrand at CCTK_ANALYSIS as M_ADM_integrate after M_ADM_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate ADM mass, output to M_ADM_VolInt"
+
+######################
+# ANGULAR MOMENTUM:
+######################
+schedule angular_momentum_integrand at CCTK_ANALYSIS as J_integrand after M_ADM_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in angular momentum volume integrand"
+schedule Integrate_vol_integrand as J_ADM_integrate at CCTK_ANALYSIS after J_integrand before Ham_integrand
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate angular momentum, output to J_ADM_VolInt"
+
+######################
+# HAMILTONIAN CONSTRAINT:
+######################
+schedule Ham_constraint_integrand at CCTK_ANALYSIS as Ham_integrand after J_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in Hamiltonian constraint volume integrand"
+schedule Integrate_vol_integrand as Ham_integrate at CCTK_ANALYSIS after Ham_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate Hamiltonian constraint, output to Ham_const_VolintN & Ham_const_VolintD (where N=numerator, D=denominator)"
+
+schedule Ham_constraint_excised_integrand at CCTK_ANALYSIS as Ham_excised_integrand after Ham_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in excised Hamiltonian constraint volume integrand"
+schedule Integrate_vol_integrand as Ham_excised_integrate at CCTK_ANALYSIS after Ham_excised_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate excised Hamiltonian constraint, output to Ham_const_excised_VolintN & Ham_const_excised_VolintD (where N=numerator, D=denominator)"
+
+######################
+# MOMENTUM CONSTRAINT:
+######################
+schedule mom_constraint_integrand at CCTK_ANALYSIS as mom_integrand after Ham_excised_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in momentum constraint volume integrand"
+schedule Integrate_vol_integrand as mom_integrate at CCTK_ANALYSIS after mom_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate momentum constraint, output to momx_const_VolintN,momy_const_VolintN,momz_const_VolintN,mom_const_VolintD (where N=numerator, D=denominator)"
+
+schedule mom_constraint_excised_integrand at CCTK_ANALYSIS as mom_excised_integrand after mom_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in excised momentum constraint volume integrand"
+schedule Integrate_vol_integrand as mom_excised_integrate at CCTK_ANALYSIS after mom_excised_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate excised momentum constraint, output to momx_const_excised_VolintN,momy_const_excised_VolintN,momz_const_excised_VolintN,mom_const_excised_VolintD (where N=numerator, D=denominator)"
+
+######################
+# GAMMA CONSTRAINT:
+######################
+schedule Gam_constraint_integrand at CCTK_ANALYSIS as gam_integrand after mom_excised_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in Gamma constraint volume integrand"
+schedule Integrate_vol_integrand as Gam_integrate at CCTK_ANALYSIS after gam_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate mom constraint, output to Gamx_const_VolInt,Gamy_const_VolInt,Gamz_const_VolInt"
+
+#############################################################################################
+# OPTIONAL STUFF:
+
+if (enable_M_constraint==1) {
+   schedule M_Ham_constraint_excised_integrand at CCTK_ANALYSIS as M_Ham_excised_integrand after Gam_integrate before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL,loop-local
+   } "Fill in excised mass associated with Hamiltonian constraint violation volume integrand"
+   schedule Integrate_vol_integrand as M_Ham_excised_integrate at CCTK_ANALYSIS after M_Ham_excised_integrand before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL
+   } "Integrate excised mass associated with the Hamiltonian constraint violation, output to M_constraint, M_constraint_inner"
+}
+if (enable_Jz_constraint==1) {
+   schedule Jz_mom_constraint_excised_integrand at CCTK_ANALYSIS as Jz_mom_excised_integrand after Gam_integrate after M_Ham_excised_integrate before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL,loop-local
+   } "Fill in excised Jz associated with momentum constraint violation volume integrand"
+   schedule Integrate_vol_integrand as Jz_mom_excised_integrate at CCTK_ANALYSIS after Jz_mom_excised_integrand before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL
+   } "Integrate excised Jz associated with momentum constraint violation, output to Jz_constraint, Jz_constraint_inner"
+}
+
+if (enable_Jz_constraint==1 && enable_P_constraint==1) {
+   schedule P_mom_constraint_excised_integrand at CCTK_ANALYSIS as P_mom_excised_integrand  after Gam_integrate after M_Ham_excised_integrate after Jz_mom_excised_integrate before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL,loop-local
+   } "Fill in excised P associated with momentum constraint violation volume integrand"
+   schedule Integrate_vol_integrand as P_mom_excised_integrate at CCTK_ANALYSIS after P_mom_excised_integrand before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL
+   } "Integrate excised P associated with momentum constraint violation, output to P_constraint, P_constraint_inner"
+}
+
+if (enable_Jz_constraint==0 && enable_P_constraint==1) {
+   schedule P_mom_constraint_excised_integrand at CCTK_ANALYSIS as P_mom_excised_integrand after Gam_integrate after M_Ham_excised_integrate before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL,loop-local
+   } "Fill in excised P associated with momentum constraint violation volume integrand"
+   schedule Integrate_vol_integrand as P_mom_excised_integrate at CCTK_ANALYSIS after P_mom_excised_integrand before poststep
+   {
+           LANG:           FORTRAN
+           OPTIONS:        GLOBAL
+   } "Integrate excised P associated with momentum constraint violation, output to P_constraint, P_constraint_inner"
+}

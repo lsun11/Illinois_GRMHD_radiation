@@ -1,0 +1,32 @@
+# Parameter definitions for thorn movingbox
+
+shares: IO
+USES KEYWORD out_every
+
+shares: driver
+
+SHARES: SphericalSurface
+
+shares: ahfinderdirect
+USES KEYWORD initial_guess__coord_ellipsoid__x_center[101]
+USES KEYWORD initial_guess__coord_ellipsoid__y_center[101]
+USES KEYWORD initial_guess__coord_ellipsoid__z_center[101]
+USES KEYWORD initial_guess__coord_ellipsoid__x_radius[101]
+USES KEYWORD initial_guess__coord_ellipsoid__y_radius[101]
+USES KEYWORD initial_guess__coord_ellipsoid__z_radius[101]
+USES KEYWORD origin_x[101]
+USES KEYWORD origin_y[101]
+USES KEYWORD origin_z[101]
+
+private:
+REAL x0_bh "Initial position of BH center"
+{
+  *:* :: "any real"
+} 0.0
+
+# Do not update the moving box center if any of the coordinate deviation from the previous 
+# value is greater than max_dev
+REAL max_dev "Maximum deviation of the new center from the old one"
+{
+  0.0:* :: "any positive real"
+} 1.e308

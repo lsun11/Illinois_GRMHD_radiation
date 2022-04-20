@@ -1,0 +1,290 @@
+!-----------------------------------------------------------------------------
+!
+! Find non-boosted rotating Kerr-Schild "puncture" initial data 
+!
+!-----------------------------------------------------------------------------
+  subroutine kerr_initial_metric_puncture(ex, x, y, z, Rp,             &
+       gxx, gxy, gxz, gyy, gyz, gzz, trK,             &
+       Axx, Axy, Axz, Ayy, Ayz, Azz, alpha, Bx,By,Bz, &
+       gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+       phi, sam)
+  implicit none
+
+!
+! Input parameters:
+!
+  integer, dimension(3), intent(in)                  :: ex
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(in)  :: x,y,z
+  real*8,  intent(in)                                :: sam
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: gxx,gxy,gxz,gyy,gyz,gzz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: Axx,Axy,Axz,Ayy,Ayz,Azz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: trK,alpha,Bx,By,Bz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: phi
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(out) :: gupxx, gupxy, gupxz, gupyy, gupyz, gupzz
+  real*8,  dimension(ex(1),ex(2),ex(3)), intent(in)  :: Rp
+!
+! Other variables:
+!
+  integer :: i,j,k,m,n
+  integer :: imin,jmin,kmin,imax,jmax,kmax
+  real*8  :: k1,k2,k3,aa,hh,r2,w2,W,wx,wy,wz,tmp,tmq,tmr
+  real*8, parameter :: zeo=0.d0,one=1.d0,two=2.d0,thr=3.d0
+  real*8, parameter :: f1o3=1.d0/3.d0,m0=1.d0,inbd=1.d0,hlf=0.5d0,fou=4.d0
+
+  real*8 :: grr, grph, gthth, gphph, alp,Bph
+  real*8 :: guprr, guprph, gupthth, gupphph,psi4
+  real*8 :: Arr, Arth, Arph, Athth, Athph, Aphph
+  real*8 :: Krr, Krth,Krph,Kthth,Kthph,Kphph
+  real*8 :: Sigma, r, sin2th, sinth, cos2th, costh
+  real*8 :: Lx_r, Ly_r, Lz_r, Lx_th, Ly_th, Lz_th, Lx_ph, Ly_ph, Lz_ph
+  real*8 :: Lr_x, Lth_x, Lph_x, Lr_y, Lth_y, Lph_y, Lr_z, Lth_z, Lph_z
+  real*8 :: r_l, x_l, y_l, z_l, Delta, dtdr, dpdr
+  real*8 :: grrtemp, grphtemp, gththtemp, gphphtemp, gupxxtemp
+  real*8 :: gupxxl, gupxyl, gupxzl, gupyyl, gupyzl, gupzzl, detg_l
+  real*8 :: gxxl,gxyl,gxzl,gyyl,gyzl,gzzl
+  real*8 :: Kxxl,Kxyl,Kxzl,Kyyl,Kyzl,Kzzl
+  real*8  :: rh_out, rh_in, a, riso, dr_driso, dr_driso_alp
+
+!
+! BL radius of the outer and inner horizons
+!
+  a = m0*sam
+  rh_out = m0 + sqrt(m0*m0 - a*a)
+  rh_in  = m0 - sqrt(m0*m0 - a*a)
+
+! Input translation
+!
+  imin = lbound(gxx,1)
+  jmin = lbound(gxx,2)
+  kmin = lbound(gxx,3)
+  imax = ubound(gxx,1)
+  jmax = ubound(gxx,2)
+  kmax = ubound(gxx,3)
+
+!
+! go to each gridpoint...
+!
+  do k = kmin, kmax
+   do j = jmin, jmax
+    do i = imin, imax
+
+    riso = sqrt(X(i,j,k)**2 + Y(i,j,k)**2 + Z(i,j,k)**2)
+    z_l = Z(i,j,k)
+    r = riso*(1.d0 + 0.25d0*rh_out/riso)**2
+    dr_driso = 1.d0 - (0.25d0*rh_out/riso)**2
+    costh = z_l/riso
+    cos2th = costh**2
+    sin2th = one - cos2th
+    sinth = sqrt(sin2th)
+    r2 = r * r
+    Sigma = r2 + sam*sam*cos2th
+    Delta = r2 - 2.d0*r + a*a
+    aa = (r2+a*a)**2 - a*a*Delta*sin2th
+!
+!-- the lapse and shift (nonzero component)
+!
+     alp = sqrt(Delta*Sigma/aa)
+     alpha(i,j,k) = alp
+      Bph = -2.d0*a*r/aa
+
+! Compute (dr/driso)/alpha
+     !!if (riso .ge. 0.25d0*rh_out) then 
+     !!   dr_driso_alp = 0.125d0*(sqrt(r-rh_out)+sqrt(r))*(4.d0*riso+rh_out)/riso/riso &
+     !!   		* sqrt(aa/Sigma/(r-rh_in))
+     !!else
+     !!   dr_driso_alp = -0.125d0*rh_out/(sqrt(r-rh_out)+sqrt(r))* & 
+     !!   		(4.d0*riso+rh_out)/riso/riso * sqrt(aa/Sigma/(r-rh_in))
+     !!end if
+    
+     dr_driso_alp = sqrt(aa*riso/Sigma/(r-rh_in))*(riso+0.25d0*rh_out)/(riso*riso)
+
+!
+!-- the 3-metric (nonzero components)
+!
+!     grr = Sigma/Delta
+     if (riso .ge. 0.25d0*rh_out) then 
+        grr = Sigma/64.d0/(r-rh_in)*( (sqrt(r-rh_out)+sqrt(r))*(4*riso+rh_out)/riso/riso )**2
+     else
+         grr = Sigma/64.d0/(r-rh_in)*( rh_out/(sqrt(r-rh_out)+sqrt(r))*(4*riso+rh_out)/riso/riso )**2
+     end if
+     grph = 0.d0
+     gthth = Sigma
+     gphph = aa*sin2th/Sigma
+!
+!--  K_{ij} in "isotropic" Boyer-Lindquist coordinates
+!--         
+!
+     Krr = 0.d0
+     Krth = 0.d0
+     Krph = (a*sin2th*(-a**4 + 2.d0*a*a*r2 + 3.d0*r2*r2 + &
+            a*a*(a - r)*(a + r)*sin2th))/Sigma/aa * dr_driso_alp
+     Kthth = 0.d0
+     Kthph = -2.d0*a*a*a*r*costh*sinth*sin2th/Sigma * sqrt(Delta/Sigma/aa)
+     if (riso .lt. 0.25d0*rh_out) Kthph = -Kthph
+     Kphph = 0.d0
+!
+!-- the scalar extrinsic curvature
+!
+     trK(i,j,k) = 0.d0
+!
+!-- A_{ij} = K_{ij} - \gamma_{ij}K/3 
+!--         
+!
+     Arr = Krr
+     Arth = Krth
+     Arph = Krph
+     Athth = Kthth
+     Athph = Kthph
+     Aphph = Kphph
+
+     !#############################################################################
+     !Now convert everything to Cartesian
+     !#############################################################################
+
+       r_l = sqrt(x(i,j,k)**2 + y(i,j,k)**2 + z(i,j,k)**2)
+       r2 = r_l * r_l
+
+       x_l = x(i,j,k)
+       y_l = y(i,j,k)
+       z_l = z(i,j,k)
+
+       Lx_r = x_l/r_l  ! = sin(th)cos(ph)
+       Ly_r = y_l/r_l  ! = sin(th)sin(ph)
+       Lz_r = z_l/r_l  ! = cos(ph)
+
+       Lx_th = z_l*x_l/sqrt(r2 - z_l**2)
+       Ly_th = z_l*y_l/sqrt(r2 - z_l**2)
+       Lz_th = -sqrt(r2 - z_l**2)
+
+       Lx_ph = -y_l
+       Ly_ph = x_l
+       Lz_ph = 0.d0
+
+       Lr_x = Lx_r
+       Lr_y = Ly_r
+       Lr_z = Lz_r
+
+       Lth_x = z_l*x_l/sqrt(r2-z_l**2)/(r_l*r_l)
+       Lth_y = z_l*y_l/sqrt(r2-z_l**2)/(r_l*r_l)
+       Lth_z = -sqrt(r2-z_l**2)/(r_l*r_l)
+
+       Lph_x = -y_l/(x_l**2 + y_l**2)
+       Lph_y = x_l/(x_l**2 + y_l**2)
+       Lph_z = 0.d0
+
+       Bx(i,j,k) = Lx_ph*Bph
+       By(i,j,k) = Ly_ph*Bph
+       Bz(i,j,k) = 0.d0
+
+       ! Transform the spatial metric
+       gxxl = Lr_x**2 * grr + &
+                    2.d0*Lr_x*Lph_x * grph + &
+                    Lth_x**2 * gthth + &
+                    Lph_x**2 * gphph
+
+       gxyl = Lr_x*Lr_y * grr + &
+                    (Lr_x*Lph_y + Lr_y*Lph_x) * grph + &
+                    Lth_x*Lth_y * gthth + &
+                    Lph_x*Lph_y * gphph
+
+       gxzl = Lr_x*Lr_z * grr + &
+                    (Lr_x*Lph_z + Lr_z*Lph_x) * grph + &
+                    Lth_x*Lth_z * gthth + &
+                    Lph_x*Lph_z * gphph
+
+       gyyl = Lr_y**2 * grr + &
+                    2.d0*Lr_y*Lph_y * grph + &
+                    Lth_y**2 * gthth + &
+                    Lph_y**2 * gphph
+
+       gyzl = Lr_y*Lr_z * grr + &
+                    (Lr_y*Lph_z + Lr_z*Lph_y) * grph + &
+                    Lth_y*Lth_z * gthth + &
+                    Lph_y*Lph_z * gphph
+
+       gzzl = Lr_z**2 * grr + &
+                    2.d0*Lr_z*Lph_z * grph + &
+                    Lth_z**2 * gthth + &
+                    Lph_z**2 * gphph
+
+       ! Transform the extrinsic curvature
+       Axx(i,j,k) = Lr_x**2 * Arr + &
+		    2.d0*Lr_x*Lth_x * Arth + &
+                    2.d0*Lr_x*Lph_x * Arph + &
+                    Lth_x**2 * Athth + &
+		    2.d0*Lth_x*Lph_x * Athph + &
+                    Lph_x**2 * Aphph
+
+       Axy(i,j,k) = Lr_x*Lr_y * Arr + &
+		    (Lr_x*Lth_y + Lr_y*Lth_x) * Arth + &
+                    (Lr_x*Lph_y + Lr_y*Lph_x) * Arph + &
+                    Lth_x*Lth_y * Athth + &
+		    (Lth_x*Lph_y + Lth_y*Lph_x) * Athph + &
+                    Lph_x*Lph_y * Aphph
+
+       Axz(i,j,k) = Lr_x*Lr_z * Arr + &
+		    (Lr_x*Lth_z + Lr_z*Lth_x) * Arth + &
+                    (Lr_x*Lph_z + Lr_z*Lph_x) * Arph + &
+                    Lth_x*Lth_z * Athth + &
+		    (Lth_x*Lph_z + Lth_z*Lph_x) * Athph + &
+                    Lph_x*Lph_z * Aphph
+
+       Ayy(i,j,k) = Lr_y**2 * Arr + &
+		    2.d0*Lr_y*Lth_y * Arth + &
+                    2.d0*Lr_y*Lph_y * Arph + &
+                    Lth_y**2 * Athth + &
+		    2.d0*Lth_y*Lph_y * Athph + &
+                    Lph_y**2 * Aphph
+
+       Ayz(i,j,k) = Lr_y*Lr_z * Arr + &
+		    (Lr_y*Lth_z + Lr_z*Lth_y) * Arth + &
+                    (Lr_y*Lph_z + Lr_z*Lph_y) * Arph + &
+                    Lth_y*Lth_z * Athth + &
+		    (Lth_y*Lph_z + Lth_z*Lph_y) * Athph + &
+                    Lph_y*Lph_z * Aphph
+
+       Azz(i,j,k) = Lr_z**2 * Arr + &
+		    2.d0*Lr_z*Lth_z * Arth + &
+                    2.d0*Lr_z*Lph_z * Arph + &
+                    Lth_z**2 * Athth + &
+		    2.d0*Lth_z*Lph_z * Athph + &
+                    Lph_z**2 * Aphph
+
+       detg_l = gxxl * gyyl * gzzl + &
+                gxyl * gyzl * gxzl + &
+                gxzl * gxyl * gyzl &
+                - gxzl * gyyl * gxzl &
+                - gxyl * gxyl * gzzl &
+                - gxxl * gyzl * gyzl
+
+       phi(i,j,k) = log(detg_l)/12.d0
+       psi4 = detg_l**(1.d0/3.d0)
+       gxx(i,j,k) = gxxl/psi4
+       gxy(i,j,k) = gxyl/psi4
+       gxz(i,j,k) = gxzl/psi4
+       gyy(i,j,k) = gyyl/psi4
+       gyz(i,j,k) = gyzl/psi4
+       gzz(i,j,k) = gzzl/psi4
+       Axx(i,j,k) = Axx(i,j,k)/psi4
+       Axy(i,j,k) = Axy(i,j,k)/psi4
+       Axz(i,j,k) = Axz(i,j,k)/psi4
+       Ayy(i,j,k) = Ayy(i,j,k)/psi4
+       Ayz(i,j,k) = Ayz(i,j,k)/psi4
+       Azz(i,j,k) = Azz(i,j,k)/psi4
+
+    end do
+   end do
+  end do
+
+  alpha = alpha - one
+
+  gupxx =   ( gyy * gzz - gyz * gyz )
+  gupxy = - ( gxy * gzz - gyz * gxz )
+  gupxz =   ( gxy * gyz - gyy * gxz )
+  gupyy =   ( gxx * gzz - gxz * gxz )
+  gupyz = - ( gxx * gyz - gxy * gxz )
+  gupzz =   ( gxx * gyy - gxy * gxy )
+
+  return
+
+end subroutine kerr_initial_metric_puncture

@@ -1,0 +1,10 @@
+# Main make.code.defn file for thorn linearized_wave
+# $Header:$
+
+# Source files in this directory
+SRCS = analytic_solution.F90 convert_metric_dumpanalytic.F90 diagnostics.F90 \
+	initialdata.F90  sanitycheck_restore_Aij.F90 CheckParameters.C Startup.C \
+	surface_integrals-leq2_meq2_mode_average.F90 diagnostics_local.F90 movingbox_update_center.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

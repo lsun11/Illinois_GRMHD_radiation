@@ -1,0 +1,5 @@
+implements: CarpetIntegrateTest
+
+inherits: Reduce Grid Driver
+
+CCTK_REAL integrand TYPE=GF TIMELEVELS=3

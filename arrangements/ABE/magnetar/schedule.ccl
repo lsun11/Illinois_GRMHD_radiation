@@ -1,0 +1,126 @@
+# Schedule definitions for thorn magnetar
+
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict,BSSN::BSSN_refbd[3]
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::em_rhsx, mhd_evolve::em_rhsy, mhd_evolve::em_rhsz
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::mhd_temps, mhd_evolve::Stagger_Bs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+#STORAGE: mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: diagnostics_vacuum::volIntegrals,diagnostics_mhd::volIntegrals_mhd
+STORAGE: scalar2
+
+# Setup Initial Data
+
+schedule Magnetar_initialdata_readfiles at CCTK_INITIAL as first_initialdata after shift_initialdata
+{
+  LANG:          C
+} "Read in initial data for magnetar star evolver from Cook code data"
+
+schedule magnetar_setup_Aijs_Gammais at CCTK_INITIAL as first_postreadfiles after first_initialdata
+{
+  LANG:         FORTRAN
+  SYNC:         BSSN::BSSN_vars
+#  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Set up Aij's, Gammai's"
+
+schedule GROUP magnetar_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+{
+} "Finish up magnetar initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+schedule magnetar_setup_alt_atmosphere in magnetar_postid as first_postid
+{
+  LANG:         FORTRAN
+  SYNC:         BSSN::BSSN_vars
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Set up alternative atmosphere prescription (disabled by default)"
+
+schedule magnetar_compute_rho_b_atm in magnetar_postid as second_postid after first_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Compute rho_b_atm"
+
+schedule magnetar_setup_remaining_matter_quantities in magnetar_postid as third_postid after second_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Set up remaining matter quantities"
+
+schedule magnetar_compute_P_max in magnetar_postid as fourth_postid after third_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Compute P_max"
+
+schedule magnetar_setup_emfields in magnetar_postid as fifth_postid after fourth_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+  SYNC:  mhd_evolve::em_Ax,mhd_evolve::em_Ay,mhd_evolve::em_Az, mhd_evolve::mhd_primitives
+  SYNC: mhd_evolve::mhd_conservatives,mhd_evolve::em_conservativey,mhd_evolve::em_conservativez
+} "Set up emfields"
+
+schedule magnetar_compute_rhostar_tau_max in magnetar_postid as sixth_postid after fifth_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Compute rho_star_max, tau_max"
+
+schedule magnetar_recompute_primitives in magnetar_postid as seventh_postid after sixth_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Recompute primitives"
+
+
+#schedule magnetar_setup_GFs at CCTK_INITIAL as second_initialdata after first_initialdata before postid
+#{
+#  LANG:          FORTRAN
+#} "Set up initial data for magnetar star evolver"
+
+if(em_evolve_enable==1) {
+  schedule magnetar_diagnostics_local at CCTK_ANALYSIS as diag_local before poststep
+  {
+    LANG:         FORTRAN
+    OPTIONS:      LEVEL,LOOP-LOCAL
+  #  OPTIONS:      GLOBAL,LOOP-LOCAL
+  } "Set b2 array"
+  
+  schedule magnetar_diagnostics_global0 at CCTK_ANALYSIS as globalzero after diag_local before poststep
+  {
+    LANG:          FORTRAN
+    OPTIONS:      GLOBAL
+  } "Compute magnetar_max_b2"
+  
+  schedule magnetar_diagnostics_local2 at CCTK_ANALYSIS as diag_localtwo after globalzero before poststep
+  {
+    LANG:          FORTRAN
+    OPTIONS:      GLOBAL,LOOP-LOCAL
+  } "Compute coordinates of magnetar_max_b2"
+}
+
+schedule magnetar_sanitycheck_restore_Aij at CCTK_ANALYSIS as sanitycheck_restore_Aij
+{
+  LANG:          FORTRAN
+} "Sanity check, Restore Aij"
+
+schedule magnetar_diagnostics at CCTK_ANALYSIS as poststep after sanitycheck_restore_Aij
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"
+
+if(excision_enable == 0)
+{
+#  schedule binfile_check_do_checkpoint at CCTK_ANALYSIS after poststep
+#  {
+#    LANG:          FORTRAN
+#  } "Has minimum lapse dropped below lapse_regrid?  If so, dump binfile checkpoint & exit"
+}

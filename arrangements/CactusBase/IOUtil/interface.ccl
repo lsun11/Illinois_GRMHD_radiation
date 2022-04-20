@@ -1,0 +1,21 @@
+# Interface definitions for thorn IOUtil
+# $Header: /cactusdevcvs/CactusBase/IOUtil/interface.ccl,v 1.5 2006/10/04 14:44:53 tradke Exp $
+
+implements: IO
+
+
+# aliased functions required from Coordinate base thorn
+
+CCTK_INT FUNCTION Coord_GetDefaultSystem  \
+  (CCTK_POINTER_TO_CONST IN GH,           \
+   CCTK_INT IN systemdim)
+
+USES FUNCTION Coord_GetDefaultSystem
+
+
+CCTK_INT FUNCTION IO_TruncateOutputFiles \
+  (CCTK_POINTER_TO_CONST IN GH)
+
+PROVIDES FUNCTION IO_TruncateOutputFiles \
+  WITH IOUtil_TruncateOutputFiles        \
+  LANGUAGE C

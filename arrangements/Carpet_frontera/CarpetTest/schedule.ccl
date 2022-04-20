@@ -1,0 +1,18 @@
+# Schedule definitions for thorn CarpetTest
+
+STORAGE: gfg arrg1 arrg2 arrg3 scg yy
+
+schedule carpettest_check_sizes AT initial
+{
+  LANG: C
+} "Check grid function and grid array sizes"
+
+schedule carpettest_check_arguments AT initial
+{
+  LANG: Fortran
+} "Check grid function and grid array arguments"
+
+schedule carpettest_slabtest AT initial
+{
+  LANG: C
+} "Test hyperslabbing"

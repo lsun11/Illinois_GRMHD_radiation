@@ -1,0 +1,9 @@
+# Parameter definitions for the jobsuicide thorn 
+
+
+global:
+
+REAL run_time "number of hours this job is scheduled to run" STEERABLE = ALWAYS
+{
+  : :: "No restriction"
+} -1.0

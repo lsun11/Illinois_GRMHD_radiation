@@ -1,0 +1,44 @@
+# Parameter definitions for thorn ang_freq_ofBfield
+
+shares: IO
+USES KEYWORD out_every
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD numtheta
+USES KEYWORD numphi
+USES KEYWORD nsurf
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD ntot
+USES KEYWORD sym_factor
+USES KEYWORD dphi
+USES KEYWORD dcostheta
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+
+restricted:
+
+
+private:
+
+#################################
+# em_extraction-specific parameters
+#################################
+
+
+INT num_interp_radii_om "Number of interpolation radii" STEERABLE=ALWAYS
+{ 
+    0:* :: "Positive"
+} 3
+
+REAL radius_om[101] "extraction radii"  STEERABLE=ALWAYS
+{ 
+    0:* :: "Zero or positive"
+} 0
+
+INT num_theta "Number of interpolation points in theta direction" STEERABLE=ALWAYS
+{ 
+    0:* :: "Positive"
+} 60

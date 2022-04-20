@@ -1,0 +1,96 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+!-----------------------------------------------------------------------------
+! Diagnostic output for bhns thorn
+!-----------------------------------------------------------------------------
+subroutine bhns_diagnostics_local2(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer                                  :: i,j,k
+
+  if(mod(cctk_iteration,out_every)==0) then
+
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              temp9(i,j,k)   = -1.D200
+              temp10(i,j,k)  = -1.D200
+              temp11(i,j,k)  = -1.D200
+              temp12(i,j,k)  = -1.D200
+              temp13(i,j,k)  = -1.D200
+              temp14(i,j,k)  = -1.D200
+           end do
+        end do
+     end do
+     !$omp end parallel do
+
+     write(*,*) "bhns_max_b2 = ",bhns_max_b2
+
+     if(bhns_max_b2.gt.0.D0) then
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 if(abs((smallb2(i,j,k)-bhns_max_b2)/bhns_max_b2).lt.1e-8) then
+                    ! make sure we're out of a ghostzone here:
+                    temp9(7,7,7)  = X(i,j,k)
+                    temp10(7,7,7) = Y(i,j,k)
+                    temp11(7,7,7) = Z(i,j,k)
+                 end if
+              end do
+           end do
+        end do
+      !$omp end parallel do
+     else
+        write(*,*) "It looks like the magnetic fields are zero."
+     end if
+
+     if(bhns_max_rho_b.gt.0.D0) then
+      !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 if(abs((rho_b(i,j,k)-bhns_max_rho_b)/bhns_max_rho_b).lt.1e-8) then
+                    ! make sure we're out of a ghostzone here:
+                    temp12(7,7,7)  = X(i,j,k)
+                    temp13(7,7,7)  = Y(i,j,k)
+                    temp14(7,7,7)  = Z(i,j,k)
+                 end if
+              end do
+           end do
+        end do
+      !$omp end parallel do
+     else
+        write(*,*) "It looks like the density is <= zeo.", bhns_max_rho_b
+     end if
+
+  ! compute Pmax in the case of NSNS unequal mass ratio 
+
+     if(unequalmass.eq.1) then 
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 if(X(i,j,k).le.0.0d0) then
+                    temp15=P(i,j,k)
+                    temp16=0.0d0
+                 else  
+                    temp15=0.0d0
+                    temp16=P(i,j,k)
+                 end if
+              end do
+           end do
+        end do
+        !$omp end parallel do
+     end if
+  end if
+end subroutine bhns_diagnostics_local2

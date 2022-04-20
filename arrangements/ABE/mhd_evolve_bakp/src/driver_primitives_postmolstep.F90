@@ -1,0 +1,484 @@
+!--------------------------------------------------------------
+! Driver for primitives and boundary conditions routines, v2.0
+!--------------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+subroutine mhd_primitives_postmolstep(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3) :: ext,total_nghostzones
+  integer, dimension(3) :: thisproc_have_global_bdry_min,thisproc_have_global_bdry_max
+  real*8                :: dT,dX,dY,dZ,b2bt
+  real*8                :: rho_fail_max_step,M_fail_step,randomnumber
+  real*8		:: xNS1,yNS1, xNS2, yNS2
+  integer               :: proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax
+  integer               :: glob_imax,glob_jmax,glob_kmax
+  integer               :: i,j,k,vindex,NFont,NFont_L
+  integer               :: handle,dummy,ierr
+  integer               :: repairs_needed,ignore_ghostzones
+  CCTK_REAL             :: reduction_value
+  integer               :: AXISYM, levelnumber
+  parameter(AXISYM = 4)
+
+  ext = cctk_lsh
+
+
+  do k=1, ext(3)
+     do j=1, ext(2)
+        do i=1, ext(1)
+
+if (i==27.and.j==24.and.k==16) then
+   write(*,*) "1inside driver_primitives_postmolstep, phi(i,j,k) is ", phi(i,j,k)
+end if
+
+if (i==25.and.j==14.and.k==19) then
+   write(*,*) "2inside driver_primitives_postmolstep, phi(i,j,k) is ", phi(i,j,k)
+end if
+
+    end do
+    end do
+    end do
+
+
+
+  !!levelnumber = cctk_levfac(1)
+  !!levelnumber = log(levelnumber)/log(2.D0)+1.D0
+  levelnumber = int( log(real(cctk_levfac(1)))/log(2.0) + 1.e-5 ) + 1
+
+  glob_imax = ext(1)
+  glob_jmax = ext(2)
+  glob_kmax = ext(3)
+  proc_imin = -100
+  proc_jmin = -100
+  proc_kmin = -100
+  proc_imax = -1
+  proc_jmax = -1
+  proc_kmax = -1
+
+! calcualte CoM for tempearture computation.
+
+ if (Box1denom_VolInt == 0.0) then
+        Box1denom_VolInt = 1.0e-10
+        end if
+        if (Box1denom_VolInt1 == 0.0) then
+	Box1denom_VolInt2 = 1.0e-10
+        end if
+        if (Box1denom_VolInt1 == 0.0) then
+        Box1denom_VolInt2 = 1.0e-10
+        end if
+
+        ! compute the position of the NSs (iter > 0)
+     if(num_CO == 2) then
+        xNS1 = Box1X_VolInt1/Box1denom_VolInt1
+        yNS1 = Box1Y_VolInt1/Box1denom_VolInt1
+
+        xNS2 = Box1X_VolInt2/Box1denom_VolInt2
+	yNS2 = Box1Y_VolInt2/Box1denom_VolInt2
+     else
+        ! compute the position of the NS
+        xNS1 = Box1X_VolInt/Box1denom_VolInt
+	yNS1 = Box1Y_VolInt/Box1denom_VolInt
+     end if
+
+
+
+
+  if(levelnumber .gt. 1 .and. cctk_iteration.gt.0) then
+     dT = CCTK_DELTA_TIME
+     dX = CCTK_DELTA_SPACE(1)
+     dY = CCTK_DELTA_SPACE(2)
+     dZ = CCTK_DELTA_SPACE(3)
+
+     thisproc_have_global_bdry_min = have_global_bdry_min(levelnumber,:)
+     thisproc_have_global_bdry_max = have_global_bdry_max(levelnumber,:)
+
+     if(thisproc_have_global_bdry_min(1)==1) proc_imin = 0
+     if(thisproc_have_global_bdry_min(2)==1) proc_jmin = 0
+     if(thisproc_have_global_bdry_min(3)==1) proc_kmin = 0
+     if(thisproc_have_global_bdry_max(1)==1) proc_imax = glob_imax
+     if(thisproc_have_global_bdry_max(2)==1) proc_jmax = glob_jmax
+     if(thisproc_have_global_bdry_max(3)==1) proc_kmax = glob_kmax
+
+     !---------------------------------------
+     !Recompute B^i from \tilde{B^i} or compute B^i from Ai
+     !(This is the easiest primitives recovery!)
+     ! Note that when constrained_transport_scheme==3, B has 
+     ! already been computed.
+     if (em_evolve_enable==1 .and. constrained_transport_scheme .ne. 3) then
+        ! Compute B^i from tilde{B}^i
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 !Note that the primitives solver requires Bx,By,Bz as input.
+                 Bx(i,j,k) = Bxtilde(i,j,k)
+                 By(i,j,k) = Bytilde(i,j,k)
+                 Bz(i,j,k) = Bztilde(i,j,k)
+              end do
+           end do
+        end do
+        !$omp end parallel do
+        b2bt = -1.D0
+        call convert_b(ext,Bx,By,Bz,phi,b2bt) 
+     end if
+     !---------------------------------------
+
+     !-----------------------------------------------------------------------------------------
+     ! PRIMITIVE RECONSTRUCTION STEP:
+     call CartSymGN(dummy,cctkGH,'mhd_evolve::em_conservativex')
+     call CartSymGN(dummy,cctkGH,'mhd_evolve::em_conservativey')
+     call CartSymGN(dummy,cctkGH,'mhd_evolve::em_conservativez')
+     !     call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_conservatives')
+
+     if (enable_primitives_disk == 0) then
+
+        if(primitives_solver==11) then
+           !Here we use the HARM primitives solver, with a new prescription that minimizes changes to
+           !  conservatives without applying the "Font" fix.
+           !We intend to make the below function truly generic, but currently it only supports Gamma=2.
+           !  It can be trivially extended for arbitrary Gamma-law EOS's, but will require work for more
+           !  generic EOS's.
+           !We hope the below function will eventually be used in place of other primitives solver options,
+           !  since it can be easily extended to use your desired technique for solving primitives.
+           
+	   !write(6,*) "(1)Inside driver_primitives_postmolstep, test gamma_tab =", gamma_tab
+
+	   call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+                phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+                lapm1,shiftx,shifty,shiftz, &
+                Bx,By,Bz, &
+                mhd_st_x,mhd_st_y,mhd_st_z,tau,rho_star, &
+                vx,vy,vz,P,rho_b,h,u0, &
+                rho_b_atm,tau_atm, rho_b_max,&
+		xNS1,yNS1, xNS2, yNS2, num_CO, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+                neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+                temp1,temp2,temp3,temp4,temp5, &
+                primitives_debug,Psi6threshold,horizon_enforce_rho_profile)
+
+           !The goal of the below function is to just update the metric source terms.  We should
+           !  really get rid of the old h,w,st_i,Ei gridfunctions...
+           !Currently this only works for Gamma-law EOS's but could be extended for arbitary EOSs
+           !  with some work.
+	   write(*,*) "inside driver_primitives_postmolstep.f90"
+           call metric_source_terms_and_misc_vars(cctkGH,cctk_lsh, &
+                rho,Sx,Sy,Sz, &
+                Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+        	tau_rad, S_rad_x,S_rad_y, S_rad_z,&
+                E_rad, F_rad0, F_radx, F_rady, F_radz, P_rad,&
+                h,w,st_x,st_y,st_z, &
+                Ex,Ey,Ez, &
+                sbt,sbx,sby,sbz, &
+                lapm1,shiftx,shifty,shiftz, &
+                phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+                P,rho_b,u0,vx,vy,vz, &
+                Bx,By,Bz, &
+                rho_star,mhd_st_x,mhd_st_y,mhd_st_z,&
+		neos,ergo_star, ergo_sigma,&
+                rho_tab, P_tab,eps_tab,k_tab,gamma_tab,&
+                rho_b_atm);
+        else if(primitives_solver==1) then
+           !$omp parallel do
+           do k=1,cctk_lsh(3)
+              do j=1,cctk_lsh(2)
+                 do i=1,cctk_lsh(1)
+                    !Here, temp2 is supposed to be w_p
+                    temp2(i,j,k) = u0(i,j,k)*(lapm1(i,j,k)+1.D0)*rho_star(i,j,k)
+                 end do
+              end do
+           end do
+           !$omp end parallel do
+
+!!!$omp parallel do
+           !!do k=cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+           !!   do j=cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+           !!      do i=cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+           !!         if(temp2(i,j,k).ne.temp2(i,j,k)) then
+           !!            do vindex=1,100
+           !!               write(*,*) "ERROR AT i,j,k:",i,j,k
+           !!               write(*,*) "THERE IS A NAN!  u0,lapm1,rho_star=",u0(i,j,k),lapm1(i,j,k),rho_star(i,j,k)
+           !!            end do
+           !!         end if
+
+           !!         if(psi(i,j,k).eq.0.D0) then
+           !!            write(*,*) "BAD PSI at:",x(i,j,k),y(i,j,k),z(i,j,k),psi(i,j,k),phi(i,j,k)
+           !!            write(*,*) "BAD PSI gij:",gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+           !!         end if
+           !!      end do
+           !!   end do
+           !!end do
+!!!$omp end parallel do
+
+           total_nghostzones = number_of_mol_ministeps*cctk_nghostzones
+           call hydro_primitives(cctkGH,ext,total_nghostzones, X, Y, Z, rho_star, tau,&
+                mhd_st_x, mhd_st_y, mhd_st_z,&
+                u0,vx,vy,vz,&
+                w, temp2, rho_b,rho, P, h, &
+                Sx, Sy, Sz, &
+                Sxx, Sxy, Sxz, Syy, Syz, Szz, &
+                phi, lapm1, shiftx,shifty,shiftz, &
+                gxx, gxy, gxz, gyy, gyz, gzz, &
+                gupxx, gupxy, gupxz, gupyy, gupyz, gupzz,&
+                tau_stildefix_enable,tau_atm,enable_shocktest_primitive_mode,&
+                rho_b_max, rho_fail_max_step, M_fail_step, rho_b_atm,&
+                gamma_th,K_poly,sdots_o_rhot,Symmetry,-1)
+
+           ! Following lines are necessary
+           !$omp parallel do
+           do k=1,cctk_lsh(3)
+              do j=1,cctk_lsh(2)
+                 do i=1,cctk_lsh(1)
+                    st_x(i,j,k) = mhd_st_x(i,j,k)
+                    st_y(i,j,k) = mhd_st_y(i,j,k)
+                    st_z(i,j,k) = mhd_st_z(i,j,k)
+                 end do
+              end do
+           end do
+           !$omp end parallel do
+
+        else if(primitives_solver==0) then
+
+           !primitive solver (next function call) overwrites h_p.  We want to keep _p values.
+           !$omp parallel do
+           do k=1,cctk_lsh(3)
+              do j=1,cctk_lsh(2)
+                 do i=1,cctk_lsh(1)
+		    h_p(i,j,k) = h(i,j,k)
+                 end do
+              end do
+           end do
+           !$omp end parallel do
+
+           total_nghostzones = number_of_mol_ministeps*cctk_nghostzones
+           !TODO: remove temp1 (unused) parameter.
+           call primitive_vars_hybrid2(ext,cctk_nghostzones,X,Y,Z, &
+                rho_star,tau,st_x,st_y,st_z, &
+                mhd_st_x,mhd_st_y,mhd_st_z,neos, ergo_star, ergo_sigma,&
+                rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+                w,temp1,rho_b,rho,P,h,Sx,Sy,Sz, &
+                Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+                phi,lapm1,shiftx,shifty,shiftz, &
+                gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+                h_p,u0,rho_b_max,rho_b_atm, &
+                rho_fail_max_step,M_fail_step,rhos_max, &
+                Bx,By,Bz,Ex,Ey,Ez, &
+                vx,vy,vz, &
+                sbt,sbx,sby,sbz, temp4, &
+                proc_imin,proc_jmin,proc_kmin, &
+                proc_imax,proc_jmax,proc_kmax, &
+                glob_imax,glob_jmax,glob_kmax, &
+                Symmetry,pfloor,excision_enable, &
+                excision_zone_gf, tau_stildefix_enable,tau_atm,-1)
+
+        else if(primitives_solver==2) then
+
+           !primitive solver (next function call) overwrites h_p.  We want to keep _p values.
+           !$omp parallel do
+           do k=1,cctk_lsh(3)
+              do j=1,cctk_lsh(2)
+                 do i=1,cctk_lsh(1)
+		    h_p(i,j,k) = h(i,j,k)
+                 end do
+              end do
+           end do
+           !$omp end parallel do
+
+           ignore_ghostzones = 0
+           total_nghostzones = number_of_mol_ministeps*cctk_nghostzones
+
+           !TODO: remove temp1 (unused) parameter.
+	   print *, "^^^^^^^^^^^^^^^^^^^^^^ Inside driver_primitive_postmolstep.F90 start primitive_vars_hybrid2_cpp ^^^^^^^^^^^^^^^^^^^^^^^^"
+           call primitive_vars_hybrid2_cpp(ext,cctk_nghostzones,X,Y,Z, &
+                rho_star,tau,st_x,st_y,st_z, &
+		mhd_st_x,mhd_st_y,mhd_st_z,&
+                tau_rad,S_rad_x,S_rad_y,S_rad_z,&
+                neos, ergo_star, ergo_sigma,&
+                rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+                w,temp1,rho_b,rho,P,h,Sx,Sy,Sz, &
+                Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+                E_rad,F_rad0,F_radx,F_rady,F_radz,P_rad,&
+                phi,lapm1,shiftx,shifty,shiftz, &
+                gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+                h_p,u0,rho_b_max,rho_b_atm, &
+                rho_fail_max_step,M_fail_step,rhos_max, &
+                Bx,By,Bz,Ex,Ey,Ez, &
+                vx,vy,vz, &
+                sbt,sbx,sby,sbz, &
+         	xNS1,yNS1, xNS2, yNS2, num_CO, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+                proc_imin,proc_jmin,proc_kmin, &
+                proc_imax,proc_jmax,proc_kmax, &
+                glob_imax,glob_jmax,glob_kmax, &
+                Symmetry,pfloor,excision_enable, &
+                excision_zone_gf, tau_stildefix_enable,tau_atm,temp4,cctkGH,ignore_ghostzones, &
+                enable_shocktest_primitive_mode,repairs_needed, rad_closure_scheme, rad_const)
+
+!           call primitive_vars_hybrid2_cpp(ext,cctk_nghostzones,X,Y,Z, &
+!                rho_star,tau,st_x,st_y,st_z, &
+!                mhd_st_x,mhd_st_y,mhd_st_z,neos, ergo_star, ergo_sigma,&
+!                rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+!                w,temp1,rho_b,rho,P,h,Sx,Sy,Sz, &
+!                Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+!                phi,lapm1,shiftx,shifty,shiftz, &
+!                gxx,gxy,gxz,gyy,gyz,gzz, &
+!                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+!                h_p,u0,rho_b_max,rho_b_atm, &
+!                rho_fail_max_step,M_fail_step,rhos_max, &
+!                Bx,By,Bz,Ex,Ey,Ez, &
+!                vx,vy,vz, &
+!                sbt,sbx,sby,sbz, &
+!                proc_imin,proc_jmin,proc_kmin, &
+!                proc_imax,proc_jmax,proc_kmax, &
+!                glob_imax,glob_jmax,glob_kmax, &
+!                Symmetry,pfloor,excision_enable, &
+!                excision_zone_gf, tau_stildefix_enable,tau_atm,temp4,cctkGH,ignore_ghostzones, &
+!                enable_shocktest_primitive_mode,repairs_needed)
+
+
+
+           if (repairs_needed==1) then 
+	      call repair_failures_mhd_hybrid(ext,Z,gamma_th, & 
+                   temp4, rho_b, P, &
+                   vx, vy, vz, u0, w, h, rho_star, tau, &
+                   st_x, st_y, st_z, mhd_st_x, mhd_st_y, mhd_st_z, &
+                   rho, Sx, Sy, Sz, Sxx, Sxy, Sxz, Syy, Syz, Szz, &
+                   lapm1, shiftx, shifty, shiftz, phi, &
+                   gxx, gxy, gxz, gyy, gyz, gzz, &
+                   gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, Bx, By, Bz, &
+                   sbt, sbx, sby, sbz, rho_b_atm, &
+                   neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+                   proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax, &
+                   glob_imax,glob_jmax,glob_kmax,Symmetry)
+           end if
+
+           if(excision_enable==1) then
+              call hydro_ezbc_hybrid(ext,X,Y,Z,rho_star,tau, &
+                   mhd_st_x,mhd_st_y,mhd_st_z,st_x,st_y,st_z, &
+                   rho_b,P,h,vx,vy,vz,w,&
+                   sbt,sbx,sby,sbz,Bx,By,Bz, &
+                   lapm1,shiftx,shifty,shiftz,phi,&
+                   gxx,gxy,gxz,gyy,gyz,gzz, &
+                   gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,&
+                   Symmetry,excision_zone_gf,gamma_th,neos,ergo_star,ergo_sigma,rho_tab,&
+                   P_tab,eps_tab,k_tab,gamma_tab)
+              if (hyperbolic_divergence_cleaning_enable==1) then 
+                 call scalar_excision_bc(ext,X,Y,Z,Blagrangemultiplier,Symmetry,excision_zone_gf)
+              end if
+              call remove_interior2(ext,X,Y,Z,sbt,excision_zone_gf,Symmetry)
+              call remove_interior2(ext,X,Y,Z,sbx,excision_zone_gf,Symmetry)
+              call remove_interior2(ext,X,Y,Z,sby,excision_zone_gf,Symmetry)
+              call remove_interior2(ext,X,Y,Z,sbz,excision_zone_gf,Symmetry)
+           end if
+
+  	   ! Note: No need to apply sym BC on Bitilde since they are 
+  	   ! not modified. 
+!!!!call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_conservatives')
+           !!call CartSymGN(dummy,cctkGH,'mhd_evolve::em_conservativex')
+           !!call CartSymGN(dummy,cctkGH,'mhd_evolve::em_conservativey')
+           !!call CartSymGN(dummy,cctkGH,'mhd_evolve::em_conservativez')
+           call CartSymGN(dummy,cctkGH,'mhd_evolve::em_Blagrangemultiplier')
+           call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_primitives')
+           call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_vs')
+           call CartSymGN(dummy,cctkGH,'bssn::BSSN_matter')
+        end if
+     else if(enable_primitives_disk==1 .and. use_harm_primitives==0) then
+
+        call primitive_vars_alt_disk(ext,X,Y,Z, &
+             rho_star,tau,st_x,st_y,st_z, &
+             mhd_st_x,mhd_st_y,mhd_st_z,neos, ergo_star, ergo_sigma,&
+             rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+             w,rho_b,rho,P,h,Sx,Sy,Sz, &
+             Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+             phi,lapm1,shiftx,shifty,shiftz, &
+             gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             h_p,u0,rho_b_max,rho_b_atm_gf, &
+             rho_fail_max_step,M_fail_step, &
+             Bx,By,Bz,Ex,Ey,Ez, &
+             vx,vy,vz, &
+             sbt,sbx,sby,sbz, &
+             proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax, &
+             glob_imax,glob_jmax,glob_kmax,Symmetry, &
+             Fontfix_tracker_gf,pfloor_gf, NFont_L, &
+             enable_HARM_energyvariable, excision_zone_gf, force_font_fix_fail, excision_enable)
+
+        call CCTK_ReductionHandle(handle,"sum")
+        call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,NFont_L,NFont,CCTK_VARIABLE_REAL)
+
+     end if
+!!$     else if(use_harm_primitives==1) then
+!!$        ! call the C function--a wrapper for the Noble et al code.
+!!$
+!!$        ! At one time, the second line of the function call was:
+!!$        ! rho_b, rho_b_p, P, P_p, vx, vy, vz, &
+!!$        call primitive_vars_harm(NFont_L, CCTKGH, X, Y, Z, ext, &
+!!$             rho_star, tau, mhd_st_x, mhd_st_y, mhd_st_z, &
+!!$             rho_b, rho_b, P, P, vx, vy, vz, &
+!!$             u0, Bx, By, Bz, lapm1, phi, &
+!!$             shiftx, shifty, shiftz, Fontfix_tracker_gf, rho_b_atm_gf, &
+!!$             gxx, gxy, gxz, gyy, gyz, gzz, &
+!!$             gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+!!$             Symmetry,  excision_radius, &
+!!$             glob_imax, glob_jmax, glob_kmax, & 
+!!$             proc_imax, proc_jmax, proc_kmax, & 
+!!$             proc_imin, proc_jmin, proc_kmin)
+!!$
+!!$        call harm_impose_floors(ext,rho_b_atm_gf,pfloor_gf,rho_b,P, &
+!!$             vx,vy,vz,Bx,By,Bz, &
+!!$             rho_star,tau,mhd_st_x,mhd_st_y,mhd_st_z, &
+!!$             lapm1,phi,shiftx,shifty,shiftz, &
+!!$             gxx,gxy,gxz,gyy,gyz,gzz, &
+!!$             neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,gamma_th)
+!!$
+!!$        ! make sure you have the failures array stored in Fontfix_tracker_gf.
+!!$        call repair_failures_mhd_disk(ext,X,Z,gamma_th,Fontfix_tracker_gf,rho_b,P, &
+!!$             vx,vy,vz,u0,w,h,rho_star,tau, &
+!!$             st_x,st_y,st_z,mhd_st_x,mhd_st_y,mhd_st_z, &
+!!$             rho,Sx,Sy,Sz,Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+!!$             lapm1,shiftx,shifty,shiftz,phi, &
+!!$             gxx,gxy,gxz,gyy,gyz,gzz, &
+!!$             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,Bx,By,Bz, &
+!!$             sbt,sbx,sby,sbz,rho_b_atm_gf, &
+!!$             neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+!!$             proc_imin,proc_jmin,proc_kmin, &
+!!$             proc_imax,proc_jmax,proc_kmax, & 
+!!$             glob_imax,glob_jmax,glob_kmax, &
+!!$             Symmetry,pfloor_gf,enable_HARM_energyvariable,excision_radius)
+!!$
+!!$        !!&     call repair_failures_alt(ext,X,Z,gamma,Fontfix_tracker_gf,rho_b,P, &
+!!$        !!&                          vx,vy,vz,u0,w,h,rho_star,tau, &
+!!$        !!&                          st_x,st_y,st_z,mhd_st_x,mhd_st_y,mhd_st_z, &
+!!$        !!&                          rho,Sx,Sy,Sz,Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+!!$        !!&                          lapm1,shiftx,shifty,shiftz,phi, &
+!!$        !!&                          gxx,gxy,gxz,gyy,gyz,gzz, &
+!!$        !!&                          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,Bx,By,Bz, &
+!!$        !!&                          sbt,sbx,sby,sbz,rho_b_atm_gf, &
+!!$        !!&                          neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+!!$        !!&                          proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax,  &
+!!$        !!&                          glob_imax,glob_jmax,glob_kmax,Symmetry,pfloor_gf,enable_HARM_energyvariable,excision_radius)
+!!$
+!!$        call calculate_aux_harm(ext,gamma_th,rho_b,P, &
+!!$             vx,vy,vz,u0,w,h,rho_star,tau, &
+!!$             st_x,st_y,st_z,mhd_st_x,mhd_st_y,mhd_st_z, &
+!!$             rho,Sx,Sy,Sz,Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+!!$             lapm1,shiftx,shifty,shiftz,phi, &
+!!$             gxx,gxy,gxz,gyy,gyz,gzz, &
+!!$             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,Bx,By,Bz, &
+!!$             sbt,sbx,sby,sbz, &
+!!$             neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,proc_kmin)
+!!$     end if
+
+  end if
+
+end subroutine mhd_primitives_postmolstep

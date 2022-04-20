@@ -1,0 +1,42 @@
+# Parameter definitions for thorn WeakRates
+# $Header:$
+
+restricted:
+
+CCTK_STRING table_filename "Filename containing the table" STEERABLE=RECOVER
+{
+  ".+" :: "Filename"
+} "eos_table.h5"
+
+boolean use_rho_max_ext "Zeroth order extension of the neutrino quantities"
+{
+} "yes"
+
+boolean use_rho_min_ext "Zeroth order extension of the neutrino quantities"
+{
+} "yes"
+
+boolean use_temp_max_ext "Zeroth order extension of the neutrino quantities"
+{
+} "yes"
+
+boolean use_temp_min_ext "Zeroth order extension of the neutrino quantities"
+{
+} "yes"
+
+boolean use_ye_max_ext "Zeroth order extension of the neutrino quantities"
+{
+} "yes"
+
+boolean use_ye_min_ext "Zeroth order extension of the neutrino quantities"
+{
+} "yes"
+
+# Normalization factor
+#   R      -->  R / N
+#   ndens  -->  R / N
+#   mb     --> mb * N
+CCTK_REAL normfact "Normalization factor for the neutrino number density"
+{
+  (0:* :: "Any number larger than 0"
+} 1.0d50

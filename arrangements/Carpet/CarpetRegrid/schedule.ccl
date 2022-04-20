@@ -1,0 +1,7 @@
+# Schedule definitions for thorn CarpetRegrid
+
+schedule CarpetRegridParamcheck at PARAMCHECK
+{
+  LANG: C
+  OPTIONS: global
+} "Check Parameters"

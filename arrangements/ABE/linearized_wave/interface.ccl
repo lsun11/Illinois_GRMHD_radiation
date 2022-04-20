@@ -1,0 +1,21 @@
+# Interface definition for thorn linearized_wave
+# $Header: $
+
+implements: linearized_wave
+
+### TEST ###
+inherits: grid CarpetRegrid2
+############
+
+friend: BSSN
+friend: shift
+friend: lapse
+
+USES INCLUDE: Symmetry.h
+ 
+private:
+# Analytic gridfunctions
+cctk_real linearized_wave_analytic type = GF
+{
+ gxx_analy,gxy_analy,gxz_analy,gyy_analy,gyz_analy,gzz_analy,Kxx_analy,Kxy_analy,Kxz_analy,Kyy_analy,Kyz_analy,Kzz_analy
+} "Analytic versions of BSSN variables"

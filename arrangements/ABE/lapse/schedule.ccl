@@ -1,0 +1,59 @@
+# Schedule definitions for thorn lapse
+
+STORAGE: lapse_vars[3], lapse_derivatives, lapse_vars_temp, lapse_vars_aux, lapse_rhs
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_rhs, BSSN::BSSN_gupij, BSSN::have_global_bdry
+STORAGE: fisheye::fisheye_vars
+
+# Prints out a banner stating the runtype
+schedule Lapse_Startup at STARTUP
+{
+  LANG: C
+} "Register banner"
+
+# Checks that the lapse parameters are within bounds.
+schedule Lapse_CheckParameters at CCTK_PARAMCHECK
+{
+  LANG: C
+} "Check parameters"
+
+# Tells the symmetry thorn what type of symmetry to use
+schedule Lapse_InitSymBound at BASEGRID
+{
+  LANG: C
+} "Schedule symmetries"
+
+# Setup Initial Data
+schedule Setup_Initial_Lapse at CCTK_INITIAL as lapse_initialdata
+{
+  LANG:          FORTRAN
+  SYNC: lapse_vars
+} "Initial data for lapse"
+
+schedule lapse_PostInitialData in ABE_PostInitial as lapsepostid after shiftpostid before empostid
+{
+  LANG:          FORTRAN
+  OPTIONS: GLOBAL,loop-local
+} "Compute post-initialdata quantities"
+
+schedule lapse_RegisterVars in MoL_Register
+{
+  LANG: C
+  OPTIONS: META
+} "Register variables for MoL"
+
+schedule lapse_timestepping as lapse_rhs after bssn_rhs in MoL_CalcRHS
+{
+  LANG:          FORTRAN
+} "Evaluate RHS for lapse"
+
+schedule lapse_update_bc in ABE_PostStep as lapse_update_bc
+{
+  LANG:          FORTRAN
+  SYNC: lapse_vars
+} "Update lapse bc's"
+
+schedule lapse_postbc in ABE_PostStep as lapse_postbc after lapse_update_bc
+{
+  LANG:          FORTRAN
+  SYNC: lapse_derivatives
+} "Update lapse derivatives"

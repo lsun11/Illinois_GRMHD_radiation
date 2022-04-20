@@ -1,0 +1,58 @@
+# Parameter definitions for thorn Cartoon2D
+# $Header: /cactusdevcvs/BetaThorns/Cartoon2D/param.ccl,v 1.8 2005/11/10 14:05:35 hawke Exp $
+
+private:
+
+BOOLEAN cartoon_active "Activate cartoon boundary condition"
+{
+} "no"
+
+BOOLEAN verbose "Verbose information"
+{
+} "no"
+
+BOOLEAN stencil "Use custom 2D stencil if available"
+{
+} "yes"
+
+INT order "Cartoon's interpolation order"
+{
+  1:5 :: "From linear to fifth order."
+} 4
+
+INT eno_order "The interpolation order applied to the ENO interpolator"
+{
+  1:5 :: "From linear to fifth order."
+} 4
+
+BOOLEAN allow_grid_resize "Allow grid to be resized in a cartoon-compatible way"
+{
+} "no"
+
+BOOLEAN old_excision "Are we doing excision based on the old style mask?"
+{
+} "no"
+
+BOOLEAN new_excision "Are we doing excision based on the new style mask?"
+{
+} "no"
+
+STRING old_style_excision_var "The variable to be checked for old style excision"
+{
+  ".*" :: "Expected to be \'Spacemask::emask\'"
+} ""
+
+STRING new_style_excision_var "The variable to be checked for new style excision"
+{
+  ".*" :: "Expected to be \'Spacemask::space_mask\'"
+} ""
+
+STRING new_mask_field_name "The name of the field that describes excision for the new mask"
+{
+  ".*" :: "Could be anything"
+} ""
+
+STRING new_mask_excised_name "The name of the descriptor that says the point is excised for the new mask"
+{
+  ".*" :: "Could be anything"
+} ""

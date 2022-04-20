@@ -1,0 +1,98 @@
+# Parameter definitions for thorn nonlinear_alfven_wave
+
+shares: IO
+USES KEYWORD out_every
+
+#following 2 lines needed for binfile checkpointing
+shares: Cactus
+USES INT cctk_itlast 
+
+shares: grid
+
+shares: mhd_evolve
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD force_font_fix_fail
+USES KEYWORD enable_primitives_disk
+USES KEYWORD primitives_solver
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+
+restricted:
+
+private:
+REAL rho_b0 "rest-mass density (constant everywhere)"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL P0 "Pressure (constant everywhere)"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL u1_l "u^1 on left side of wave"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u2_l "u^2 on left side of wave"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u3_l "u^3 on left side of wave"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL wtrans "Width of wave"
+{
+  0:* :: "Any positive real"
+} 0.0
+
+REAL rotations "Kind of a measure for the amplitude of the wave"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL B1os4pi_l "B^1/sqrt(4 pi) on left side of wave"
+{ 
+  *:* :: "Any real"
+} 0.0
+
+REAL B2os4pi_l "B^2/sqrt(4 pi) on left side of wave"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL nx "shock direction: x-component"
+{
+  *:* :: "Any positive real"
+} 1
+REAL ny "shock direction: y-component"
+{
+  *:* :: "Any positive real"
+} 0
+REAL nz "shock direction: z-component"
+{
+  *:* :: "Any positive real"
+} 0
+
+REAL npolywave "polytropic index for shock. Note that Gamma = 1+1/n"
+{
+  0:* :: "Any positive real"
+} 3
+
+

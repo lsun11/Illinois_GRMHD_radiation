@@ -1,0 +1,7 @@
+REQUIRES BLAS Boost
+
+PROVIDES CPPUtils
+{
+    SCRIPT
+    LANG
+}

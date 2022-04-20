@@ -1,0 +1,808 @@
+# Parameter definitions for thorn bhns
+
+shares: IO
+USES KEYWORD out_every
+
+#shares: Time
+#USES KEYWORD dtfac
+
+shares: driver
+
+shares: magnetar
+#USES KEYWORD P_deplete
+
+shares: mhd_evolve
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD P_fact
+USES KEYWORD K_poly
+USES KEYWORD neos
+USES KEYWORD pfloor
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD EM_BC
+USES KEYWORD em_evolve_enable
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD enable_trace_field_line
+USES KEYWORD em_gauge
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD primitives_solver
+USES KEYWORD primitives_debug
+USES KEYWORD Psi6threshold
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD rho_b_max
+USES KEYWORD rhos_max
+USES KEYWORD ergo_star
+USES KEYWORD ergo_sigma
+USES KEYWORD horizon_enforce_rho_profile
+USES KEYWORD M_B
+USES KEYWORD rad_T_fac
+USES KEYWORD rad_T_cutoff
+USES KEYWORD rad_T_pow
+USES KEYWORD rad_T_floor
+USES KEYWORD rad_evolve_enable
+USES KEYWORD rad_closure_scheme
+USES KEYWORD enable_OS_collapse
+USES KEYWORD Erad_atm_cut
+USES KEYWORD compute_microphysics
+USES KEYWORD microphysics_scheme
+USES KEYWORD T_fluid_cgs_atm
+USES KEYWORD eps_thermal_bhns 
+USES KEYWORD rad_fix
+
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD BH_Vol_Excise_Radius
+USES KEYWORD scaledsurf
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD sym_factor
+
+shares: diagnostics_mhd
+USES KEYWORD initial_monopole_value
+USES KEYWORD rhob_cutoff
+USES KEYWORD Nphi_points
+USES KEYWORD M_ADM
+
+shares: IO
+USES CCTK_REAL out_xyplane_z
+USES CCTK_REAL out_xzplane_y
+USES CCTK_REAL out_yzplane_x
+
+shares:bssn
+USES KEYWORD binary_orb_freq
+USES KEYWORD rotation_phase
+
+shares: gw_extraction
+#USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+
+shares: movingbox
+USES KEYWORD track_bhns
+
+
+restricted:
+
+INT num_CO "Number of Compact Objects."
+{
+1:2 :: "Use 1 for single star, 2 for binary system."
+} 2
+
+##########################################################
+
+INT iteration_to_insert_rad "Iteration to insert radiation" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer."
+} -1
+
+INT iteration_to_compute_temp "Iteration to use temperature to get the thermal pressure/energy density" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer."
+} -1
+
+
+private:
+
+
+INT nperturb "Adding a perturbation"
+{
+ 0:10 :: "Choice of perturbation. 0 means no perturbation. Other values give different perturbations."
+} 0
+
+REAL ampl_perturb "Amplitude of the perturbation"
+{
+ *:* :: "Any real number"
+} 0.01
+
+
+REAL Con_Pol "Coefficient Poloidal Bfield for superposition"
+{
+ *:* :: "Any real number"
+} 0.0
+
+
+REAL Con_Tor "Coefficient Toroidal Bfield for superposition"
+{
+ *:* :: "Any real number"
+} 0.0
+
+
+INT superposition "Bfield poloidal + toroidal"
+{
+ 0:1 :: "add toroidal compenent 0 (1) means no (yes) toroidal Bfield."
+} 0
+
+REAL radi_perturb "Perturbation parameter"
+{
+ 0:100 :: "Any real number"
+} 10.0
+
+REAL a2oa1_perturb "Ratio of principal radii for the perturbation"
+{
+ *:* :: "Any real number"
+} 0.9
+
+REAL lambda_perturb "Angular velocity of the internal fluid circulation of the perturbation"
+{
+ *:* :: "Any real number"
+} 0.1
+
+#INT nphase "Number of phases in the COCAL ID EOS."
+#{
+# 1:20 :: "nphase = neos + 1"
+#} 2
+
+
+
+INT piecewise "are you using a piecewise EoS"
+{
+ 0:1 :: "0 = single polytrope, 1= piecewise"
+} 0
+
+
+INT genID_cmdline_output_enable "Output initial data parameters?"
+{
+ 0:1 :: "Zero (no) or One (yes)"
+} 0
+
+INT reset_shift_lapse "Reset the shift to zero and lapse to psi^-2?"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+INT subtract_off_Omega_r "Subtract off Omega r, rendering the NS motionless on the xy plane -- TESTING ONLY"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+REAL Omega_value "Subtract off Omega r, rendering the NS motionless on the xy plane.  This sets Omega, the orbital angular frequency.  Defaults to Case A-LSep -- TESTING ONLY"
+{
+ 0:1 :: "0--1"
+} 5.9753511007045845e-02
+
+INT use_new_bhns_initial_data "Use Keisuke's new BHNS initial data (i.e., with spinning BH) as input?"
+{
+ -1:8 :: "-1: don't use ID. Zero (no) or One (yes) or 2 Use SpEC Initial data or use 3 for NSNS ID or 4 for use Cocoal ID for 5 Cook ID for 6 bh+disk  or 7 EOS P = rho or 8 Cocal no conformal flat"
+} -1
+
+INT unequalmass "a NSNS unequal mass case?"
+{
+ 0:1 :: "Zero (no) or One (yes)"
+} 0
+
+INT bhns_regrid_input_enable "Start from regridded initial data?" STEERABLE=ALWAYS
+{
+ 0:1 :: "Zero (no) or One (yes)"
+} 0
+
+INT bhns_regrid_output_enable_iter "Timestep at which to perform a regridding?" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer. Set to negative value to disable."
+} -1
+
+REAL P_deplete_bhns "Pressure depletion paramter (1.0 -> no pressure depletion)"
+{
+ 0:* :: "Positive"
+} 1.0
+
+
+##########################################################
+# EM Field stuff:
+
+INT ITERATION_TO_INSERT_MAGNETIC_FIELDS "Insert magnetic fields at what iteration?" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer."
+} -1
+
+#INT bhnsinsertBNOW "Insert magnetic fields at this iteration" STEERABLE=ALWAYS
+#{
+# 0:1 :: "0=no,1=yes"
+#} 0
+
+INT center_Bfields_around_BH_instead "Center magnetic fields around BH instead, used for specifying magnetic fields in disk instead" STEERABLE=ALWAYS
+{
+ 0:1 :: "0=no, 1=yes"
+} 0
+
+# Set this parameter to tilt magnetic fields
+REAL angle_to_tilt_magnetic_fields "Angle to tilt magnetic fields starI" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 0.0
+
+
+# Set this parameter to tilt magnetic fields
+REAL angle_to_tilt_magnetic_fieldsII "Angle to tilt magnetic fields starII" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 0.0
+
+
+# This parameter specifies the 
+REAL Aphi_power "This sets the parameter n -- how centrally condensed the initial magnetic fields are. Default to UIUC specification (n=1). AEI is n=2" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 1.0
+
+INT angle_to_tilt_90 "90 degrees tilted B-field for current loop case" STEERABLE=ALWAYS
+{
+ 0:1 :: "0=no, 1=yes"
+} 0
+
+
+# Set this parameter to specify B field strength:
+REAL betam1 "P_B / P_gas" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 1e-4
+
+# Set this parameter to specify B field strength in the case of unequal mass
+REAL betam1_2 "P_B / P_gas" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 1e-4
+
+# Set this parameter to specify the plasma parameter exterior to NS:
+REAL beta_ext "P_gas / P_B" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 0.0
+
+# You don't set this parameter!
+REAL bhns_avg_betam1 "spatial average: <P_B / P_gas>"
+{
+ 0:* :: "Positive"
+} 1e-4
+
+INT em_field_type "poloidal (0), toroidal (1) or div-free poloidal (2) fields? or (3) for approx current loop" STEERABLE=ALWAYS
+{
+ *:* :: "Any Integer"
+} 0
+
+REAL p_c "Pressure cutoff for initial magnetic field configuration" STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.04
+
+REAL r0 "Lengthscale factor for toroidal magnetic field configuration.  Set close to radius of NS."
+{
+ *:* :: "Any Real"
+} 0.73
+
+REAL rloop "Radius of approx current loop magnetic field configuration.  Set close to 1/3 the radius of NS." STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.25
+
+REAL rloop2 "Radius of approx current loop magnetic field configuration.  Set close to 1/3 the radius of NS." STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.25
+
+REAL Iloop "Current of approx current loop magnetic field configuration.  Set such that the star does not blow up." STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.00001
+
+REAL Iloop2 "Current of approx current loop magnetic field configuration.  Set such that the star does not blow up." STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.00001
+
+REAL conloop1 "Current of approx current loop magnetic field configuration.  Set such that the star does not blow up." STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL conloop2 "Current of approx current loop magnetic field configuration.  Set such that the star does not blow up." STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_P_max "Maximum value of the pressure, for EM field setup.  Don't need to set this."
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_P_max2 "Maximum value of the pressure, for EM field setup (unequalmass)."  
+{
+ *:* :: "Any Real"
+} 0.0
+
+INT bhns_B_v "assign  the velocity of the center of mass of the NS to the magnetic field" STEERABLE=ALWAYS
+{
+ 0:3 :: "Zero (no), One (yes) Two (yes and use power-law) Three (yes, use power-law and shift)"
+} 0
+
+REAL bhns_fac_atm "reset the value of rho_atm"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_vx_CM "velocity of the CoM.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_vy_CM "velocity of the CoM.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_vz_CM "velocity of the CoM.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_vx_CM2 "velocity of the CoM second star.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_vy_CM2 "velocity of the CoM second star.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_vz_CM2 "velocity of the CoM second star.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_R_NS "Radius of the NS"
+{
+ *:* :: "Any Real"
+} 0.75
+
+REAL bhns_R_NS2 "Radius of the second  NS"
+{
+ *:* :: "Any Real"
+} 0.75
+
+
+##############################
+## Atmospheric density stuff
+##############################
+INT RESET_RHO_B_ATM "Reset the atmospheric rest-mass density based on a given prescription. Inserted to change rhob_atm based on exterior magnetic fields" STEERABLE=ALWAYS
+{
+0:1 :: "0=no, 1=yes"
+} 0
+
+INT ATM_TYPE "Prescription of atmospheric rest-mass density when resetting it" STEERABLE=ALWAYS
+{
+0:1 :: "0=Powerlaw fall-off, 1=Based on b^2"
+} 0
+
+REAL bhns_rhob_max "Maximum value of the rest-mass density, for atmosphere setup.  Don't need to set this. It's calculated by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_rhob_fac "Fraction of bhns_rho_b_max, below which we treat everything as atmosphere." STEERABLE=ALWAYS
+{
+ 0:* :: "Any positive Real"
+} 0.00001
+
+REAL rhob_fac2 "Factor by which to reduce the atmospheric density further, only when RESET_RHO_B_ATM=1." STEERABLE=ALWAYS
+{
+ 0:* :: "Any positive Real"
+} 1.0
+
+REAL rhob_o_b2 "Fraction rho_b/b^2 to set the atmosphere density based on the magnetic energy density." STEERABLE=ALWAYS
+{
+ 0:* :: "Any positive Real"
+} 100.
+
+REAL rad_rhob_fac "Largest radius from NS center of mass at which the rest-mass density drops by a fraction of bhns_rho_b_max below the maximum. No need to set this. Will be set by the code" 
+{
+ 0:* :: "Any positive Real"
+} 0.9
+
+ 
+REAL rhobatm_falloff_power "Used when atmospheric density falls-off like bhns_rhobmax*(rad_rhob_fac/r)^rhobatm_falloff_power." STEERABLE=ALWAYS
+{
+ 0:* :: "Any positive Real"
+} 2.
+##############################
+
+# EM field diagnostics: compute position of max(b2)
+REAL bhns_max_b2 "Maximum value of the b2.  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_max_b2_posn_x "x-coord of max(b2).  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_max_b2_posn_y "y-coord of max(b2).  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_max_b2_posn_z "z-coord of max(b2).  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+
+REAL bhns_rho_b_max_posn_x "x-coord of max(rho_b).  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_rho_b_max_posn_y "y-coord of max(rho_b).  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_rho_b_max_posn_z "z-coord of max(rho_b).  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL bhns_max_rho_b "Maximum value of rho_b.  Don't set this; it's set by the code"
+{
+ *:* :: "Any Real"
+} 0.0
+
+
+###################################################################
+# MRI wavelength diagnostic stuff:
+INT ITERATION_TO_output_MRI_wavelength "Output MRI wavelength diagnostic at what iteration? Note that MRI wavelength info is saved to temp9 variable!" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer. Set this to something HUGE to disable."
+} 100000000
+
+INT MRI_wavelength_calculator_Nxy "Number of gridpoints in x and y directions. If you want to output a 400x400 grid, set this parameter to 400. This grid will automatically center around the BH." STEERABLE=ALWAYS
+{
+ *:* :: "Any integer. Set this to something HUGE to disable."
+} 100
+
+REAL MRI_wavelength_calculator_dxy "Gridspacing in x and y directions. This grid will automatically center around the BH." STEERABLE=ALWAYS
+{
+ *:* :: "Any integer. Set this to something HUGE to disable."
+} 0.4
+
+INT ITERATION_TO_BOOST_MAGNETIC_FIELDS "Mythbusters boost factor. Set this to infinity for maximum boom!" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer. Set this to something HUGE to disable."
+} 242752000
+
+REAL mythbusters_boost_factor "Mythbusters boost factor. Set this to infinity for maximum boom!" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer. Set this to something HUGE to disable."
+} 10.0
+
+###################################################################
+# Filling in BH with A^i stuff:
+INT refill_horizons_magfields_every "Refill magnetic fields in horizon every refill_horizons_magfields_every timesteps." STEERABLE=ALWAYS
+{
+ *:* :: "Any integer"
+} 16
+
+REAL horiz_radius "Horizon radius in +z direction.  This is computed, so don't bother setting it."
+{
+ *:* :: "Any real"
+} -1000000
+
+REAL bhns_bh_filling_radius[100] "A^i is set to zero at r<bhns_bh_filling_radius0*horiz_radius, where r=0 at centroid of AH and horiz_radius is the radius of the AH in the +z direction.  We set the smoothing polynomial so that when r=bhns_bh_filling_radius0, the spatial derivative of A^i and A^i are both zero!" STEERABLE=ALWAYS
+{
+ *:* :: "Any Real"
+} 0.5
+
+INT INPUTARRAY_THETASIZE "Size of 2D interpolated A^i array in theta direction.  Set this too high, and you'll slow down the code.  Set it too low, and it will be inaccurate.  The below value assumes equatorial symmetry.  You may want to modify it if Symmetry==0, for example." STEERABLE=ALWAYS
+{
+ 1:* :: "Any Integer >=1"
+} 20
+
+INT INPUTARRAY_PHISIZE "Size of 2D interpolated A^i array in phi direction.  Set this too high, and you'll slow down the code.  Set it too low, and it will be inaccurate." STEERABLE=ALWAYS
+{
+ 1:* :: "Any Integer >=1"
+} 40
+
+INT RADIAL_INTERP_ORDER "Radial polynomial interpolation order" STEERABLE=ALWAYS
+{
+ 1:* :: "Any Integer >=1"
+} 4
+INT NUM_ZERO_PTS "To effectively set the derivative at r=bhns_bh_filling_radius[0] to zero, we can set bhns_bh_filling_radius[1-NUM_ZERO_PTS+1] points to zero as well!" STEERABLE=ALWAYS
+{
+ 0:* :: "Any Integer >=0"
+} 0
+
+##########################################################
+
+INT chunklet_dump_every "dump binfile chunklets every dump_every timesteps"
+{ 
+ 1:* :: "Positive int > 1"
+} 999999
+
+INT chunklet_procs_at_a_time "how many processors to dump at a time?  For N gridfunctions output, this will write N*chunklet_procs_at_a_time files at a time."
+{ 
+ 1:* :: "Positive int > 1"
+} 4
+
+REAL BigM "Initial ADM mass.  DEPRECATED: Don't use!"
+{
+ 0:* :: "Positive or zero"
+} 0
+
+real moncrief_radius_GW[11] "Radii at which to measure GW's" STEERABLE=recover
+{
+  0:* :: "zero or any positive number"
+} 1.0
+
+INT moncrief_gw_num_radii "How many radii will to measure GW's"
+{ 
+ 0:10 :: "Positive int <= 10"
+} 0
+
+INT two_ns  "How many radii will to measure GW's"
+{ 
+ 0:1 :: "Positive int <= 10"
+} 0
+
+
+# Initial NS position.  Used for setting up EM fields!
+
+REAL initial_ns_coord_x " initial x-coordinate of the center of the NS"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL initial_ns_coord_y " initial y-coordinate of the center of the NS"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL initial_ns2_coord_x " initial x-coordinate of the center of the NS"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL initial_ns2_coord_y " initial y-coordinate of the center of the NS"
+{
+ *:* :: "Any real"
+} 0.0
+
+
+REAL initial_wd_coord_x " initial x-coordinate of the center of the WD"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL initial_wd_coord_y " initial y-coordinate of the center of the WD"
+{
+ *:* :: "Any real"
+} 0.0
+
+
+# Initial horizon position and radius (assume the horizon is a sphere)
+
+INT ntot_bhns "size of array ah_radii, must be equal to N_theta*N_phi; otherwise the code will quit"
+{
+ 1:* :: "positive"
+} 800
+
+REAL xh0 " initial x-coordinate of the center of the AH"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL yh0 " initial y-coordinate of the center of the AH"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL zh0 " initial z-coordinate of the center of the AH"
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL r0_ah " initial horizon radius"
+{
+ 0:* :: "Any positive"
+} 0.5
+
+
+##########################################################
+
+INT bhns_particle_tracer_start "When to start tracing particles?" STEERABLE=ALWAYS
+{
+ *:* :: "Set this to enormous values to disable, negative to start immediately"
+} 100000000
+
+INT N_particles_to_trace "Number of particles to trace during the evolution. Disable particle tracing by setting bhns_particle_tracer_start (above) to a negative number." STEERABLE=ALWAYS
+{
+ 1:* :: "Set it to a number >=1, because we declare arrays with size N_particles_to_trace."
+} 1
+
+INT particle_tracer_substep_every "Do a particle tracer substep every N (full MoL) timesteps. Here define N." STEERABLE=ALWAYS
+{
+ 1:* :: ">=1"
+} 1
+
+INT particle_center "Where to center the distribution of particles" STEERABLE=ALWAYS
+{
+ 0:4 :: "0=choose the center in the par file, 1=center on AMR box 1, 2=center on AMR box 2, 3=center on BH, 4=center on NS"
+} 1
+
+REAL bhns_tracer_r "Radius inside of which to add particles" STEERABLE=ALWAYS
+{
+ 0:* :: ">=0"
+} 0.72473062745357653
+
+REAL bhns_tracer_rin "Other radius (for choosing shells) within which to add particles" STEERABLE=ALWAYS
+{
+ 0:* :: ">=0"
+} 0.
+
+REAL bhns_tracer_x0 "x coordinate of the center of geometry around which we add particles" STEERABLE=ALWAYS
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL bhns_tracer_y0 "y coordinate of the center of geometry around which we add particles" STEERABLE=ALWAYS
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL bhns_tracer_z0 "z coordinate of the center of geometry around which we add particles" STEERABLE=ALWAYS
+{
+ *:* :: "Any real"
+} 0.0
+
+REAL tracer_x_max "Maximum x-coordinate of particles, so we don't interpolate off the grid." STEERABLE=ALWAYS
+{
+ 0:* :: ">=0"
+} 102.0
+
+REAL tracer_y_max "Maximum y-coordinate of particles, so we don't interpolate off the grid." STEERABLE=ALWAYS
+{
+ 0:* :: ">=0"
+} 102.0
+
+REAL tracer_z_max "Maximum z-coordinate of particles, so we don't interpolate off the grid." STEERABLE=ALWAYS
+{
+ 0:* :: ">=0"
+} 102.0
+
+
+REAL tracer_x_min "Maximum x-coordinate of particles, so we don't interpolate off the grid." STEERABLE=ALWAYS
+{
+ *:0 :: "<=0"
+} -102.0
+
+REAL tracer_y_min "Maximum y-coordinate of particles, so we don't interpolate off the grid." STEERABLE=ALWAYS
+{
+ *:0 :: "<=0"
+} -102.0
+
+
+REAL tracer_z_min "Minimum z-coordinate of particles, so we don't interpolate off the grid." STEERABLE=ALWAYS
+{
+ *:0 :: "<=0"
+}  -102.0
+
+INT initial_particle_geometry "Initial geometric distribution for particles" STEERABLE=ALWAYS
+{
+ 0:3 :: "0=sphere, 1=cylinder, 2=cone, 3=circle"
+} 0
+
+REAL particle_cylinder_cone_zmin "z Coordinate of lower face of cylinder for particle initial geometry: matters only when initial_particle_geometry=1 or 2" STEERABLE=ALWAYS
+{
+ *:* :: "Any real number"
+} 0.0
+
+REAL particle_cylinder_cone_zmax "z Coordinate of upper face of cylinder for particle initial geometry: matters only when initial_particle_geometry=1 or 2" STEERABLE=ALWAYS
+{
+ *:* :: "Any real number"
+} 10.0
+
+REAL particle_cone_angle "Opening angle of measured from z-axis: matters only when initial_particle_geometry=2" STEERABLE=ALWAYS
+{
+ *:* :: "Any real number"
+} 10.0
+
+##########################################################
+
+INT alpha_diagnostic "do you want to compute alpha-stress" STEERABLE=ALWAYS
+{
+  0:1 :: "Zero (no) or One (yes)"
+} 0
+
+REAL alpha_rho_cut_off "cut_off density below which we do not compute alpha-stress" STEERABLE=ALWAYS
+{
+  0.:* :: "Positive real"
+} 1e-12
+
+
+INT surfxnum "number of points in x direction for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive integer"
+} 50
+
+INT surfphinum "number of points in phi direction for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive integer"
+} 50 
+
+INT surfznum "number of points in z direction for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive integer"
+} 50
+
+REAL surfxmin "minimum x value for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive real"
+} 15.0
+
+REAL surfxmax "maximum x value for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive real"
+} 150.0
+
+REAL surfzmax "maximum z value for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive real"
+} 30.0
+
+##########################################################
+
+INT bhns_domain "what numerical domain we are using"
+{
+ 0:1 :: "Zero (bitant) or One (full)"
+} 0
+
+REAL Erad_over_rho "the ratio between radiation energy and rest mass density for setting ID with radiation" STEERABLE=ALWAYS
+{
+ 0:* ::"positive real"	
+} 0.001
+
+
+
+
+##########################################################
+
+#INT iteration_to_insert_rad "Iteration to insert radiation" STEERABLE=ALWAYS
+#{
+# *:* :: "Any integer."
+#} -1
+
+#INT iteration_to_compute_temp "Iteration to use temperature to get the thermal pressure/energy density" STEERABLE=ALWAYS
+#{
+# *:* :: "Any integer."
+#} -1

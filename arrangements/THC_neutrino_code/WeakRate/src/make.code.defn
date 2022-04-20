@@ -1,0 +1,20 @@
+# Main make.code.defn file for thorn WeakRates
+
+# Source files in this directory
+SRCS =  lk_hdfOpenField.F90 \
+        infnan.F90 \
+        start_table.F90 \
+        weak_constants.F90 \
+        table3d_mod.F90 \
+        weak_table_reader.F90 \
+        enforce_table_bounds.F90 \
+        lk_interpolations.F90 \
+        Fermi.F77 \
+        NeutrinoDens_cgs.F90 \
+        atomic_mass.F90 \
+        Abar.F90 \
+        Opacities_cgs.F90 Emissions_cgs.F90 \
+        weakrates_impl.F90
+
+# Subdirectories containing source files
+SUBDIRS =

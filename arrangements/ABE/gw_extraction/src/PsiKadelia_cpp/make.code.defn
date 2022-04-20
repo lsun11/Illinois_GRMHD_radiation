@@ -1,0 +1,13 @@
+# Main make.code.defn file for thorn PsiKadelia
+
+# Source files in this directory
+SRCS = InitSym.F90 ParamCheck.c \
+	PsiKadelia_driver.F90 PsiKadelia_postregrid.F90 PsiKadelia_lowlevel.C \
+	\
+	diagnostics.F90    areal_radius_averaged_1minus_lapse.F90 \
+	nrutil_psikad.F90 psikad_lm_functions.F90 surface_integrals-general_lm_mode_average.F90 \
+	\
+	areal_radius_averaged_gutt_gutr_guprr.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

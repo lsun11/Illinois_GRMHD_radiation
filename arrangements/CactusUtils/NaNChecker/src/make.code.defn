@@ -1,0 +1,5 @@
+# Main make.code.defn file for thorn NaNChecker
+# $Header: /cactusdevcvs/CactusUtils/NaNChecker/src/make.code.defn,v 1.1.1.1 2001/04/24 17:41:31 tradke Exp $
+
+# Source files in this directory
+SRCS = NaNCheck.c

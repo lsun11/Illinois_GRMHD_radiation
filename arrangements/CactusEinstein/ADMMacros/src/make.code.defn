@@ -1,0 +1,9 @@
+# Main make.code.defn file for thorn ADMMacros
+# $Header: /cactusdevcvs/CactusEinstein/ADMMacros/src/make.code.defn,v 1.2 2003/07/09 08:42:20 hawke Exp $
+
+# Source files in this directory
+SRCS = SetLocalSpatialOrder.c
+
+# Subdirectories containing source files
+SUBDIRS = 
+

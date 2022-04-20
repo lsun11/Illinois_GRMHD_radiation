@@ -1,0 +1,6 @@
+# Interface definition for thorn IDScalarWaveMoLC
+# $Header: /cactusdevcvs/CactusExamples/IDWaveMoL/interface.ccl,v 1.1.1.1 2004/06/26 14:49:20 hawke Exp $
+
+implements: idwavemol
+inherits: wavemol grid
+

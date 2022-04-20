@@ -1,0 +1,38 @@
+# Interface definition for thorn OS_toy
+
+implements: OS_toy
+inherits: grid
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+
+USES INCLUDE: Symmetry.h
+USES INCLUDE: Cartoon2D.h
+
+protected:
+
+private:
+REAL mhd_OS_VolInt TYPE=scalar
+{
+  OS_restmass_VolInt
+} "volume integrals"
+
+cctk_real mhd_OS_private type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+ OS_rest_mass_integrand
+} "rest-mass integrand"
+
+
+REAL OS_center_diagnostics TYPE=scalar
+{
+  tau_center_OS
+} "variables necessary to compute quantities at the origin"
+
+cctk_real analytic type = GF
+{
+ rho_b_analytic
+} "analytic stuff"

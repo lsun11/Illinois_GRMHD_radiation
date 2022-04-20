@@ -1,0 +1,231 @@
+!-----------------------------------------------------------------------------
+! Timestepping routine for 2nd order Gamma-driving shift (Spatial_Gauge == 5)
+!-----------------------------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine hbpuncture_shift_timestepping(CCTK_ARGUMENTS)
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  interface
+     subroutine hbpuncture_shiftRHS(cctkGH,cctk_nghostzones,ext, &
+          dT,dx,dy,dz,hbpunc_advect_enable,eta, &
+          RadiusDerivative, &
+          shiftx_old,shifty_old,shiftz_old, &
+          shiftx_rhs,shifty_rhs,shiftz_rhs, &
+          dtshiftx_old,dtshifty_old,dtshiftz_old, &
+          dtshiftx_rhs,dtshifty_rhs,dtshiftz_rhs, &
+          Gammax,Gammay,Gammaz, &
+          Gammax_rhs,Gammay_rhs,Gammaz_rhs, &
+          shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv,Symmetry,  &
+          hbpuncture_shift_convert_Gammai_fisheye_to_physical, &
+          r,eta_final_value,eta_falloff_enable,eta_falloff_radius,eta_falloff_dr, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,phi)
+       implicit none
+       CCTK_POINTER                            :: cctkGH
+       integer, dimension(3)                   :: ext,cctk_nghostzones
+       real*8                                  :: dT,dx,dy,dz,eta,eta_final_value,eta_falloff_radius,eta_falloff_dr
+       real*8, dimension(ext(1),ext(2),ext(3)) :: RadiusDerivative,r
+       real*8, dimension(ext(1),ext(2),ext(3)) :: shiftx_old,shifty_old,shiftz_old
+       real*8, dimension(ext(1),ext(2),ext(3)) :: shiftx_rhs,shifty_rhs,shiftz_rhs
+       real*8, dimension(ext(1),ext(2),ext(3)) :: dtshiftx_old,dtshifty_old,dtshiftz_old
+       real*8, dimension(ext(1),ext(2),ext(3)) :: dtshiftx_rhs,dtshifty_rhs,dtshiftz_rhs
+       real*8, dimension(ext(1),ext(2),ext(3)) :: Gammax,Gammay,Gammaz
+       real*8, dimension(ext(1),ext(2),ext(3)) :: Gammax_rhs,Gammay_rhs,Gammaz_rhs
+       real*8, dimension(ext(1),ext(2),ext(3)) :: shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv
+       real*8, dimension(ext(1),ext(2),ext(3)) :: gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,phi
+       integer                                 :: Symmetry,hbpunc_advect_enable,eta_falloff_enable
+       integer                                 :: hbpuncture_shift_convert_Gammai_fisheye_to_physical
+     end subroutine hbpuncture_shiftRHS
+     
+     subroutine hbpuncture_add_dissipation(cctk_nghostzones,ext,dx,dy,dz,rhs,var)
+
+       integer, dimension(3)                   :: ext,cctk_nghostzones
+       real*8                                  :: dx,dy,dz,epsdis
+       real*8, dimension(ext(1),ext(2),ext(3)) :: rhs,var
+       integer                                 :: i,j,k
+     end subroutine hbpuncture_add_dissipation
+
+  end interface
+  integer                                   :: n1,n2,n3,m,dummy,index
+  integer, dimension(3)                     :: ext,fake_ext
+  real*8                                    :: dT,dX,dY,dZ
+  real*8                                    :: HALF,ld_eps,ld_c
+!!!!  real*8, dimension(cctk_lsh(1),cctk_lsh(2),cctk_lsh(3))   :: tempx,tempy,tempz
+  integer                    :: PI_SYMM, AXISYM
+  parameter(PI_SYMM = 3, AXISYM = 4)
+  parameter ( HALF = 0.5D0 )
+
+  integer                                       :: i,j,k
+  real*8                                        :: rfromcenterofAH,shiftmag,AH_radius_minimum,horizdirn_x,horizdirn_y,horizdirn_z,neweta
+
+  !
+  ext = cctk_lsh
+
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+  dT = CCTK_DELTA_TIME
+
+  ! WE USE shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv AS TEMPORARY STORAGE HERE!
+
+  if(CCTK_TIME.ge.time_to_switch_to_eta_final_value) then
+     eta = eta_final_value
+  end if
+
+  call hbpuncture_shiftRHS(cctkGH,cctk_nghostzones,cctk_lsh, &
+       dT,dx,dy,dz,hbpunc_advect_enable,eta, &
+       RadiusDerivative, &
+       shiftx,shifty,shiftz, &
+       shiftx_rhs,shifty_rhs,shiftz_rhs, &
+       shiftxt,shiftyt,shiftzt, &
+       shiftxt_rhs,shiftyt_rhs,shiftzt_rhs, &
+       Gammax,Gammay,Gammaz, &
+       Gammax_rhs,Gammay_rhs,Gammaz_rhs, &
+       shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv,Symmetry,  &
+       hbpuncture_shift_convert_Gammai_fisheye_to_physical, &
+       r,eta_final_value,eta_falloff_enable,eta_falloff_radius,eta_falloff_dr, &
+       gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,phi)
+
+  if(enable_lower_order_at_boundaries==1) then
+     call hbpuncture_shiftRHS_2(cctkGH,cctk_nghostzones,cctk_lsh, &
+          dT,dx,dy,dz,hbpunc_advect_enable,eta, &
+          RadiusDerivative, &
+          shiftx,shifty,shiftz, &
+          shiftx_rhs,shifty_rhs,shiftz_rhs, &
+          shiftxt,shiftyt,shiftzt, &
+          shiftxt_rhs,shiftyt_rhs,shiftzt_rhs, &
+          Gammax,Gammay,Gammaz, &
+          Gammax_rhs,Gammay_rhs,Gammaz_rhs, &
+          shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv,Symmetry,  &
+          hbpuncture_shift_convert_Gammai_fisheye_to_physical)
+  end if
+
+!!$  if(0==0) then
+!!$
+!!$     !     Get horizon radius in direction where it is likely to be minimized:
+!!$     horizdirn_x = 0.D0
+!!$     horizdirn_y = 0.D0
+!!$     horizdirn_z = 100000.D0
+!!$     call get_ah_radius_in_dirn(cctkGH,horizdirn_x,horizdirn_y,horizdirn_z,AH_radius_minimum);
+!!$     if(AH_radius_minimum.lt.0.D0) then
+!!$        AH_radius_minimum = bh_radius_z(1)
+!!$        !!AH_radius_minimum = 0.625D0
+!!$        write(*,*) "WARNING:  Couldn't find horizon, so using last known BH radius & position to limit B^2 inside the horizon.  Radius=",AH_radius_minimum,bh_posn_x(1),bh_posn_y(1),bh_posn_z(1)
+!!$     end if
+!!$
+!!$     write(*,*) "Radius=",AH_radius_minimum,bh_posn_x(1),bh_posn_y(1),bh_posn_z(1)
+!!$
+!!$     ! Hard-coded 0.8 safety factor here:
+!!$     AH_radius_minimum = 0.8D0 * AH_radius_minimum
+!!$
+!!$
+!!$     !$omp parallel do private (rfromcenterofAH,neweta)
+!!$     do k = 1, cctk_lsh(3)
+!!$        do j = 1, cctk_lsh(2)
+!!$           do i = 1, cctk_lsh(1)
+!!$
+!!$
+!!$
+!!$              rfromcenterofAH = sqrt((x(i,j,k)-bh_posn_x(1))**2 + (y(i,j,k)-bh_posn_y(1))**2 + (z(i,j,k)-bh_posn_z(1))**2)
+!!$
+!!$              ! You'll need to edit the code above and below if there is more than one BH.
+!!$              if(rfromcenterofAH .lt. AH_radius_minimum) then
+!!$
+!!$                 neweta = 8.D0
+!!$                 
+!!$                 shiftxt_rhs(i,j,k) = Gammax_rhs(i,j,k) - neweta*shiftxt(i,j,k)
+!!$                 shiftyt_rhs(i,j,k) = Gammay_rhs(i,j,k) - neweta*shiftyt(i,j,k)
+!!$                 shiftzt_rhs(i,j,k) = Gammaz_rhs(i,j,k) - neweta*shiftzt(i,j,k)
+!!$
+!!$              end if
+!!$           end do
+!!$        end do
+!!$     end do
+!!$     !$omp end parallel do
+!!$  end if
+
+
+  if(hbpunc_advect_enable .ne. 0) then
+     call hbpuncture_upwind(cctkGH,cctk_nghostzones,cctk_lsh, dT,  dx,  dy,  dz, &
+          RadiusDerivative, hbpunc_advect_enable, bssn_enable_shift_upwind, &
+          shiftx,shifty,shiftz, &
+          shiftx_rhs,shifty_rhs,shiftz_rhs, &
+          shiftxt,shiftyt,shiftzt, &
+          shiftxt_rhs,shiftyt_rhs,shiftzt_rhs, &
+          Gammax,Gammay,Gammaz, &
+          shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv,Symmetry)
+     if(enable_lower_order_at_boundaries==1) then
+        call hbpuncture_upwind_4(cctkGH,cctk_nghostzones,cctk_lsh, dT,  dx,  dy,  dz, &
+             RadiusDerivative, hbpunc_advect_enable, bssn_enable_shift_upwind, &
+             shiftx,shifty,shiftz, &
+             shiftx_rhs,shifty_rhs,shiftz_rhs, &
+             shiftxt,shiftyt,shiftzt, &
+             shiftxt_rhs,shiftyt_rhs,shiftzt_rhs, &
+             Gammax,Gammay,Gammaz, &
+             shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv,Symmetry)
+        call hbpuncture_upwind_2(cctkGH,cctk_nghostzones,cctk_lsh, dT,  dx,  dy,  dz, &
+             RadiusDerivative, hbpunc_advect_enable, bssn_enable_shift_upwind, &
+             shiftx,shifty,shiftz, &
+             shiftx_rhs,shifty_rhs,shiftz_rhs, &
+             shiftxt,shiftyt,shiftzt, &
+             shiftxt_rhs,shiftyt_rhs,shiftzt_rhs, &
+             Gammax,Gammay,Gammaz, &
+             shiftxt_timederiv,shiftyt_timederiv,shiftzt_timederiv,Symmetry)
+     end if
+  end if
+
+!  call hbpuncture_add_dissipation(cctk_nghostzones,cctk_lsh,dx,dy,dz,shiftx_rhs,shiftx)
+!  call hbpuncture_add_dissipation(cctk_nghostzones,cctk_lsh,dx,dy,dz,shifty_rhs,shifty)
+!  call hbpuncture_add_dissipation(cctk_nghostzones,cctk_lsh,dx,dy,dz,shiftz_rhs,shiftz)
+!  call hbpuncture_add_dissipation(cctk_nghostzones,cctk_lsh,dx,dy,dz,shiftxt_rhs,shiftxt)
+!  call hbpuncture_add_dissipation(cctk_nghostzones,cctk_lsh,dx,dy,dz,shiftyt_rhs,shiftyt)
+!  call hbpuncture_add_dissipation(cctk_nghostzones,cctk_lsh,dx,dy,dz,shiftzt_rhs,shiftzt)
+
+  !!!!TEST: subtract off dominant matter source term from shift 
+!!$  shiftxt_rhs = shiftxt_rhs + 16.D0*acos(-1.D0)*(lapm1+1.D0)*(gupxx*Sx+gupxy*Sy+gupxz*Sz)
+!!$  shiftyt_rhs = shiftyt_rhs + 16.D0*acos(-1.D0)*(lapm1+1.D0)*(gupxy*Sx+gupyy*Sy+gupyz*Sz)
+!!$  shiftzt_rhs = shiftzt_rhs + 16.D0*acos(-1.D0)*(lapm1+1.D0)*(gupxz*Sx+gupyz*Sy+gupzz*Sz)
+  !!! TEST: double dominant matter contribution
+!!$  shiftxt_rhs = shiftxt_rhs - 16.D0*acos(-1.D0)*(lapm1+1.D0)*(gupxx*Sx+gupxy*Sy+gupxz*Sz)
+!!$  shiftyt_rhs = shiftyt_rhs - 16.D0*acos(-1.D0)*(lapm1+1.D0)*(gupxy*Sx+gupyy*Sy+gupyz*Sz)
+!!$  shiftzt_rhs = shiftzt_rhs - 16.D0*acos(-1.D0)*(lapm1+1.D0)*(gupxz*Sx+gupyz*Sy+gupzz*Sz)
+  !!! TEST: double dominant matter contribution
+!!$  shiftxt_rhs = shiftxt_rhs - Gammax_rhs
+!!$  shiftyt_rhs = shiftyt_rhs - Gammay_rhs
+!!$  shiftzt_rhs = shiftzt_rhs - Gammaz_rhs
+
+end subroutine hbpuncture_shift_timestepping
+
+
+subroutine hbpuncture_add_dissipation(cctk_nghostzones,ext,dx,dy,dz,rhs,var)
+
+  integer, dimension(3)                   :: ext,cctk_nghostzones
+  real*8                                  :: dx,dy,dz,epsdis
+  real*8, dimension(ext(1),ext(2),ext(3)) :: rhs,var
+  integer                                 :: i,j,k
+
+  epsdis = 0.3D0
+
+  !$omp parallel do
+  do k = 4, ext(3)-3
+     do j = 4, ext(2)-3
+        do i = 4, ext(1)-3
+
+           rhs(i,j,k) = rhs(i,j,k) + epsdis / 64 &
+                * (+ (var(i-3,j,k) - 6*var(i-2,j,k) + 15*var(i-1,j,k) - 20*var(i,j,k) + 15*var(i+1,j,k) - 6*var(i+2,j,k) + var(i+3,j,k)) / dx &
+                + (var(i,j-3,k) - 6*var(i,j-2,k) + 15*var(i,j-1,k) - 20*var(i,j,k) + 15*var(i,j+1,k) - 6*var(i,j+2,k) + var(i,j+3,k) ) / dy &
+                + (var(i,j,k-3) - 6*var(i,j,k-2) + 15*var(i,j,k-1) - 20*var(i,j,k) + 15*var(i,j,k+1) - 6*var(i,j,k+2) + var(i,j,k+3) ) / dz)
+
+        end do
+     end do
+  end do
+  !$omp end parallel do
+end subroutine hbpuncture_add_dissipation

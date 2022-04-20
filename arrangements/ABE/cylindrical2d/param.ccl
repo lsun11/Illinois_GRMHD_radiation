@@ -1,0 +1,83 @@
+# Parameter definitions for thorn cylindrical2d
+
+shares: IO
+USES KEYWORD out_every
+
+#following 2 lines needed for binfile checkpointing
+shares: Cactus
+USES INT cctk_itlast 
+
+shares: grid
+
+shares: mhd_evolve
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD force_font_fix_fail
+USES KEYWORD enable_primitives_disk
+USES KEYWORD primitives_solver
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD sdots_o_rhot
+USES KEYWORD use_HARM_primitives
+
+restricted:
+
+private:
+
+REAL disk_inner_radius "Radius of the inner cylindrical disk" 
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL disk_outer_radius "Radius of the outer cylindrical disk"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL rho_in "Interior rest-mass density"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL P_in "Interior pressure"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL rho_out "Exterior rest-mass density"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL P_out "Exterior pressure"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL Bxos4pi "Bx / sqrt(4 pi), constant everywhere"
+{
+ *:* :: "Any real"
+} 0
+
+REAL rot_omega "Angular velocity of the rotating disk"
+{ 
+ *:* :: "Any real"
+} 0
+
+REAL npolyshock "polytropic index"
+{
+  0:* :: "Any positive real"
+} 3
+
+

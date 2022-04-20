@@ -1,0 +1,34 @@
+# Schedule definitions for thorn movingbox_for_boosted_bh
+
+STORAGE: BSSN::BSSN_vars[3]
+STORAGE: movingbox_for_boosted_bh::center_origin,  movingbox_for_boosted_bh::max_phi_flag movingbox_for_boosted_bh::tmp_gfs
+
+# Update Moving Box Center Location
+
+schedule setup_movingbox_center at CCTK_INITIAL after ks_id
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Setup movingbox center location"
+
+schedule GROUP movingbox_update_center1 at CCTK_ANALYSIS before poststep
+{
+} "Update the center of moving box for boosted BH"
+
+schedule movingbox_update_center_part1 in movingbox_update_center1 as first_mbupdate
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "movingbox update center part 1/3"
+
+schedule movingbox_update_center_part2 in movingbox_update_center1 as second_mbupdate after first_mbupdate before third_mbupdate 
+{
+  LANG:         FORTRAN
+  OPTIONS:	global, loop-local
+} "movingbox update center part 2/3"
+
+schedule movingbox_update_center_part3 at CCTK_ANALYSIS as third_mbupdate after movingbox_update_center1 
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "movingbox update center part 3/3"

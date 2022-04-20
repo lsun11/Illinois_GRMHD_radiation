@@ -1,0 +1,13 @@
+WEAKRATES_SRC_DIR = $(wildcard $(PACKAGE_DIR)/*/WeakRates/src)
+
+# Compile rules for the utilities
+$(UTIL_DIR)/%: $(BUILD_DIR)/WeakRates/%.o
+	@echo Creating $* in $(UTIL_DIR) from $<
+	-$(MKDIR) $(MKDIRFLAGS) $(UTIL_DIR) 2>/dev/null
+	$(F90) $(F90FLAGS) $(CREATEEXE) $@ $(DEBUG_LD) $(LDFLAGS) $(EXTRAFLAGS) $(TOP)/datestamp.o $< -L$(CCTK_LIBDIR) -lthorn_WeakRates -lthorn_Cactus -lthorn_CactusBindings -lthorn_Formaline $(GENERAL_LIBRARIES)
+
+$(BUILD_DIR)/WeakRates/%.o: $(WEAKRATES_SRC_DIR)/utils/%.F90
+	@echo Compiling $<
+	-$(MKDIR) $(MKDIRFLAGS) $(BUILD_DIR)/WeakRates 2>/dev/null
+	$(F90) $< $(F90FLAGS) -DCCODE -I$(WEAKRATES_SRC_DIR) -I$(CONFIG) -I$(BINDINGS_DIR)/include -I$(BINDINGS_DIR)/include/WeakRates -I$(FLESH_DIR)/include -I$(CCTK_HOME)/arrangements $(SYS_INC_DIRS:%=-I%) $(CCOMPILEONLY) $@ -c
+

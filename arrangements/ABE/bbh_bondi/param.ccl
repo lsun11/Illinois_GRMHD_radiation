@@ -1,0 +1,303 @@
+# Parameter definitions for thorn bbh_bondi
+# $Header:$
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+shares: IO
+USES KEYWORD out_every
+
+#Do we need "shares: driver"
+
+shares: mhd_evolve
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD pfloor
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD scaledsurf
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD sym_factor
+
+shares: diagnostics_mhd
+USES KEYWORD N_rad_ray
+USES KEYWORD rhosurf_rmin
+USES KEYWORD rhosurf_rmax
+USES KEYWORD lum_outer_rad
+
+shares: gw_extraction
+USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+shares: bssn
+USES KEYWORD xbh1_initial
+USES KEYWORD xbh2_initial
+USES KEYWORD rah1_initial
+USES KEYWORD rah2_initial
+USES KEYWORD binary_orb_freq
+
+#shares: TwoPunctures
+#USES KEYWORD genID_cmdline_output_enable
+#USES KEYWORD half_binary_separation
+
+private:
+
+#INT genID_cmdline_output_enable "Output initial data commandline?"
+#{
+# 0:1 :: "Zero (no) or One (yes)"
+#} 0
+
+#REAL bh_mass_plus "Mass of the black hole on +x axis"
+#{
+# 0:* :: "Positive"
+#} 0.5
+
+#REAL bh_mass_minus "Mass of the black hole on -x axis"
+#{
+# 0:* :: "Positive"
+#} 0.0
+
+#REAL half_binary_separation "Binary separation / 2"
+#{
+# 0:* :: "Positive"
+#} 0.0
+
+#REAL bh_px_plus "x-component of BH momentum on +x axis"
+#{
+# *:* :: "Real"
+#} 0.0
+
+#REAL bh_py_plus "y-component of BH momentum on +x axis"
+#{
+# *:* :: "Real"
+#} 0.0
+
+#REAL bh_px_minus "x-component of BH momentum on -x axis"
+#{
+# *:* :: "Real"
+#} 0.0
+
+#REAL bh_py_minus "y-component of BH momentum on -x axis"
+#{
+# *:* :: "Real"
+#} 0.0
+
+#REAL bh_spin_plus "Spin of the BH on +x axis"
+#{
+# *:* :: "Real"
+#} 0.0
+
+#REAL bh_spin_minus "Spin of the BH on -x axis"
+#{
+# *:* :: "Real"
+#} 0.0
+
+#REAL x_offset "Parameter necessary for setting up initial data"
+#{
+# *:* :: "Real"
+#} 0.0
+
+
+#INT fill_excision_enable "Should I fill an excision zone? (no=0; yes=1)"
+#{
+# 0:* :: "Positive"
+#} 0
+
+#REAL excis_radius "Excision Radius, used only if fill_excision_enable=1"
+#{
+# 0:* :: "Positive"
+#} 0.5
+
+#real moncrief_radius_GW[100] "Radii at which to measure GW's" STEERABLE=recover
+#{
+#  0:* :: "zero or any positive number"
+#} 1.0
+
+#INT moncrief_gw_num_radii "How many radii will to measure GW's"
+#{ 
+# 1:10 :: "Positive int <= 10"
+#} 1
+
+##########################################################
+# EM Field stuff:
+REAL betam1 "P_B / P_gas"
+{
+ 0:* :: "Positive"
+} 1e-4
+
+INT em_field_type "poloidal (0) or toroidal (1) fields?"
+{
+ *:* :: "Any Integer"
+} 0
+##########################################################
+
+INT nsurfrho "Number of integration surfaces for density isocontour integration"
+{
+ 0:20 :: "Positive, less than 20 for array allocation purposes"
+} 1
+
+INT arithrhosurf "Use arithmetic (1) or geometric (0) spacing for multiple integrations surfaces"
+{
+ 0:1 :: "Zero or one"
+} 1
+
+REAL a2_inf "sound speed squared at infinity"
+{
+ 0:1 :: "between 0 and 1"
+} 0.03
+
+REAL rho0_inf "density at infinity"
+{
+ 0:* :: "positive"
+} 1.0
+
+REAL Ri_a "isotropic adjustment radius" 
+{
+ 0:* :: "POSITIVE"
+} 1.0e1
+
+# Initial horizon position and radius (assume the horizon is a sphere)
+INT ntot_bbh_bondi "size of array ah_radii, must be equal to N_theta*N_phi; otherwise the code will quit"
+{
+ 1:* :: "positive"
+} 800
+REAL bbh_rhosurf1 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 1.5e-7
+
+REAL bbh_rhosurf2 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 2.0e-7
+
+REAL bbh_rhosurf3 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 4.0e-7
+
+REAL bbh_rhosurf4 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 6.0e-7
+
+REAL bbh_r_const1 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 5.0
+
+REAL bbh_r_const2 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 7.0
+
+REAL bbh_r_const3 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 10.0
+
+REAL bbh_r_const4 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 12.0
+
+
+
+
+INT bbh_id_method "method for getting hydro initial data.  Use 1 for small sonic radius"
+{
+ 1:* :: "choose 1,2, or 3"
+} 1
+
+INT add_velocity "if set to 1, velocities computed from each BH are added"
+{
+ 0:1 :: "chose 1 to add them, 0 to not add them"
+} 0
+
+REAL vxboost "boost in x direction"
+{
+ 0.0:1.0 :: "how big of a boost?"
+} 0.0
+
+REAL vyboost "boost in y direction"
+{
+ 0.0:1.0 :: "how big of	a boost?"
+} 0.0
+
+REAL vzboost "boost in z direction"
+{
+ 0.0:1.0 :: "how big of	a boost?"
+} 0.0
+
+INT const_gamma "set to 1 if there is a constant gamma for all temperatures"
+{
+ 0:1 :: "set to 1 for const gamma, 0 for 2 gammas"
+} 1
+
+REAL gamma_th_outer "what is gamma far from the bh, where both electrons and protons are nonrelativistic?"
+{
+ 0:* :: "positive"
+} 1.66666666666666666666666666666666666
+
+INT output_Nlograd ""
+{
+ 0:* :: "positive"
+} 10
+
+INT output_Ntheta ""
+{
+ 0:* :: "positive"
+} 10
+
+INT output_Nphi ""
+{
+ 0:* :: "positive"
+} 10
+
+REAL output_radmin_rot_interp_1 "minimum radius in first interpolation grid."
+ {
+  0:* :: "Any positive number"
+ } 0.01
+REAL output_radmax_rot_interp_1 "maximum radius in first interpolation grid."
+ {
+  0:* :: "Any positive number"
+ } 100.0
+REAL output_radmin_rot_interp_2 "minimum radius in second interpolation grid."
+ {
+  0:* :: "Any positive number" 
+ } 0.01 
+REAL output_radmax_rot_interp_2 "maximum radius in second interpolation grid." 
+ {
+  0:* :: "Any positive number" 
+ } 100.0
+REAL output_radmin_rot_interp_3 "minimum radius in third interpolation grid." 
+ {
+  0:* :: "Any positive number" 
+ } 0.01
+REAL output_radmax_rot_interp_3 "maximum radius in third interpolation grid." 
+ {
+  0:* :: "Any positive number" 
+ } 100.0
+
+REAL bondi_metric_type "type of metric being used.  1 for analytically rotated cp, 2 for kerr, 3 for bssn"
+ {
+  0:* :: "postive integer"
+ } 1

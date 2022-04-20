@@ -1,0 +1,6 @@
+REQUIRES CPPUtils FDCore GSL HRSCCore
+PROVIDES THC_Core
+{
+    SCRIPT
+    LANG
+}

@@ -1,0 +1,350 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+!-----------------------------------
+! Linearized wave diagnostic output
+!-----------------------------------
+subroutine lw_diagnostics(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3)                    :: ext,ext_noghost
+  real*8, dimension(23)                     :: export_data
+  character, dimension(23)                     :: data_headers*20
+  character                                :: filename*25,file_suffix*10
+  real*8                                   :: dT,dX,dY,dZ,xmax
+  real*8                                   :: RestMass,ADMMass,Jtot,temp,resid,resid_norm
+  real*8                                   :: Mass_GW,hplus,hcross
+  real*8                                   :: hplus_anal,hcross_anal,E_GW_anal
+  real*8,dimension(2)                      :: gw_amplitudes
+  real*8,dimension(1,3)                    :: pointcoords
+  real*8,dimension(1)                      :: interp_output
+  real*8                                   :: resid_x,resid_y,resid_z,resid_mom_norm,gxx_a
+  real*8                                   :: dIntegral
+  real*8                                   :: gxres,gyres,gzres
+  real*8                                   :: multfactor
+  real*8                                   :: rho_tiny,psi4r,psi4i
+  real*8                                   :: radius_gworig,theta_gworig,phi_gworig
+  integer                                  :: interpolate_order
+  integer                                  :: ii,yoriginindex
+  integer                                  :: adjimin, adjjmin, adjkmin
+  integer                                  :: adjimax, adjjmax, adjkmax
+
+  CCTK_REAL :: reduction_value
+  CCTK_INT :: red_tmp
+  integer :: header_flag,handle,dummy
+  integer :: index,num_cols
+  integer :: ierr,myproc_rank
+  integer :: NO_SYMM, EQUATORIAL, OCTANT, PI_SYMM, AXISYM
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+
+  ext = cctk_lsh
+  dT = CCTK_DELTA_TIME
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  call CCTK_ReductionHandle(handle,"maximum")
+  call CCTK_VarIndex(index,"grid::X")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,xmax,1,index)
+
+  call compute_adj_minmax(ext,X,Y,Z,Symmetry, &
+       adjimin,adjimax,adjjmin,adjjmax,adjkmin,adjkmax, &
+       multfactor,cctk_nghostzones,xmax)
+
+  !  call setup_global_coord_arrays(CCTK_PASS_FTOF)
+
+  !header_flag == 1 -> write file headers
+  if(CCTK_TIME == 0.D0) then
+     header_flag = 1
+  else
+     header_flag = 0
+  end if
+
+  !--------------------------------------------------------------------------------!
+  filename = 'lw.wave'
+  num_cols = 16
+
+  data_headers(1) = "# Time"
+  export_data(1) = CCTK_TIME
+
+  data_headers(2) = "rad_flux"
+  Mass_GW = 0.0D0
+
+  ! Initialize several variables at t=0 
+  if (cctk_iteration==0) then
+     momentsr_old = 0.d0
+     momentsi_old = 0.d0
+     odd_momentsr_old = 0.d0
+     odd_momentsi_old = 0.d0
+     int_momentsr = 0.d0
+     int_momentsi = 0.d0
+     momentsr = 0.D0
+     momentsi = 0.D0
+  end if
+
+  gw_amplitudes = 0.D0
+  hplus = 0.d0
+  hcross = 0.d0
+  hplus_anal = 0.d0
+  hcross_anal = 0.d0
+  E_GW_anal = 0.d0
+
+  !radius_GW=5.05049502524257576
+  !theta_gw= 1.53121499085584
+  !phi_gw =  9.90066658798857D-003
+
+  !  radius_GW = sqrt(X(10,1,1)**2 + dY*dY*0.25D0 + dZ*dZ*0.25D0)
+  !  theta_gw = atan(sqrt(X(10,1,1)**2 + dY*dY*0.25D0)/dZ*0.5D0)
+  !  phi_gw = atan(dY*0.5D0/X(10,1,1))  
+  !  write(*,*) "ll",radius_GW,theta_GW,phi_GW
+
+  call gw_wave_flux(cctkGH,cctk_nghostzones,radius_GW,Mass_GW,cctk_lsh,cctk_gsh, &
+       dT,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal, &
+       phi,gxx,gxy,gxz,gyy,gyz,gzz,momentsr,momentsi, & 
+       momentsr_old,momentsi_old,odd_momentsr,odd_momentsi, &
+       odd_momentsr_old,odd_momentsi_old,int_momentsr,int_momentsi, &
+       hplus,hcross,theta_GW,phi_GW, & 
+       PhysicalRadius,Radiusderivative)  
+  if(1.eq.0) then
+     !     if(MOD(cctk_iteration,10).eq.0) then
+     radius_gworig = radius_GW
+     theta_gworig = theta_GW
+     phi_gworig = phi_GW
+     do ii=1,cctk_gsh(2)
+        if(abs(Yglobal(ii) - dY*0.5D0) .lt. dY*0.0001) then
+           yoriginindex = ii
+        end if
+     end do
+     write(*,*)
+     write(*,*) '"',"Time: ",cctk_time,yoriginindex
+     do ii=1,cctk_gsh(1)
+        !           radius_GW = sqrt(Xglobal(ii)**2 + Yglobal(yoriginindex)**2 + Zglobal(2)**2)
+        !           theta_gw = atan(sqrt(Xglobal(ii)**2 + dY*dY*0.25D0)/dZ*0.5D0)
+        !           phi_gw = atan(dY*0.5D0/(Xglobal(ii)))
+
+        radius_GW = PhysicalRadius(ii,yoriginindex,1)
+        theta_gw = acos(-1.D0)*0.5D0
+        phi_gw = 0.D0
+        !        theta_gw = atan(sqrt(X(ii,yoriginindex,1)**2*PhysicalRadius(ii,yoriginindex,1)**2/r(ii,yoriginindex,1)**2 + dY*dY*0.25D0)/dZ*0.5D0)
+        !        phi_gw = atan(dY*0.5D0/(X(ii,yoriginindex,1)*PhysicalRadius(ii,yoriginindex,1)/r(ii,yoriginindex,1)))
+
+        !     radius_GW = sqrt(X(ii,1,1)**2 + dY*dY*0.25D0 + dZ*dZ*0.25D0)
+        !     theta_gw = atan(sqrt(X(ii,1,1)**2 + dY*dY*0.25D0)/dZ*0.5D0)
+        !     phi_gw = atan(dY*0.5D0/X(ii,1,1))
+
+
+        ! *** Note: need to convert surf_radius to physical radius later
+        !        if (fisheye_enable==1) then
+        ! radius_GW here is surf_radius converted to phys coordinates by default.
+        !           call gw_anal(CCTK_TIME+time_shift,radius_GW_phys,theta_GW,phi_GW, & 
+        !                hplus_anal,hcross_anal,E_GW_anal,psi4r,psi4i, & 
+        !                amplitude,width,mode)
+        !        else
+        call gw_anal(CCTK_TIME+time_shift,radius_GW,theta_GW,phi_GW, &
+             hplus_anal,hcross_anal,E_GW_anal,psi4r,psi4i, & 
+             amplitude,width,mode)
+        !        end if
+        write(*,*) "hie",Xglobal(ii),psi4r,psi4i
+     end do
+     radius_GW = radius_gworig
+     theta_GW = theta_gworig
+     phi_GW = phi_gworig
+  else
+     call gw_anal(CCTK_TIME+time_shift,radius_GW_phys,theta_GW,phi_GW, &
+          hplus_anal,hcross_anal,E_GW_anal,psi4r,psi4i, & 
+          amplitude,width,mode)
+  end if
+
+  !hplus and hcross are multiplied by radius_gw_phys in the above subroutines
+  data_headers(2) = "hplus"
+  data_headers(3) = "hcross"
+  export_data(2) = hplus/radius_GW_phys
+  export_data(3) = hcross/radius_GW_phys
+  data_headers(4) = "hp_ana"
+  data_headers(5) = "hc_ana" 
+  export_data(4) = hplus_anal/radius_GW_phys
+  export_data(5) = hcross_anal/radius_GW_phys
+
+  data_headers(6) = "E_GW_ana"
+  export_data(6) = E_GW_anal
+
+  data_headers(7) = "Re(psi4)" 
+  export_data(7) = psi4r
+
+  data_headers(8) = "Im(psi4)"
+  export_data(8) = psi4i
+
+  call leq2_meq2_mode_average_lw(CCTK_PASS_FTOF)
+  data_headers(9) = "Re(psi4)_22" 
+  export_data(9) = Psi4resumlw
+
+  data_headers(10) = "Im(psi4)_22"
+  export_data(10) = Psi4imsumlw
+
+  data_headers(11) = "momentsr(1)"
+  export_data(11) = momentsr(1)
+  data_headers(12) = "momentsr(2)"
+  export_data(12) = momentsr(2)
+
+  data_headers(13) = "momentsi(1)"
+  export_data(13) = momentsi(1)
+  data_headers(14) = "momentsi(2)"
+  export_data(14) = momentsi(2)
+
+  data_headers(15) = "odd_momentsr(1)"
+  export_data(15) = odd_momentsr(1)
+  data_headers(16) = "odd_momentsi(1)"
+  export_data(16) = odd_momentsi(1)
+ 
+
+  if(CCTK_MyProc(CCTKGH) .eq. 0) then
+     call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+  end if
+  !--------------------------------------------------------------------------------!
+  filename = 'lw.con'
+  num_cols = 8
+
+  data_headers(1) = "Time"
+  export_data(1) = CCTK_TIME
+
+  data_headers(2) = "Haml Res"
+  !************ HAMILTONIAN CONSTRAINT ************!
+
+  ! Next the L2 norm.  Note I don't need to Sync since I don't care
+  ! about the ghost zones.
+  !
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiRes,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid,CCTK_VARIABLE_REAL)
+  resid = sqrt(resid)
+
+  dIntegral = 0.D0
+  call norm2_dv(ext,PsiNorm,X,Y,Z,dIntegral,adjimin, &
+       adjimax,adjjmin,adjjmax,adjkmin,adjkmax,Symmetry);
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_norm,CCTK_VARIABLE_REAL)
+  resid_norm = sqrt(resid_norm)
+  export_data(2) = resid/resid_norm
+  !************ END HAMILTONIAN CONSTRAINT ************!
+
+  data_headers(3) = "Momx Res"
+  data_headers(4) = "Momy Res"
+  data_headers(5) = "Momz Res"
+  !************ MOMENTUM CONSTRAINT ************!
+  call norm2_dv(ext,MRsx,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_x,CCTK_VARIABLE_REAL)
+  resid_x = sqrt(resid_x)
+
+  call norm2_dv(ext,MRsy,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_y,CCTK_VARIABLE_REAL)
+  resid_y = sqrt(resid_y)
+
+  call norm2_dv(ext,MRsz,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_z,CCTK_VARIABLE_REAL)
+  resid_z = sqrt(resid_z)
+
+  call norm2_dv(ext,MNorm,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,resid_mom_norm,CCTK_VARIABLE_REAL)
+  resid_mom_norm = sqrt(resid_mom_norm)
+
+  export_data(3) = resid_x/resid_mom_norm
+  export_data(4) = resid_y/resid_mom_norm
+  export_data(5) = resid_z/resid_mom_norm
+  !************ END MOMENTUM CONSTRAINT ************!
+
+  data_headers(6) = "Gamx Res"
+  data_headers(7) = "Gamy Res"
+  data_headers(8) = "Gamz Res"
+  !************ GAMMA CONSTRAINT ************!
+  call gamcheck(cctkGH,cctk_lsh, cctk_nghostzones, Symmetry, &
+       dx,  dy,  dz,  &
+       gconx, gcony, gconz, &
+       Gammax, Gammay, Gammaz,  &
+       gupxx, gupxy, gupxz, gupyy, gupyz, gupzz)
+  call norm2_dv(ext,gconx,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,gxres,CCTK_VARIABLE_REAL)
+  export_data(6) = sqrt(gxres)
+
+  call norm2_dv(ext,gcony,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,gyres,CCTK_VARIABLE_REAL)
+  export_data(7) = sqrt(gyres)
+
+  call norm2_dv(ext,gconz,X,Y,Z,dIntegral,adjimin,adjimax,adjjmin, &
+       adjjmax,adjkmin,adjkmax,Symmetry)
+  dIntegral = dIntegral*multfactor
+  call CCTK_ReductionHandle(handle,"sum")
+  call CCTK_ReduceLocalScalar(ierr,cctkGH,-1,handle,dIntegral,gzres,CCTK_VARIABLE_REAL)
+  export_data(8) = sqrt(gzres)
+  !************ END GAMMA CONSTRAINT ************!
+
+  !  file_suffix = '001.dat'
+  !  filename = 'magnetar' // file_suffix
+
+  if(CCTK_MyProc(CCTKGH) .eq. 0) then
+     call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+  end if
+  !--------------------------------------------------------------------------------!
+
+  !Following is here so we can easily compare against analytic solution.
+  filename = 'lw.mon'
+  num_cols = 4
+
+  data_headers(1) = "Time"
+  export_data(1) = CCTK_TIME
+
+  pointcoords(1,1) = Xglobal(cctk_gsh(1)/4)
+  pointcoords(1,2) = Yglobal(cctk_gsh(2)/4)
+  pointcoords(1,3) = dZ*0.5D0
+
+  data_headers(2) = "gxx_analytic"
+  call lin_wave_analytic_gxx(ext, X, Y, Z, cctk_time+time_shift, amplitude, width, PsiRes, &
+       PhysicalRadius,RadiusDerivative, mode)
+  call interpolate_pointset(cctkGH,cctk_nghostzones,1,1,cctk_lsh,cctk_gsh,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,PsiRes,interp_output)
+  export_data(2) = interp_output(1)
+  gxx_a = interp_output(1)
+
+  data_headers(3) = "gxx_numeric"
+  call interpolate_pointset(cctkGH,cctk_nghostzones,1,1,cctk_lsh,cctk_gsh,dX,dY,dZ,Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,gxx,interp_output)
+  export_data(3) = interp_output(1)
+
+  data_headers(4) = "gxx_a-gxx_n"
+  export_data(4) = gxx_a - interp_output(1)
+
+  if(CCTK_MyProc(CCTKGH) .eq. 0) then
+     call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+  end if
+
+!  call lin_wave_analytic(ext, X, Y, Z, cctk_time+time_shift, amplitude, width, &
+!       gxx_analy,gxy_analy,gxz_analy,gyy_analy,gyz_analy,gzz_analy,Kxx_analy,Kxy_analy,Kxz_analy,Kyy_analy,Kyz_analy,Kzz_analy, &
+!       PhysicalRadius,RadiusDerivative, mode)
+
+end subroutine lw_diagnostics

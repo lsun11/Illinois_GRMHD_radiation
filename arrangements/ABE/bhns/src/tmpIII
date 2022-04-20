@@ -1,0 +1,35 @@
+	  // det of full metric
+
+	  double detab =  gtzl*gtzl*gxyl*gxyl - 2.*gtyl*gtzl*gxyl*gxzl
+	    + gtyl*gtyl*gxzl*gxzl - gtzl*gtzl*gxxl*gyyl
+	    + 2.*gtxl*gtzl*gxzl*gyyl - gttl*gxzl*gxzl*gyyl
+	    + 2.*gtyl*gtzl*gxxl*gyzl -2.*gtxl*gtzl*gxyl*gyzl
+	    - 2.*gtxl*gtyl*gxzl*gyzl + 2.*gttl*gxyl*gxzl*gyzl
+	    + gtxl*gtxl*gyzl*gyzl - gttl*gxxl*gyzl*gyzl
+	    - gtyl*gtyl*gxxl*gzzl + 2.*gtxl*gtyl*gxyl*gzzl
+	    -gttl*gxyl*gxyl*gzzl - gtxl*gtxl*gyyl*gzzl 
+	    + gttl*gxxl*gyyl*gzzl;
+
+	  
+	  if (detab == 0.0){
+	    printf("Stopping: det of full metric is zero\n");
+	    exit(1);}
+
+
+	  double detabinv = 1.0/detab;	  
+
+
+
+	  // metic inverse
+
+	  double ginv_tt = (-gxzl*gxzl*gyyl + 2.*gxyl*gxzl*gyzl - gxxl*gyzl*gyzl - gxyl*gxyl*gzzl + gxxl*gyyl*gzzl) * detabinv;
+	  double ginv_tx = (gtzl*gxzl*gyyl - gtzl*gxyl*gyzl - gtyl*gxzl*gyzl + gtxl*gyzl*gyzl + gtyl*gxyl*gzzl - gtxl*gyyl*gzzl) * detabinv;
+	  double ginv_ty = (-(gtzl*gxyl*gxzl) + gtyl*gxzl*gxzl + gtzl*gxxl*gyzl - gtxl*gxzl*gyzl - gtyl*gxxl*gzzl + gtxl*gxyl*gzzl) * detabinv;
+	  double ginv_tz = (gtzl*gxyl*gxyl - gtyl*gxyl*gxzl - gtzl*gxxl*gyyl + gtxl*gxzl*gyyl + gtyl*gxxl*gyzl - gtxl*gxyl*gyzl) * detabinv;
+	  double ginv_xx =  (-gtzl*gtzl*gyyl + 2.0*gtyl*gtzl*gyzl - gttl*gyzl*gyzl  - gtyl*gtyl*gzzl + gttl*gyyl*gzzl)*detabinv;
+	  double ginv_xy =  ( gtzl*gtzl*gxyl +     gttl*gxzl*gyzl - gtzl*(gtyl*gxzl + gtxl*gyzl) + gtxl*gtyl*gzzl - gttl*gxyl*gzzl)*detabinv;
+	  double ginv_xz =  ( gtyl*gtyl*gxzl +     gtxl*gtzl*gyyl - gttl*gxzl*gyyl  + gttl*gxyl*gyzl - gtyl*(gtzl*gxyl + gtxl*gyzl))*detabinv;
+	  double ginv_yy =  (-gtzl*gtzl*gxxl + 2.0*gtxl*gtzl*gxzl - gttl*gxzl*gxzl  - gtxl*gtxl*gzzl + gttl*gxxl*gzzl)*detabinv;
+	  double ginv_yz =  ( gtyl*gtzl*gxxl -     gtxl*gtzl*gxyl - gtxl*gtyl*gxzl  + gttl*gxyl*gxzl + gtxl*gtxl*gyzl - gttl*gxxl*gyzl)*detabinv;
+	  double ginv_zz =  (-gtyl*gtyl*gxxl + 2.0*gtxl*gtyl*gxyl - gttl*gxyl*gxyl  - gtxl*gtxl*gyyl + gttl*gxxl*gyyl)*detabinv;
+

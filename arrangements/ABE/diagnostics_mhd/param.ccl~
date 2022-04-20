@@ -1,0 +1,179 @@
+# Parameter definitions for thorn diagnostics_mhd
+# $Header:$
+
+shares: lapse
+USES KEYWORD slicing_type
+shares: shift
+USES KEYWORD Spatial_Gauge
+
+shares: grid
+
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+shares: mhd_evolve
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD rho_b_max
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD ergo_star
+USES KEYWORD ergo_sigma
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD em_evolve_enable
+USES KEYWORD hyperbolic_divergence_cleaning_enable
+USES KEYWORD hyperbolic_divergence_cleaning_centered_differencing
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD enable_OS_collapse
+
+
+
+shares: diagnostics_vacuum
+USES KEYWORD num_BHs
+USES KEYWORD Compute_VolIntegrands_Every
+USES KEYWORD WhichIntegral
+USES KEYWORD surf_radius
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD ntot
+USES KEYWORD sym_factor
+USES KEYWORD dphi
+USES KEYWORD dcostheta
+
+shares: bssn
+USES KEYWORD xbh1_initial
+USES KEYWORD xbh2_initial
+USES KEYWORD rah1_initial
+USES KEYWORD rah2_initial
+USES KEYWORD binary_orb_freq 
+
+restricted:
+
+#========================================================================#
+# For rhoflux() surface integral routine
+#========================================================================#
+REAL rhosurf "Surface integration: Value of const for rho=const isosurface over which to integrate" STEERABLE = ALWAYS
+{
+  0:* :: "Positive"
+} 2.0e-7
+
+REAL u0sch "u0 for the density value given by rhosurf in the Bondi solution expressed in Schw. coords" STEERABLE = ALWAYS
+{
+  0:* :: "Positive"
+} 1.0
+
+REAL M_ADM "ADM mass of system" STEERABLE = ALWAYS
+{
+  0:* :: "Positive"
+} 0.0
+
+INT N_rad_ray "Surface integration: Number of points along ray"
+{
+  0:* :: "Positive"
+} 2000
+
+REAL CoMExcision_Radius "Radius around center of BH, within which CoM numerator integral is excised.  For BHNS, set to a value larger than BH refinement box radius, to maximize resolution around NS tail." STEERABLE = ALWAYS
+{
+  0:* :: "Positive"
+} 1.1
+
+REAL initial_monopole_value "Initial value of monopole integral" STEERABLE = ALWAYS
+{
+  0:* :: "Positive"
+} 0.0
+
+INT drho_dtau_calc_enable "do drho_dtau diagnostic"
+{
+  0:1 :: "1=yes,0=no"
+} 1
+
+REAL rhosurf_rmin "minimum radius to use when searching for rho surface"
+{
+  0:* :: "Positive"
+} 1.5
+
+REAL rhosurf_rmax "maximum radius to use when searching for rho surface"
+{
+  0:* :: "Positive"
+} 100.0
+
+##################################
+# LUMINOSITY DIAGNOSTIC PARAMETERS
+##################################
+
+REAL inner_lum_rad_ratio "ratio of radius of inner surface for luminosity integral over ah radius"
+{
+ 0:* :: "Positive"
+} 3.3
+
+REAL lum_outer_rad "outer radius within which we do volume integrals for luminosity" STEERABLE = ALWAYS 
+{
+ 0:* :: "Positive"
+} 50.0 
+
+INT luminosity_diagnostics "should we do luminosity diagnostics?" STEERABLE = ALWAYS
+{
+ 0:1 :: "1=yes,0=no"
+} 0
+
+#######################################
+# CONSTANT RADIUS DIAGNOSTIC PARAMETERS
+#######################################
+
+INT const_rad_surf_diagnostics "should we do various surface integrals on 4 concentric spherical surfaces?" STEERABLE = ALWAYS
+{
+ 0:1 :: "1=yes,0=no"
+} 0
+
+INT Nphi_points "Surface integration: Actual Number of points in phi dimension w.r.t. symmetries" STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 120
+
+INT Ntheta_points "Surface integration: Actual Number of points in phi dimension w.r.t. symmetries" STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 60
+
+##########################################################
+# Azimuthal density decomposition stuff
+##########################################################
+
+REAL rhob_cutoff "density cutoff factor for density azimuthaml mode integrals" STEERABLE = ALWAYS
+{
+ 0: :: "Any positive real: this is in units of the max density"
+} 1.0e-3
+
+INT escape_mass_diag "Turn on diagnostics with escaping_mass?"
+{
+  0:1 :: "1=yes,0=no"
+} 1
+
+REAL radius_esc1 "first extraction radius in code units"
+{ 
+    0:* :: "Zero or positive"
+} 30.0
+
+REAL radius_esc2 "second extraction radius"
+{ 
+    0:* :: "Zero or positive"
+} 50.0
+
+REAL radius_esc3 "third extraction radius"
+{ 
+    0:* :: "Zero or positive"
+} 70.0
+
+REAL radius_esc4 "fourth extraction radius"
+{ 
+    0:* :: "Zero or positive"
+} 100.0

@@ -1,0 +1,205 @@
+!-----------------------------------------------------
+! Driver routine for computing Ricci, and constraints
+!-----------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine driver_ricci_constraints(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8                  :: dT, dX,dY,dZ,detmin,detmax
+  integer, dimension(3)   :: ext,fake_ext
+  integer                 :: dummy,i,j,k,index
+  integer, parameter      :: AXISYM = 4
+  !
+
+  dT = CCTK_DELTA_TIME
+  dX=CCTK_DELTA_SPACE(1)
+  dY=CCTK_DELTA_SPACE(2)
+  dZ=CCTK_DELTA_SPACE(3)
+
+  ext = cctk_lsh
+
+
+  if (zero_out_matter_source_terms .eq. 1) then
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              rho(i,j,k)=0.d0
+              Sx(i,j,k)=0.d0
+              Sy(i,j,k)=0.d0
+              Sz(i,j,k)=0.d0
+              Sxx(i,j,k)=0.d0 
+              Sxy(i,j,k)=0.d0
+              Sxz(i,j,k)=0.d0
+              Syy(i,j,k)=0.d0
+              Syz(i,j,k)=0.d0
+              Szz(i,j,k)=0.d0
+              S(i,j,k)=0.d0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  endif
+  
+  if(cctk_iteration.gt.0) then
+     !call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+     !call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+     !call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+     !     write(*,*) "AIJ1",Axx(6,6,:)
+
+     call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+
+     if(trA_detg_enforce.eq.2) then
+        call enforce_Aij_gij_constraints(cctkGH,ext,gxx,gxy,gxz,gyy,gyz,gzz, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz,x,y,z)
+     end if
+
+     if(1==0) then
+        do i=1,ext(1)
+           if(abs(X(i,1,1)).lt.dX*0.001) then
+              write(*,*) "HIbeforericci",dX,i
+              write(*,*) "phi",phi(i,i,:)
+              write(*,*) "Axx_rhs",Axx_rhs(i,i,:)
+              write(*,*) "Axx",Axx(i,i,:)
+              write(*,*) "gxx",gxx(i,i,:)
+              write(*,*) "gxy",gxy(i,i,:)
+           end if
+        end do
+     end if
+
+     !Finally, compute Ricci
+     if(iter_count.lt.number_of_mol_ministeps) then
+        call BSSN_compute_gupij(cctkGH,cctk_lsh, &
+             gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+        call BSSN_ricci_and_constraints(cctkGH,  dT,  dx,  dy,  dz, &
+             cctk_nghostzones, cctk_lsh, &
+             gxx, gxy, gxz, gyy, gyz, gzz, &
+             gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+             Rxx, Rxy, Rxz, Ryy, Ryz, Rzz, &
+             trRtilde, &
+             Gammax, Gammay, Gammaz, &
+             gxxx, gxxy, gxxz, &
+             gxyx, gxyy, gxyz, &
+             gxzx, gxzy, gxzz, &
+             gyyx, gyyy, gyyz, &
+             gyzx, gyzy, gyzz, &
+             gzzx, gzzy, gzzz, &
+             Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz, &
+             Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz, &
+             Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz, &
+             Sx,Sy,Sz, &
+             Aupxx,Aupxy,Aupxz,Aupyy,Aupyz,Aupzz, &
+             phi, trK, MRsx,MRsy,MRsz,MNorm, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz, &
+             psi, rho, PsiRes, PsiNorm,0)
+
+        if(enable_lower_order_at_boundaries==1) then
+           write(*,*) "Although enable_lower_order_at_boundaries==1 is supported, the code has been disabled, due to long compile times."
+           write(*,*) "You can re-enable this code by uncommenting all BSSN_ricci_and_constraints_{2,4} function calls"
+           stop
+
+        end if
+     else
+        ! We want to calculate the constraints at the end of each timestep (i.e., at the last ministep)!
+        ! ... However, we don't need to compute constraints unless we're either outputting them or 
+        !     adding them to phi_rhs equation in compute_rhs().
+        psi = exp(phi)
+        if(mod(cctk_iteration,out_every)==0 .or. cH1.ne.0.D0) then
+           call BSSN_compute_gupij(cctkGH,cctk_lsh, &
+                gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+           call BSSN_ricci_and_constraints(cctkGH,  dT,  dx,  dy,  dz, &
+                cctk_nghostzones, cctk_lsh, &
+                gxx, gxy, gxz, gyy, gyz, gzz, &
+                gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                Rxx, Rxy, Rxz, Ryy, Ryz, Rzz, &
+                trRtilde, &
+                Gammax, Gammay, Gammaz, &
+                gxxx, gxxy, gxxz, &
+                gxyx, gxyy, gxyz, &
+                gxzx, gxzy, gxzz, &
+                gyyx, gyyy, gyyz, &
+                gyzx, gyzy, gyzz, &
+                gzzx, gzzy, gzzz, &
+                Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz, &
+                Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz, &
+                Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz, &
+                Sx,Sy,Sz, &
+                Aupxx,Aupxy,Aupxz,Aupyy,Aupyz,Aupzz, &
+                phi, trK, MRsx,MRsy,MRsz,MNorm, &
+                Axx,Axy,Axz,Ayy,Ayz,Azz, &
+                psi, rho, PsiRes, PsiNorm,1)
+           if(enable_lower_order_at_boundaries==1) then
+              write(*,*) "Although enable_lower_order_at_boundaries==1 is supported, the code has been disabled, due to long compile times."
+              write(*,*) "You can re-enable this code by uncommenting all BSSN_ricci_and_constraints_{2,4} function calls"
+              stop
+           
+           end if
+        else
+           call BSSN_compute_gupij(cctkGH,cctk_lsh, &
+                gxx,gxy,gxz,gyy,gyz,gzz, &
+                gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+           call BSSN_ricci_and_constraints(cctkGH,  dT,  dx,  dy,  dz, &
+                cctk_nghostzones, cctk_lsh, &
+                gxx, gxy, gxz, gyy, gyz, gzz, &
+                gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+                Rxx, Rxy, Rxz, Ryy, Ryz, Rzz, &
+                trRtilde, &
+                Gammax, Gammay, Gammaz, &
+                gxxx, gxxy, gxxz, &
+                gxyx, gxyy, gxyz, &
+                gxzx, gxzy, gxzz, &
+                gyyx, gyyy, gyyz, &
+                gyzx, gyzy, gyzz, &
+                gzzx, gzzy, gzzz, &
+                Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz, &
+                Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz, &
+                Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz, &
+                Sx,Sy,Sz, &
+                Aupxx,Aupxy,Aupxz,Aupyy,Aupyz,Aupzz, &
+                phi, trK, MRsx,MRsy,MRsz,MNorm, &
+                Axx,Axy,Axz,Ayy,Ayz,Azz, &
+                psi, rho, PsiRes, PsiNorm,0)
+           if(enable_lower_order_at_boundaries==1) then
+              write(*,*) "Although enable_lower_order_at_boundaries==1 is supported, the code has been disabled, due to long compile times."
+              write(*,*) "You can re-enable this code by uncommenting all BSSN_ricci_and_constraints_{2,4} function calls"
+              stop
+
+           end if
+        end if
+     end if
+
+     !This function is designed to stabilize puncture BH evolutions when the puncture sits on a gridpoint
+     if(enable_second_order_inside_ah==1) then
+        write(*,*) "Although enable_second_order_inside_ah==1 is supported, the code has been disabled, due to long compile times."
+        write(*,*) "You can re-enable this code by uncommenting all BSSN_ricci_AHinterior. function calls, and re-adding its source code to make.code.defn"
+        stop
+              
+
+     end if
+  end if
+
+  !call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+
+  !Need the following line so that gupij_f's are correctly computed in mhd_evolve!
+  call fill_bssn_symmetry_gz_gupij(ext,X,Y,Z,Symmetry,gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+  call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+
+  !Following is needed for accurate ADM mass calculation, among other things.
+  call Derivs(ext,X,Y,Z,dX,dY,dZ,phi,phix,phiy,phiz,Symmetry)
+  call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,phi,phix,phiy,phiz)
+
+  psi = exp(phi)
+
+ 
+end subroutine driver_ricci_constraints

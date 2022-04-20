@@ -1,0 +1,44 @@
+bssn_postinitialdata.F90:     !$omp parallel do
+bssn_postinitialdata.F90:     !$omp end parallel do
+bssn_postinitialdata.F90:  !$omp parallel do
+bssn_postinitialdata.F90:  !$omp end parallel do
+driver_post_regrid.F90:           !$omp parallel do
+driver_post_regrid.F90:           !$omp end parallel do
+driver_post_regrid.F90:        !$omp parallel do
+driver_post_regrid.F90:        !$omp end parallel do
+driver_post_regrid.F90:        !$omp parallel do
+driver_post_regrid.F90:        !$omp end parallel do
+driver_post_regrid.F90:     !$omp parallel do
+driver_post_regrid.F90:     !$omp end parallel do
+driver_post_regrid.F90:        !$omp parallel do
+driver_post_regrid.F90:        !$omp end parallel do
+driver_post_regrid.F90:     !$omp parallel do
+driver_post_regrid.F90:     !$omp end parallel do
+driver_post_regrid.F90:     !$omp parallel do
+driver_post_regrid.F90:     !$omp end parallel do
+#driver_post_update_boundary.F90:!$omp parallel do
+#driver_post_update_boundary.F90:!$omp end parallel do
+driver_ricci_constraints.F90:     !$omp parallel do
+driver_ricci_constraints.F90:     !$omp end parallel do
+driver_timestepping.F90:     !$omp parallel do
+driver_timestepping.F90:     !$omp end parallel do
+driver_update_boundary.F90:           !$omp parallel do
+driver_update_boundary.F90:           !$omp end parallel do
+driver_update_boundary.F90:        !$omp parallel do
+driver_update_boundary.F90:        !$omp end parallel do
+driver_update_boundary.F90:        !$omp parallel do
+driver_update_boundary.F90:        !$omp end parallel do
+driver_update_boundary.F90:     !$omp parallel do
+driver_update_boundary.F90:     !$omp end parallel do
+set_metric_rot_driver.F90:  !$omp parallel do private (Psi4L)
+set_metric_rot_driver.F90:  !$omp end parallel do
+# update_boundary.F90:!!!$omp parallel do
+# update_boundary.F90:!!!$omp end parallel do
+# update_boundary.F90:!!!$omp parallel do
+# update_boundary.F90:!!!$omp end parallel do
+# update_boundary.F90:!!!$omp parallel do
+# update_boundary.F90:!!!$omp end parallel do
+# update_boundary.F90:!!!$omp parallel do
+# update_boundary.F90:!!!$omp end parallel do
+# update_boundary.F90:!!!$omp parallel do
+# update_boundary.F90:!!!$omp end parallel do

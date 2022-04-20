@@ -1,0 +1,153 @@
+# Parameter definitions for thorn magnetar
+
+shares: IO
+USES KEYWORD out_every
+
+#following 2 lines needed for binfile checkpointing
+shares: Cactus
+USES INT cctk_itlast 
+
+shares: grid
+
+shares: mhd_evolve
+USES KEYWORD primitives_solver
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD use_HARM_primitives
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD sdots_o_rhot
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD force_font_fix_fail
+USES KEYWORD enable_primitives_disk
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_b_max
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD em_evolve_enable
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+
+shares: diagnostics_mhd
+USES KEYWORD initial_monopole_value
+
+shares: gw_extraction
+USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+restricted:
+
+#REAL rho_b_atm "Dont bother setting this parameter in your .par file: density atmosphere parameter (set to correct value inside code)"
+#{
+# 0:* :: "Positive"
+#} 100.000
+
+REAL magnetar_P_max "Maximum value of pressure on grid"
+{
+ 0:* :: "Positive"
+} 1.0
+REAL magnetar_rho_star_max "Maximum value of rho_star on grid"
+{
+ 0:* :: "Positive"
+} 1.0
+REAL magnetar_tau_max "Maximum value of tau on grid"
+{
+ 0:* :: "Positive"
+} 1.0
+
+
+
+REAL P_deplete "Pressure depletion paramter (1.0 -> no pressure depletion)"
+{
+ 0:* :: "Positive"
+} 1.0
+
+REAL betam1 "P_B / P_gas"
+{
+ 0:* :: "Positive"
+} 1e-4
+
+REAL p_c ""
+{
+ *:* :: "Any Real"
+} 0.0
+
+REAL Omega_Frame "angular velocity of reference frame"
+{
+ *:* :: "Any Real"
+} 0.0
+
+INT em_field_type "poloidal (0), toroidal (1) or div-free poloidal (2) fields?"
+{
+ *:* :: "Any Integer"
+} 0
+
+INT binfile_restart "Restart from binfile?"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+STRING mag_interp_operator "Name of interpolation operator to use" STEERABLE = ALWAYS
+{
+  ".+" :: "A valid name for a registered interpolation operator"
+} "uniform cartesian"
+
+#following parameter needed for binfile checkpointing
+INT binfile_checkpoint_iteration "label of binfile.  e.g., Axy.time___0.000.h5001000777.bin has label time___0.000.h5001000777.bin"
+{
+  0:* :: "Any positive integer"
+} 0
+
+REAL lapse_regrid "when minimum lapse hits this level, dump binfile checkpoints and exit!"
+{
+  *:* :: "Any real"
+} -1000
+
+private:
+
+real moncrief_radius_GW[11] "Radii at which to measure GW's" STEERABLE=recover
+{
+  0:* :: "zero or any positive number"
+} 1.0
+
+INT moncrief_gw_num_radii "How many radii will to measure GW's"
+{ 
+ 1:10 :: "Positive int <= 10"
+} 1
+
+###################################################################
+# Alt. Atmosphere setup parameters (PRIVATE) ######################
+INT enable_alt_atmosphere "Set up alternate atmosphere"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+REAL rho_atm "atmosphere density floor coefficient"
+{
+ 0:* :: "Positive"
+} 1.e-4
+
+REAL p_atm "atmosphere pressure floor coefficient"
+{
+ 0:* :: "Positive"
+} 3.3333333e-7
+
+REAL rho_atm_index "atmosphere density floor falloff exponent"
+{
+ *:* :: "any real"
+} -1.5
+
+REAL p_atm_index "atmosphere pressure floor falloff exponent"
+{
+ *:* :: "any real"
+} -2.5
+###################################################################

@@ -1,0 +1,4 @@
+# Main make.code.defn file for thorn stationary_puncture
+
+# Source files in this directory
+SRCS = initialdata.F90 bbh_kerr_initial_metric_plus_junk.F90 diagnostics.F90 boost_gij_Kij_puncture.F90

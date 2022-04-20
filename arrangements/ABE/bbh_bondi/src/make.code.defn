@@ -1,0 +1,15 @@
+# make.code.defn file for thorn bbhlorene
+
+# Source files in this directory
+SRCS =  bbh_bondi_matter_id.F90 \
+	bbh_bondi_matter_global_1.F90 \
+	bbh_bondi_matter_local_1.F90 \
+	diagnostics.F90 \
+	bbh_bondi_matter_global_2.F90 \
+	bbh_bondi_matter_local_2.F90 \
+	nr.F90 nrutil.F90 nrtype.F90 rtbis.F90 zbrak.F90 \
+	get_rho0.F90 bbh_bondi_output.F90 bbh_bondi_IO.C \
+#	driver_spatial_derivs.F90 \
+#	spatial_metric_derivs.C \
+#	spatial_metric_derivs_2ndorderbdry.C \
+#	spatial_metric_derivs_4thorderbdry.C

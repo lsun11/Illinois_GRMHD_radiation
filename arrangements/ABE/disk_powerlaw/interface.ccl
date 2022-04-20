@@ -1,0 +1,51 @@
+# Interface definition for thorn disk_powerlaw
+
+implements: disk_powerlaw
+inherits: grid
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+friend: gw_extraction
+#friend: TwoPunctures
+
+USES INCLUDE: Symmetry.h
+
+private:
+REAL disk_powerlaw_M0dot_BH TYPE=scalar
+{
+  t_last_disk_powerlaw, xh1_last_disk_powerlaw, yh1_last_disk_powerlaw, zh1_last_disk_powerlaw, xh2_last_disk_powerlaw, yh2_last_disk_powerlaw, zh2_last_disk_powerlaw, xh3_last_disk_powerlaw, yh3_last_disk_powerlaw, zh3_last_disk_powerlaw
+} "variables necessary to compute the M0 flux thru BH"
+
+REAL disk_powerlaw_last_data TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=ntot_disk_powerlaw
+{
+  ah1_radii_last_disk_powerlaw,ah2_radii_last_disk_powerlaw,ah3_radii_last_disk_powerlaw,surf1_radii_last_disk_powerlaw,surf2_radii_last_disk_powerlaw,surf3_radii_last_disk_powerlaw,surf4_radii_last_disk_powerlaw
+}
+
+#REAL M_ADM TYPE=scalar
+#{ 
+#  BigMass
+#} "Initial ADM mass of the binary"
+
+###########################################################################
+# Following needed for setting the original of BH and radii of AH from ahfinderdirect
+
+CCTK_INT FUNCTION HorizonWasFound(CCTK_INT IN horizon_number)
+REQUIRES FUNCTION HorizonWasFound
+
+CCTK_INT FUNCTION HorizonLocalCoordinateOrigin                          \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_REAL OUT origin_x, CCTK_REAL OUT origin_y, CCTK_REAL OUT origin_z)
+REQUIRES FUNCTION HorizonLocalCoordinateOrigin
+
+CCTK_INT FUNCTION HorizonRadiusInDirection                              \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_INT IN N_points,                                               \
+    CCTK_REAL IN ARRAY x, CCTK_REAL IN ARRAY y, CCTK_REAL IN ARRAY z,   \
+    CCTK_REAL OUT ARRAY radius)
+REQUIRES FUNCTION HorizonRadiusInDirection
+
+###########################################################################

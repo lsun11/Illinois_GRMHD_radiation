@@ -1,0 +1,22 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine particle_tracer_toy(CCTK_ARGUMENTS)
+
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+
+
+  integer, dimension(3)                       :: ext,global_ext
+  real*8                                      :: dT,dTo2,dTo6,dX,dY,dZ,xmax
+  integer                                     :: ii,jj
+  integer                                     :: vindex, narr2
+
+  write(*,*) "Start particle tracer1!!!", narr2, pos(:,1) 
+
+
+
+
+end subroutine particle_tracer_toy

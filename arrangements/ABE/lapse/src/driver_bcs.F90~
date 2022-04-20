@@ -1,0 +1,87 @@
+!------------------------------------------------------------
+! Master update boundary condition (bc) driver for the lapse
+!------------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine lapse_update_bc(CCTK_ARGUMENTS)
+  
+  implicit none
+  
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer                                       :: dummy
+  integer, dimension(3)                         :: ext
+  integer              				:: i,j,k
+  real*8                                        :: dX,dY,dZ
+!
+  dX=CCTK_DELTA_SPACE(1)
+  dY=CCTK_DELTA_SPACE(2)
+  dZ=CCTK_DELTA_SPACE(3)
+
+  ext = cctk_lsh
+
+!  write(*,*) "Start lapse_updatebc!!!!!!"
+
+  call CartSymGN(dummy,cctkGH,'lapse::lapse_vars')
+
+  if(cctk_iteration.gt.0) then
+!     call global_edges(dX,dY,dZ, &
+!          Xglobal(1),Yglobal(1),Zglobal(1), &
+!          Xlocal1d(1),Ylocal1d(1),Zlocal1d(1), &
+!          Xglobal(cctk_gsh(1)),Yglobal(cctk_gsh(2)),Zglobal(cctk_gsh(3)), &
+!          Xlocal1d(cctk_lsh(1)),Ylocal1d(cctk_lsh(2)),Zlocal1d(cctk_lsh(3)), &
+!          have_bdry_min,have_bdry_max,Symmetry)
+     
+     if (CCTK_Equals(slicing_type,"frozen").eq.1 .or. cowling_enable==1) then
+        ! do nothing; already updated
+     else if (CCTK_Equals(slicing_type,"geodesic").eq.1) then
+        ! do nothing; already updated 
+     else if (CCTK_Equals(slicing_type,"harmonic").eq.1) then
+        ! do nothing; already updated 
+     else if (CCTK_Equals(slicing_type,"hyperbolic").eq.1) then
+        call hyperbolic_lapse_bc_driver(CCTK_PASS_FTOF)
+     else if (CCTK_Equals(slicing_type,"opl").eq.1) then
+        call opl_lapse_bc_driver(CCTK_PASS_FTOF)
+     else if (CCTK_Equals(slicing_type,"opl_loglapse").eq.1) then
+        call opl_lapse_bc_driver(CCTK_PASS_FTOF)
+     end if
+
+if (1==0) then
+  do k=1, ext(3)
+     do j=1, ext(2)
+        do i=1, ext(1)
+       if (ABS(phi(i,j,k)).ge.10.D0) then
+       write(*,*) "Inside lapse driver_bcs, phi(i,j,k) is unphysical, NOT try to fix it", i,j,k, phi(i,j,k), phi(i-1,j,k), phi(i,j-1,k),phi(i,j,k-1)
+       end if
+       end do
+     end do
+  end do
+end if
+
+
+  do k=1, cctk_lsh(3)
+     do j=1, cctk_lsh(2)
+          do i=1, cctk_lsh(1)
+if (i==78.and.j==70.and.k==2) then
+    write(*,*) " In bssn update_bcs checkpoint <<1>>  tau(i,j,k) is ", tau(i,j,k)
+    write(*,*) " In bssn update_bcs checkpoint <<1>>  tau_rhs(i,j,k) is ", tau_rhs(i,j,k)
+    write(*,*) " In bssn update_bcs checkpoint <<1>>  tau_rad(i,j,k) is ", tau_rad(i,j,k)
+    write(*,*) " In bssn update_bcs checkpoint <<1>>  tau_rad_rhs(i,j,k) is ", tau_rad_rhs(i,j,k)
+end if
+       end do
+    end do
+end do
+
+
+!     call CCTK_SyncGroup(dummy,cctkGH,'lapse::lapse_vars')
+  end if
+
+  call CartSymGN(dummy,cctkGH,'lapse::lapse_vars')
+
+end subroutine lapse_update_bc

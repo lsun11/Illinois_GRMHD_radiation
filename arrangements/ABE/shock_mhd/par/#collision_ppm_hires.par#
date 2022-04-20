@@ -1,0 +1,154 @@
+
+# Cactus Input file by Zach Etienne
+# Important notes:
+# 1) parameters are given as thornalias::parameter = parametervalue
+#       (e.g., CartGrid3D's alias is grid & scalarwave's alias is ABE_scalar_wave).
+# 2) parameters are defined in the thorn's param.ccl file (e.g., look in arrangements/CactusBase/CartGrid3D/param.ccl)
+
+# Notice these are different from scalarwave-PUGH.par:
+ActiveThorns = "MoL spacemask SymBase Boundary time CartGrid3D CoordBase LocalReduce"
+ActiveThorns = "bssn shift lapse fisheye diagnostics_vacuum excision gw_extraction staticconformal"
+ActiveThorns = "Carpet CarpetLib CarpetInterp AEILocalInterp CarpetReduce CarpetRegrid2 CarpetSlab ioutil carpetioascii carpetiobasic carpetiohdf5 sphericalsurface"
+ActiveThorns = "shock_mhd mhd_evolve diagnostics_mhd"
+ActiveThorns = "AHFinderDirect"
+AHFinderDirect::N_horizons = 0
+
+mhd_evolve::use_new_code = 1
+mhd_evolve::primitives_solver = 2
+mhd_evolve::enable_shocktest_primitive_mode = 1
+mhd_evolve::enable_primitives_disk = 0
+mhd_evolve::Reconstruction = 2
+mhd_evolve::reconstruct_Bitildes_instead_of_Bis = 0
+mhd_evolve::Matter_BC = 3
+mhd_evolve::EM_BC = 1
+mhd_evolve::em_evolve_enable = 1
+mhd_evolve::constrained_transport_scheme = 3
+
+cactus::cctk_itlast = 2441
+IO::out_every = 999999
+diagnostics_vacuum::Compute_VolIntegrands_Every = 80000
+
+diagnostics_vacuum::num_BHs = 0
+Carpet::init_fill_timelevels=yes
+
+shock_mhd::nx = 1
+shock_mhd::ny = 0
+shock_mhd::nz = 0
+
+shock_mhd::npolyshock = 3.0
+
+shock_mhd::rho_l = 1.0
+shock_mhd::P_l = 1.0
+shock_mhd::u1_l = 5.0
+shock_mhd::u2_l = 0.0
+shock_mhd::u3_l = 0.0
+shock_mhd::B1os4pi_l = 10.0
+shock_mhd::B2os4pi_l = 10.0
+shock_mhd::B3os4pi_l = 0.0
+
+shock_mhd::rho_r = 1.0
+shock_mhd::P_r = 1.0
+shock_mhd::u1_r = -5.0
+shock_mhd::u2_r = 0.0
+shock_mhd::u3_r = 0.0
+shock_mhd::B1os4pi_r = 10.0
+shock_mhd::B2os4pi_r = -10.0
+shock_mhd::B3os4pi_r = 0.0
+
+########## MoL STUFF #############
+MoL::ODE_Method = "RK4"
+MoL::MoL_Intermediate_Steps = 4
+bssn::number_of_mol_ministeps = 4
+MoL::MoL_Num_Scratch_Levels = 1
+Carpet::num_integrator_substeps  = 4
+
+MoL::initial_data_is_crap = "yes"
+##################################
+
+#diagnostics_vacuum::surf_radius=-0.95
+#diagnostics_vacuum::surf_radius=-0.7515625
+#diagnostics_vacuum::nsurf = 9
+#diagnostics_vacuum::arithsurf=0
+#diagnostics_vacuum::rsurf2=0.01
+
+# BUILT-IN PROFILING!  If you'd like to try it out, uncomment this & look at output at the end of your run.
+# Cactus::cctk_timer_output = "full"
+
+bssn::Symmetry = 0
+
+bssn::cowling_enable = 1
+
+time::timestep_method = "courant_static"
+time::dtfac=0.5
+
+###############################################
+# Coordinate setup:
+driver::ghost_size = 3
+CoordBase::boundary_size_z_lower = 3
+CoordBase::boundary_shiftout_z_lower = 1
+CoordBase::boundary_size_y_lower = 3
+CoordBase::boundary_shiftout_y_lower = 1
+
+#grid::domain = "bitant"
+#grid::bitant_plane = "xy"
+grid::avoid_origin = "no"
+
+CoordBase::domainsize = "minmax"
+CoordBase::xmax                         =  1.0
+CoordBase::ymax                         =  3.0
+CoordBase::zmax                         =  3.0
+CoordBase::xmin                         = -1.0
+CoordBase::ymin                         = -3.0
+CoordBase::zmin                         = -3.0
+CoordBase::dx                           =  0.001
+CoordBase::dy                           =  1.0
+CoordBase::dz                           =  1.0
+
+#CoordBase::boundary_staggered_z_lower = "yes"
+
+CartGrid3D::type = "coordbase"
+
+###############################################
+# CARPET:
+#Carpet::use_tapered_grids = "yes"
+
+Carpet::domain_from_coordbase = "yes"
+
+carpet::max_refinement_levels = 1
+
+CarpetRegrid2::regrid_every = -1
+
+CarpetRegrid2::num_centres = 1
+
+CarpetRegrid2::verbose = yes
+
+CarpetRegrid2::num_levels_1 =   0
+#CarpetRegrid2::position_x_1 =    0.0
+#CarpetRegrid2::radius_1[ 1] =    0.25
+
+Carpet::prolongation_order_space = 5
+#Carpet::prolongation_order_space = 7
+Carpet::prolongation_order_time  = 2
+Carpet::use_buffer_zones = yes
+
+Carpet::convergence_level = 0
+
+###############################################
+
+#driver::processor_topology_3d_x = 1
+#driver::processor_topology_3d_y = 1
+#driver::processor_topology_3d_z = 2
+
+IO::out_dir = "ABE-shock-output"
+
+IOASCII::out1D_vars = "mhd_evolve::rho_b mhd_evolve::P mhd_evolve::vx mhd_evolve::vy mhd_evolve::Bx mhd_evolve::By"
+#IOASCII::out1D_y="no"
+#IOASCII::out1D_z="no"
+IOASCII::out1D_d="no"
+IOASCII::out1D_every=488
+
+#IOASCII::out2D_every = 256
+#IOASCII::out2D_xz = no
+#IOASCII::out2D_yz = no
+#IOASCII::out2D_vars = "mhd_evolve::rho_b mhd_evolve::vx mhd_evolve::vy"
+

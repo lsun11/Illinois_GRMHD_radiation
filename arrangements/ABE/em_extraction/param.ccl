@@ -1,0 +1,102 @@
+# Parameter definitions for thorn em_extraction
+
+shares: IO
+USES KEYWORD out_every
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD numtheta
+USES KEYWORD numphi
+USES KEYWORD nsurf
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD ntot
+USES KEYWORD sym_factor
+USES KEYWORD dphi
+USES KEYWORD dcostheta
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+
+restricted:
+
+REAL radius_EM_phys "The distance from the origin where EM's are measured, PHYSICAL COORDINATES!" STEERABLE = ALWAYS
+{
+ *:* :: "Anything, negative means set = to surf_radius converted to phys coords!"
+} -1.0
+
+REAL dR_EM "dR/dr" 
+{
+ *:* :: "Anything, negative means set = to surf_radius converted to phys coords!"
+} -1.0
+
+REAL ddR_EM "d^2R/dr^2"
+{
+ *:* :: "Anything, negative means set = to surf_radius converted to phys coords!"
+} -1.0
+
+REAL radius_EM "The distance from the origin where EM's are measured" STEERABLE = ALWAYS
+{
+ *:* :: "Anything, negative means set = to surf_radius!"
+} -1.0
+
+REAL theta_EM "The angle theta in radians in which EM's are measured" STEERABLE = ALWAYS
+{
+ 0:* :: "Positive"
+} 0.79
+
+REAL phi_EM "The angle phi in radians in which EM's are measured" STEERABLE = ALWAYS
+{
+ 0:* :: "Positive"
+} 0.52
+
+
+
+private:
+
+#################################
+# em_extraction-specific parameters
+#################################
+
+REAL compute_phi2_min_radius "Minimum radius at which to compute phi0 and phi2" STEERABLE = ALWAYS
+{ 
+    0:* :: "Zero or positive"
+} 0.0
+
+REAL compute_phi2_max_radius "Maximum radius at which to compute phi0 and phi2" STEERABLE = ALWAYS
+{ 
+    0:* :: "Zero or positive"
+} 100000.0
+
+
+BOOLEAN scale_with_radius_em "Multiply all scalars by power of radial coordinate"
+{
+} "no"
+
+INT radius_power_em "Power of radial coordinate to multiply by"
+{
+ 1:* :: ""
+} 1
+
+INT num_extraction_radii_em "Number of extraction radii"
+{ 
+    0:* :: "Positive"
+} 10
+
+REAL radius_em_phi2[101] "extraction radii"
+{ 
+    0:* :: "Zero or positive"
+} 0
+
+#INT nmodes_phi2 "number of modes for em extraction routine" STEERABLE = ALWAYS
+#{
+#  0:* :: "Number of spin-weight -2 l,m modes to output. Set this to 21 for all l<=3 modes."
+#} 21
+
+# Set up spherical EM wave test in flat spacetime?
+INT set_up_spherical_EM_wave_in_flat_spacetime "0 = no, 1 = yes"
+{ 
+ 0:1 :: "no or yes, this is to simply test the phi2 diagnostic in flat spacetime with a dipole EM wave of the form E=\hat\theta \sin(\theta)\cos(\omega t-k r), at time t=0"
+} 0 
+
+

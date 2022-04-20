@@ -1,0 +1,10 @@
+# Configuration definition for thorn diagnostics_vacuum
+# $Header: /home/astro/CVS/Cactus/arrangements/ABE/diagnostics_vacuum/configuration.ccl,v 1.1.1.1 2006/02/17 21:31:26 zetienne Exp $
+PROVIDES diagnostics_vacuum
+{
+  SCRIPT
+  LANG
+}
+
+# A list of thorns that must be compiled with this one. (Incomplete, but okay if you use the appropriate ThornList)
+REQUIRES CartGrid3D fisheye

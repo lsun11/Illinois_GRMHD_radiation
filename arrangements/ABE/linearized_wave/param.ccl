@@ -1,0 +1,95 @@
+# Parameter definitions for thorn linearized_wave
+
+shares: IO
+USES KEYWORD out_every
+
+shares: grid
+USES KEYWORD type 
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+
+shares: gw_extraction
+USES KEYWORD radius_GW
+USES KEYWORD radius_GW_phys
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+
+#shares: fisheye
+#USES KEYWORD fisheye_enable
+
+restricted:
+ 
+# NOT USED (maybe in a future version):
+KEYWORD bound "Type of boundary condition to use"
+{
+  "none"      :: "Apply no boundary condition"
+  "flat"      :: "Flat (von Neumann, n grad phi = 0) boundary condition"
+  "static"    :: "Static (Dirichlet, dphi/dt=0) boundary condition"
+  "radiation" :: "Radiation boundary condition"
+  "robin"     :: "Robin (phi(r) = C/r) boundary condition"
+  "zero"      :: "Zero (Dirichlet, phi=0) boundary condition"
+} "none"
+
+# NOT USED (maybe in a future version):
+KEYWORD initial_data "Type of initial data"
+{
+  "plane"      :: "Plane wave"
+  "gaussian"   :: "Gaussian wave"
+  "box"        :: "Box wave"
+  "none"       :: "No initial data, zero phi"
+} "gaussian"
+
+shares: grid
+
+USES KEYWORD domain
+USES KEYWORD quadrant_direction
+USES KEYWORD bitant_plane
+
+
+private:
+
+REAL corrector_iteration "num of iterations in corrector loop"
+{
+  *:* :: "No restriction"
+} 1.0
+
+## Parameters for initial wavepulses
+
+REAL width "The width of the wave"
+{
+ 0:* :: "Positive"
+} 1.0
+
+REAL amplitude "The amplitude of the waves"
+{
+  *:* :: "No restriction"
+} 0.001
+
+REAL time_shift "Shifting time origin for the initial data"
+{
+  *:* :: "No restriction"
+} 0.0
+
+
+INT mode "choose a mode"
+{
+  20:22 :: "20: even 20 mode, 21: odd 21 mode, 22: even 22 mode" 
+} 20
+
+REAL Psi4resumlw "l=2,m=2 value of Psi_4re at Radius_GW"
+{
+        0:      :: ""
+} 0.D0
+
+REAL Psi4imsumlw "l=2,m=2 value of Psi_4im at Radius_GW"
+{
+        0:      :: ""
+} 0.D0
+
+# *** This is temporary 
+#REAL surf_radius_phys "surface radius in physical coordinates"
+#{
+# 0:* :: "Positive"
+#} 1.0

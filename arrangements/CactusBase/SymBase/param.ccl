@@ -1,0 +1,6 @@
+# Parameter definitions for thorn SymBase
+# $Header: /cactusdevcvs/CactusBase/SymBase/param.ccl,v 1.2 2004/05/28 15:44:34 schnetter Exp $
+
+BOOLEAN verbose "Output symmetry boundary face descriptions after registration"
+{
+} "yes"

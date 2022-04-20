@@ -1,0 +1,59 @@
+# Parameter definitions for thorn movingbox
+
+shares: IO
+USES KEYWORD out_every
+
+shares: driver
+
+shares: diagnostics_vacuum
+USES KEYWORD num_BHs
+USES KEYWORD Compute_VolIntegrands_Every
+USES KEYWORD WhichIntegral
+
+restricted:
+
+INT num_matter_refinement_box_centers "Total number of moving matter refinement box centers to track.  Must set this to either 1 or 9, corresponding to moving_box_type=0 and 1, respectively"
+{
+  1:9 :: "one OR nine, please don't set it to anything else, or you'll get an error"
+} 1
+
+#REAL Finest_Refinement_Box_Radius "Radius of finest refinement boxes.  All of them need to be the same size." STEERABLE=ALWAYS
+#{
+#  0:* :: "Positive or zero"
+#} 0.825
+
+REAL radius_star1 "Radius around star 1 for center of mass integration." STEERABLE=ALWAYS
+{
+  0:* :: "Any positive value"
+} 0.
+
+REAL radius_star2 "Radius around star 2 for center of mass integration." STEERABLE=ALWAYS
+{
+  0:* :: "Any positive value"
+} 0.
+
+INT track_bhns "track bhns=0, track nsns=1" STEERABLE=ALWAYS
+{
+  0:1 :: "zero or one"
+} 0
+
+private:
+
+INT moving_box_type "Sets the algorithm for moving the matter boxes around the NS.  Only 3 algorithms are supported: 0=[no extra boxes to follow matter around NS], 1=[when NS gets close to BH, add 8 refinement boxes around NS to make one big box, 2=[when NS gets close to BH, drop resolution of NS boxes]"
+{
+  0:* :: "Positive or zero"
+} 0
+
+INT avoid_large_drift_in_ns_box "Prevent the NS refinement box from getting too far from the BH.  This avoids refinement level nesting problems, so generally it is a good idea to enable this (==1)"
+{
+  0:1 :: "zero or one"
+} 1
+
+
+INT BOXES_IN_FINAL_CONFIGURATION "Are the refinement boxes in the final configuration?  I.e., have we already destroyed the highest res NS box to minimize ref. boundary crossings?"
+{
+  0:1 :: "zero or one"
+} 0
+
+
+

@@ -1,0 +1,1248 @@
+/*
+  compute rhs's
+  Optimized from FORTRAN version by Zach Etienne in Apr., 2007 
+  (3x speed increase with better scalability)
+  Speed increase due primarily to
+  1) Fewer calls to main memory 
+  -> can do calculations entirely in (uber-fast) processor cache!
+  2) Replace derivative function calls (eww) 
+  with "#define" finite differencing (yay).
+  3) No more allocating entire temporary grid functions!
+*/
+
+#define KRANC_C
+
+#define mF5o3 -1.666666666666666666666666666666666666
+#define F2o3 0.666666666666666666666666666666666666
+#define F1o3 0.333333333333333333333333333333333333
+#define F1o6 0.166666666666666666666666666666666666
+
+//BSSN Parameters:
+/*
+#define LAMA 0.0
+#define LAMB 0.0
+#define LAMC 0.0
+#define LAMD 0.0
+#define LAME 0.0
+#define LAMF 0.0
+#define LAMG 0.0
+*/
+#define LAMA 0.75
+#define LAMB F2o3
+#define LAMC F2o3
+#define LAMD F1o3
+#define LAME F2o3
+#define LAMF 2.0
+#define LAMG F1o3
+
+/* Define macros used in calculations */
+#define INITVALUE  (42)
+#define INV(x) ((1) / (x))
+#define SQR(x) ((x) * (x))
+#define CUB(x) ((x) * (x) * (x))
+#define QAD(x) ((x) * (x) * (x) * (x))
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "cctk.h"
+#include <math.h>
+#include "cctk_Arguments.h"
+#include "cctk_Parameters.h"
+#include "Symmetry.h"
+
+#include "GenericFD.h"
+
+//static char *rcsid="$Header: /peter/piper/picked/a/peck/of/pickled/whatever $";
+
+//CCTK_FILEVERSION(BSSN_rhs)
+
+extern "C" void CCTK_FCALL CCTK_FNAME(BSSN_rhs)
+  (const cGH **cctkGH, double *dT, double *dx, double *dy, double *dz,
+   int *nghostzones,int *cctk_lsh,
+   double *PhysicalRadius, double *RadiusDerivative,double *r,
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+   double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,
+   double *Rxx,double *Rxy,double *Rxz,double *Ryy,double *Ryz,double *Rzz,
+   double *trRtilde,double *phi,double *chi,double *PsiRes,double *trK,double *lapm1,
+   double *alphax,double *alphay,double *alphaz,
+   double *shiftx,double *shifty,double *shiftz,
+   double *Gammax,double *Gammay,double *Gammaz,
+   double *S,double *rho,
+   double *Sx,double *Sy,double *Sz,
+   double *Sxx,double *Sxy,double *Sxz,double *Syy,double *Syz,double *Szz,
+   double *gxx_rhs,double *gxy_rhs,double *gxz_rhs,double *gyy_rhs,double *gyz_rhs,double *gzz_rhs,
+   double *Axx_rhs,double *Axy_rhs,double *Axz_rhs,double *Ayy_rhs,double *Ayz_rhs,double *Azz_rhs,
+   double *phi_rhs,double *chi_rhs,double *trK_rhs,
+   double *Gammax_rhs,double *Gammay_rhs,double *Gammaz_rhs,
+   double *phix, double *phiy, double *phiz,
+   double *gxxx, double *gxxy, double *gxxz,
+   double *gxyx, double *gxyy, double *gxyz,
+   double *gxzx, double *gxzy, double *gxzz,
+   double *gyyx, double *gyyy, double *gyyz,
+   double *gyzx, double *gyzy, double *gyzz,
+   double *gzzx, double *gzzy, double *gzzz,
+   double *Gammaxxx, double *Gammaxxy, double *Gammaxxz, double *Gammaxyy, double *Gammaxyz, double *Gammaxzz,
+   double *Gammayxx, double *Gammayxy, double *Gammayxz, double *Gammayyy, double *Gammayyz, double *Gammayzz,
+   double *Gammazxx, double *Gammazxy, double *Gammazxz, double *Gammazyy, double *Gammazyz, double *Gammazzz, 
+   double *x,double *y,double *z,
+   double *bh_posn_x,double *bh_posn_y,double *bh_posn_z);
+
+extern "C" void BSSN_rhs(const cGH *cctkGH, double dT, double dx, double dy, double dz,
+			 int *nghostzones,int *cctk_lsh,
+			 double *PhysicalRadius, double *RadiusDerivative,double *r,
+			 double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+			 double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+			 double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,
+			 double *Rxx,double *Rxy,double *Rxz,double *Ryy,double *Ryz,double *Rzz,
+			 double *trRtilde,double *phi,double *chi,double *PsiRes,double *trK,double *lapm1,
+			 double *alphax,double *alphay,double *alphaz,
+			 double *shiftx,double *shifty,double *shiftz,
+			 double *Gammax,double *Gammay,double *Gammaz,
+			 double *S,double *rho,
+			 double *Sx,double *Sy,double *Sz,
+			 double *Sxx,double *Sxy,double *Sxz,double *Syy,double *Syz,double *Szz,
+			 double *gxx_rhs,double *gxy_rhs,double *gxz_rhs,double *gyy_rhs,double *gyz_rhs,double *gzz_rhs,
+			 double *Axx_rhs,double *Axy_rhs,double *Axz_rhs,double *Ayy_rhs,double *Ayz_rhs,double *Azz_rhs,
+			 double *phi_rhs,double *chi_rhs,double *trK_rhs,
+			 double *Gammax_rhs,double *Gammay_rhs,double *Gammaz_rhs,
+			 double *phix, double *phiy, double *phiz,
+			 double *gxxx, double *gxxy, double *gxxz,
+			 double *gxyx, double *gxyy, double *gxyz,
+			 double *gxzx, double *gxzy, double *gxzz,
+			 double *gyyx, double *gyyy, double *gyyz,
+			 double *gyzx, double *gyzy, double *gyzz,
+			 double *gzzx, double *gzzy, double *gzzz,
+			 double *Gammaxxx, double *Gammaxxy, double *Gammaxxz, double *Gammaxyy, double *Gammaxyz, double *Gammaxzz,
+			 double *Gammayxx, double *Gammayxy, double *Gammayxz, double *Gammayyy, double *Gammayyz, double *Gammayzz,
+			 double *Gammazxx, double *Gammazxy, double *Gammazxz, double *Gammazyy, double *Gammazyz, double *Gammazzz,
+			 double *x,double *y,double *z,
+			 double *bh_posn_x,double *bh_posn_y,double *bh_posn_z) {
+  
+  DECLARE_CCTK_PARAMETERS;
+
+  /* Initialise finite differencing variables.  NEED THIS FOR GenericFD.h */
+#include "../../GenFD_decl_set_varCPP.h"
+
+  double chi_floor = exp(chi_exponent*phi_cap);
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart = nghostzones[0];
+  int jstart = nghostzones[1];
+  int kstart = nghostzones[2];
+  int iend = cctk_lsh[0] - nghostzones[0];
+  int jend = cctk_lsh[1] - nghostzones[1];
+  int kend = cctk_lsh[2] - nghostzones[2];
+
+  //Following lines needed since nghostzones[0] = ORDER, and 
+  //   not ORDER-1 in axisymmetry 
+  //   (so that rotation can be done on multiprocessor runs)
+  if(Symmetry==4) {
+    istart--;
+    iend++;
+  }
+
+
+  printf("Start BSSN_rhs!!!! before parallel iterations \n");
+
+#pragma omp parallel for
+  for(int k=kstart;k<kend;k++)
+    for(int j=jstart;j<jend;j++)
+      for(int i=istart;i<iend;i++) {
+	int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+	double gxx_rhsL,gxy_rhsL,gxz_rhsL,gyy_rhsL,gyz_rhsL,gzz_rhsL;
+	double Axx_rhsL,Axy_rhsL,Axz_rhsL,Ayy_rhsL,Ayz_rhsL,Azz_rhsL;
+	double phi_rhsL,chi_rhsL;
+	double trK_rhsL;
+	double Gammax_rhsL,Gammay_rhsL,Gammaz_rhsL;
+
+	double gxxL = gxx[index];
+	double gxyL = gxy[index];
+	double gxzL = gxz[index];
+	double gyyL = gyy[index];
+	double gyzL = gyz[index];
+	double gzzL = gzz[index];
+
+	double trKL = trK[index];
+
+	double AxxL = Axx[index];
+	double AxyL = Axy[index];
+	double AxzL = Axz[index];
+	double AyyL = Ayy[index];
+	double AyzL = Ayz[index];
+	double AzzL = Azz[index];
+
+	double shiftxL = shiftx[index];
+	double shiftyL = shifty[index];
+	double shiftzL = shiftz[index];
+
+	if (isnan(Axx_rhs[index])) {
+	  printf("inside BSSN compute_rhsnew.C PRECHECK, Axx_rhs[index] is NAN!!! \n");
+	}
+
+
+	double GammaxL,GammayL,GammazL;
+	if(Gammai_enforcement_type!=2) {
+	  GammaxL = Gammax[index];
+	  GammayL = Gammay[index];
+	  GammazL = Gammaz[index];
+	} else {
+	  // Gamma^i constraint enforcing a la arXiv:gr-qc/0701123 (Marronetti et al.)
+	  //   This avoids late-time phi blowup in stationary puncture/late-time BHBH simulations 
+	  GammaxL = -(D1gf(gupxx,i,j,k) + D2gf(gupxy,i,j,k) + D3gf(gupxz,i,j,k));
+	  GammayL = -(D1gf(gupxy,i,j,k) + D2gf(gupyy,i,j,k) + D3gf(gupyz,i,j,k));
+	  GammazL = -(D1gf(gupxz,i,j,k) + D2gf(gupyz,i,j,k) + D3gf(gupzz,i,j,k));
+	}
+
+	double gxxxL = gxxx[index];
+	double gxyxL = gxyx[index];
+	double gxzxL = gxzx[index];
+	double gyyxL = gyyx[index];
+	double gyzxL = gyzx[index];
+	double gzzxL = gzzx[index];
+
+	double gxxyL = gxxy[index];
+	double gxyyL = gxyy[index];
+	double gxzyL = gxzy[index];
+	double gyyyL = gyyy[index];
+	double gyzyL = gyzy[index];
+	double gzzyL = gzzy[index];
+
+	double gxxzL = gxxz[index];
+	double gxyzL = gxyz[index];
+	double gxzzL = gxzz[index];
+	double gyyzL = gyyz[index];
+	double gyzzL = gyzz[index];
+	double gzzzL = gzzz[index];
+
+	double Axxx = D1gf(Axx,i,j,k);
+	double Axyx = D1gf(Axy,i,j,k);
+	double Axzx = D1gf(Axz,i,j,k);
+	double Ayyx = D1gf(Ayy,i,j,k);
+	double Ayzx = D1gf(Ayz,i,j,k);
+	double Azzx = D1gf(Azz,i,j,k);
+
+	double Axxy = D2gf(Axx,i,j,k);
+	double Axyy = D2gf(Axy,i,j,k);
+	double Axzy = D2gf(Axz,i,j,k);
+	double Ayyy = D2gf(Ayy,i,j,k);
+	double Ayzy = D2gf(Ayz,i,j,k);
+	double Azzy = D2gf(Azz,i,j,k);
+
+	double Axxz = D3gf(Axx,i,j,k);
+	double Axyz = D3gf(Axy,i,j,k);
+	double Axzz = D3gf(Axz,i,j,k);
+	double Ayyz = D3gf(Ayy,i,j,k);
+	double Ayzz = D3gf(Ayz,i,j,k);
+	double Azzz = D3gf(Azz,i,j,k);
+
+	double phiL = phi[index];
+	double chiL = chi[index];
+
+	double chi_exponentinv,phixL,phiyL,phizL,phixx,phixy,phixz,phiyy,phiyz,phizz;
+	double chixL,chiyL,chizL;
+
+
+
+	if(chi_evolution_enable==0) {
+	  phixL = D1gf(phi,i,j,k);
+	  phiyL = D2gf(phi,i,j,k);
+	  phizL = D3gf(phi,i,j,k);
+	  phixx = D11gf(phi,i,j,k);
+	  phixy = D21gf(phi,i,j,k);
+	  phixz = D31gf(phi,i,j,k);
+	  phiyy = D22gf(phi,i,j,k);
+	  phiyz = D32gf(phi,i,j,k);
+	  phizz = D33gf(phi,i,j,k);
+	} else {
+	  chiL = chi[index];
+	  if(chiL<0.0) { printf("BAD CHI! %d %d %d %e, r=%e\n",i,j,k,chiL,r[index]); exit(1); }
+	  chixL = D1gf(chi,i,j,k);
+	  chiyL = D2gf(chi,i,j,k);
+	  chizL = D3gf(chi,i,j,k);
+	  double chiLinv = 1.0/chiL;
+	  //Impose floor on 1/chi as Jena group does:
+	  //   See page 4 of arXiv:gr-qc/0610128 (Bruegmann, Gonzalez, Hannam, Husa, Sperhake, Tichy)
+	  // Note that chi_floor = exp(phi_cap*chi_exponent), as defined at the top of this function.
+	  if(chiL<chi_floor) {
+	    chiLinv = 1.0/chi_floor;
+	    printf("FIXED CHI_INVERSE: %d %d %d %e %e\n",i,j,k,chiL,r[index]);
+	  }
+	  chi_exponentinv = 1.0/chi_exponent;
+
+	  phixL = chi_exponentinv*chixL*chiLinv;
+	  phiyL = chi_exponentinv*chiyL*chiLinv;
+	  phizL = chi_exponentinv*chizL*chiLinv;
+	  phixx = chi_exponentinv * (D11gf(chi,i,j,k) - chixL*chixL*chiLinv)*chiLinv;
+	  phixy = chi_exponentinv * (D21gf(chi,i,j,k) - chixL*chiyL*chiLinv)*chiLinv;
+	  phixz = chi_exponentinv * (D31gf(chi,i,j,k) - chixL*chizL*chiLinv)*chiLinv;
+	  phiyy = chi_exponentinv * (D22gf(chi,i,j,k) - chiyL*chiyL*chiLinv)*chiLinv;
+	  phiyz = chi_exponentinv * (D32gf(chi,i,j,k) - chiyL*chizL*chiLinv)*chiLinv;
+	  phizz = chi_exponentinv * (D33gf(chi,i,j,k) - chizL*chizL*chiLinv)*chiLinv;
+	}
+
+	double RxxL = Rxx[index];
+	double RxyL = Rxy[index];
+	double RxzL = Rxz[index];
+	double RyyL = Ryy[index];
+	double RyzL = Ryz[index];
+	double RzzL = Rzz[index];
+
+	double alphaxL = D1gf(lapm1,i,j,k);
+	double alphayL = D2gf(lapm1,i,j,k);
+	double alphazL = D3gf(lapm1,i,j,k);
+
+	double alphaxx = D11gf(lapm1,i,j,k);
+	double alphaxy = D21gf(lapm1,i,j,k);
+	double alphaxz = D31gf(lapm1,i,j,k);
+	double alphayy = D22gf(lapm1,i,j,k);
+	double alphayz = D32gf(lapm1,i,j,k);
+	double alphazz = D33gf(lapm1,i,j,k);
+
+	double betaxx = D1gf(shiftx,i,j,k);
+	double betayx = D1gf(shifty,i,j,k);
+	double betazx = D1gf(shiftz,i,j,k);
+
+	double betaxy = D2gf(shiftx,i,j,k);
+	double betayy = D2gf(shifty,i,j,k);
+	double betazy = D2gf(shiftz,i,j,k);
+
+	double betaxz = D3gf(shiftx,i,j,k);
+	double betayz = D3gf(shifty,i,j,k);
+	double betazz = D3gf(shiftz,i,j,k);
+
+	double Gamxx = D1gf(Gammax,i,j,k);
+	double Gamyx = D1gf(Gammay,i,j,k);
+	double Gamzx = D1gf(Gammaz,i,j,k);
+
+	double Gamxy = D2gf(Gammax,i,j,k);
+	double Gamyy = D2gf(Gammay,i,j,k);
+	double Gamzy = D2gf(Gammaz,i,j,k);
+
+	double Gamxz = D3gf(Gammax,i,j,k);
+	double Gamyz = D3gf(Gammay,i,j,k);
+	double Gamzz = D3gf(Gammaz,i,j,k);
+
+	//Pardon the weird notation.  Not my idea. -Zach
+	double betaxxx = D11gf(shiftx,i,j,k);
+	double betaxyx = D21gf(shiftx,i,j,k);
+	double betaxzx = D31gf(shiftx,i,j,k);
+	double betayyx = D22gf(shiftx,i,j,k);
+	double betayzx = D32gf(shiftx,i,j,k);
+	double betazzx = D33gf(shiftx,i,j,k);
+
+	double betaxxy = D11gf(shifty,i,j,k);
+	double betaxyy = D21gf(shifty,i,j,k);
+	double betaxzy = D31gf(shifty,i,j,k);
+	double betayyy = D22gf(shifty,i,j,k);
+	double betayzy = D32gf(shifty,i,j,k);
+	double betazzy = D33gf(shifty,i,j,k);
+
+	double betaxxz = D11gf(shiftz,i,j,k);
+	double betaxyz = D21gf(shiftz,i,j,k);
+	double betaxzz = D31gf(shiftz,i,j,k);
+	double betayyz = D22gf(shiftz,i,j,k);
+	double betayzz = D32gf(shiftz,i,j,k);
+	double betazzz = D33gf(shiftz,i,j,k);
+
+	double gupxxL = gupxx[index];
+	double gupxyL = gupxy[index];
+	double gupxzL = gupxz[index];
+	double gupyyL = gupyy[index];
+	double gupyzL = gupyz[index];
+	double gupzzL = gupzz[index];
+
+	double GamxxxL = Gammaxxx[index];
+	double GamyxxL = Gammayxx[index];
+	double GamzxxL = Gammazxx[index];
+
+	double GamxyyL = Gammaxyy[index];
+	double GamyyyL = Gammayyy[index];
+	double GamzyyL = Gammazyy[index];
+
+	double GamxzzL = Gammaxzz[index];
+	double GamyzzL = Gammayzz[index];
+	double GamzzzL = Gammazzz[index];
+
+	double GamxxyL = Gammaxxy[index];
+	double GamyxyL = Gammayxy[index];
+	double GamzxyL = Gammazxy[index];
+
+	double GamxxzL = Gammaxxz[index];
+	double GamyxzL = Gammayxz[index];
+	double GamzxzL = Gammazxz[index];
+
+	double GamxyzL = Gammaxyz[index];
+	double GamyyzL = Gammayyz[index];
+	double GamzyzL = Gammazyz[index];
+
+	//Covariant derivative of phi:
+	phixx = phixx - GamxxxL*phixL - GamyxxL*phiyL - GamzxxL*phizL;
+	phixy = phixy - GamxxyL*phixL - GamyxyL*phiyL - GamzxyL*phizL;
+	phixz = phixz - GamxxzL*phixL - GamyxzL*phiyL - GamzxzL*phizL;
+	phiyy = phiyy - GamxyyL*phixL - GamyyyL*phiyL - GamzyyL*phizL;
+	phiyz = phiyz - GamxyzL*phixL - GamyyzL*phiyL - GamzyzL*phizL;
+	phizz = phizz - GamxzzL*phixL - GamyzzL*phiyL - GamzzzL*phizL;
+	
+	double div_beta = betaxx + betayy + betazz;
+	double alpn1 = lapm1[index] + 1.0;
+
+
+	
+    
+
+	if(chi_evolution_enable==0) {
+	  //**************************************************************************
+	  // Right hand side for phi
+	  //**************************************************************************
+	  phi_rhsL = 0.0;
+	  if(cH1!=0.0) {
+	    double ah_radius = 0.1;
+	    if(sqrt(SQR(bh_posn_x[0]-x[index]) + SQR(bh_posn_y[0]-y[index]) + SQR(bh_posn_z[0]-z[index])) > ah_radius) {
+	      //if(r[index] > ah_radius) {
+	      phi_rhsL = r[index];
+	      //FIXME: WARNING: We run into problems if cH1!=0 and the point 0,0,0 is on our grid!
+	      //if(r[index]==0 || PhysicalRadius[index]==0) { printf("ERROR: CANNOT HANDLE r=0 WHEN cH1!=0!\n"); exit(1); }
+	      //phi_rhsL = pow(RadiusDerivative[index],-5.0/6.0) * pow(PhysicalRadius[index]/phi_rhsL,-5.0/3.0);
+	      //FIXME: JUST A TEST:
+	      //if(i==6 && j==6 && k==6) printf("HI inside compute_rhs: %e %e %e.  Using radius = %e\n",bh_posn_x[0],bh_posn_y[0],bh_posn_z[0],ah_radius);
+	      // To understand cH1 parameter, see Eq. 19 in Duez et al. Phys.Rev. D67 (2003) 024004
+	      //Note: sqrt is cheaper than pow, so below line is faster than above line!
+	      //phi_rhsL = cH1 * pow(sqrt(RadiusDerivative[index])*PhysicalRadius[index]/phi_rhsL,mF5o3) * PsiRes[index] * dT;
+	      //WARNING: NO LONGER FISHEYE COMPATIBLE
+	      if(RadiusDerivative[index]!=1.0) { printf("ERROR: CANNOT HANDLE fisheye coordinates when cH1!=0!\n"); exit(1); }
+	      phi_rhsL = cH1 * PsiRes[index] * dT;
+	    }
+	  }
+	  phi_rhsL += F1o6 * ( div_beta - alpn1 * trKL );
+	  
+	  if(bssn_enable_shift_upwind!=2) {
+	    phi_rhsL += shiftxL * phixL + shiftyL * phiyL + shiftzL * phizL;
+	  }
+	  
+	  chi_rhsL = 0.0;
+	} else {
+	  //**************************************************************************
+	  // Right hand side for chi
+	  //**************************************************************************
+	  chi_rhsL = 0.0;
+	  if(cH1!=0.0) {
+	    chi_rhsL = r[index];
+	    //FIXME: WARNING: We run into problems if cH1!=0 and the point 0,0,0 is on our grid!
+	    if(r[index]==0 || PhysicalRadius[index]==0) { 
+	      printf("ERROR: CANNOT HANDLE r=0 WHEN cH1!=0!  Also must fix Ham constraint term exponent for chi evolution (see code: mF5o3)!\n"); exit(1); 
+	    }
+	    // FIXME: mF5o3 IS NOT CORRECT FOR CHI EVOLUTIONS... It is correct for phi, however:
+	    // To understand cH1 parameter, see Eq. 19 in Duez et al. Phys.Rev. D67 (2003) 024004
+	    chi_rhsL = cH1 * pow(sqrt(RadiusDerivative[index])*PhysicalRadius[index]/chi_rhsL,mF5o3) * PsiRes[index] * dT;
+	  }
+	  chi_rhsL += chi_exponent*chiL*F1o6 * ( div_beta - alpn1 * trKL );
+	  
+	  if(bssn_enable_shift_upwind!=2) {
+	    chi_rhsL += shiftxL * chixL + shiftyL * chiyL + shiftzL * chizL;
+	  }
+
+	  phi_rhsL = 0.0;
+	}
+
+	//**************************************************************************
+	// Right hand side for g_ij
+	//**************************************************************************
+	
+	double cH2 = 0.25 * dT;
+
+	//temi is Gii in: arXiv:gr-qc/0401076 (Duez, Shapiro, Yo): Eqs 12-13
+	double temx = gxxL;
+	double temy = gyyL;
+	double temz = gzzL;
+
+	//~~~~~~> Use the det constraint to control the sign of gii
+	if(trA_detg_enforce == 1) {
+	  double det = 1.0;
+
+	  //~~~~~~> Use the unitary determinant to decide gxx
+	  double numt = det + gxyL *( gxyL * gzzL - gyzL * gxzL ) + gxzL *( gxzL * gyyL - gxyL * gyzL );
+	  double dent = gyyL * gzzL - gyzL * gyzL;
+	  temx = numt / dent;
+
+	  //~~~~~~> Use the unitary determinant to decide gyyL
+	  numt = det + gxyL *( gxyL * gzzL - gyzL * gxzL ) + gyzL *( gxxL* gyzL - gxyL * gxzL );
+	  dent = gxxL* gzzL - gxzL * gxzL;
+	  temy = numt / dent;
+	  
+	  //~~~~~~> Use the unitary determinant to decide gzzL
+	  numt = det + gxzL *( gxzL * gyyL - gxyL * gyzL ) + gyzL *( gxxL* gyzL - gxyL * gxzL );
+	  dent = gxxL* gyyL - gxyL * gxyL;
+	  temz = numt / dent;
+	}
+
+	gxx_rhsL = - 2.0 * alpn1 * AxxL    -  F2o3 *  temx  * div_beta       +
+	  2.0 *( temx * betaxx +   gxyL * betayx +   gxzL * betazx );
+
+	gyy_rhsL = - 2.0 * alpn1 * AyyL    -  F2o3 *  temy  * div_beta       +
+	  2.0 *(  gxyL * betaxy +  temy * betayy +   gyzL * betazy );
+
+	gzz_rhsL = - 2.0 * alpn1 * AzzL    -  F2o3 *  temz  * div_beta       +
+	  2.0 *(  gxzL * betaxz +   gyzL * betayz +  temz * betazz );
+	
+	if(bssn_enable_shift_upwind!=2) {
+	  gxx_rhsL += shiftxL * gxxxL   + shiftyL * gxxyL   + shiftzL * gxxzL;
+	  gyy_rhsL += shiftxL * gyyxL   + shiftyL * gyyyL   + shiftzL * gyyzL;
+	  gzz_rhsL += shiftxL * gzzxL   + shiftyL * gzzyL   + shiftzL * gzzzL;
+	}
+
+	double Kaz = fabs( LAMC * div_beta );
+
+	//The addition of this term is explained in arXiv:gr-qc/0401076 (Duez, Shapiro, Yo): Eqs 12-13
+	double Kax = fabs( LAMD * 2.0 * betaxx ) + Kaz;
+	double Kay = fabs( LAMD * 2.0 * betayy ) + Kaz; 
+	Kaz = fabs( LAMD * 2.0 * betazz ) + Kaz; 
+	
+	temx = gxxL - temx;
+	temy = gyyL - temy;
+	temz = gzzL - temz;
+	
+	gxx_rhsL = gxx_rhsL - Kax * temx;
+	gyy_rhsL = gyy_rhsL - Kay * temy;
+	gzz_rhsL = gzz_rhsL - Kaz * temz;
+
+	temx = gxyL;
+	temy = gyzL;
+	temz = gxzL;
+	if(trA_detg_enforce == 1) {
+	  double det = 1.0;
+
+	  //~~~~~~> Use the unitary determinant to decide gxy
+	  double dent = 1.0 / gzzL;
+	  double numt = dent * gyzL * gxzL;
+	  dent = dent * ( det + gxxL * gyzL * gyzL + gyyL * gxzL * gxzL ) - gxxL * gyyL;
+	  dent = sqrt( fabs( numt * numt - dent ) );
+	  temx = numt;
+	  if( numt >= gxyL ) temx -= dent;
+	  else temx += dent;
+
+	  //~~~~~~> Use the unitary determinant to decide gyzL
+	  dent = 1.0 / gxxL;
+	  numt = dent * gxzL * gxyL;
+	  dent = dent * ( det + gyyL * gxzL * gxzL + gzzL * gxyL * gxyL ) - gyyL * gzzL;
+	  dent = sqrt( fabs( numt * numt - dent ) );
+	  temy = numt;
+	  if( numt >= gyzL ) temy -= dent;
+	  else temy += dent;
+
+	  //~~~~~~> Use the unitary determinant to decide gxzL
+	  dent = 1.0 / gyyL;
+	  numt = dent * gxyL * gyzL;
+	  dent = dent * ( det + gzzL * gxyL * gxyL + gxxL * gyzL * gyzL ) - gzzL * gxxL;
+	  dent = sqrt( fabs( numt * numt - dent ) );
+	  temz = numt;
+	  if( numt >= gxzL ) temz -= dent;
+	  else temz += dent;
+	}
+	
+	gxy_rhsL = - 2.0 * alpn1 * AxyL - F2o3 * temx * div_beta +
+	  gxxL * betaxy +temx * betayy + gxzL * betazy +
+	  temx * betaxx + gyyL * betayx + gyzL * betazx;
+
+	gyz_rhsL = - 2.0 * alpn1 * AyzL - F2o3 * temy * div_beta +
+	  gxyL * betaxz + gyyL * betayz +temy * betazz +
+	  gxzL * betaxy +temy * betayy + gzzL * betazy;
+	
+	gxz_rhsL = - 2.0 * alpn1 * AxzL - F2o3 * temz * div_beta +
+	  gxxL * betaxz + gxyL * betayz +temz * betazz +
+	  temz * betaxx + gyzL * betayx + gzzL * betazx;
+
+	if(bssn_enable_shift_upwind!=2) {
+	  gxy_rhsL += shiftxL * gxyxL + shiftyL * gxyyL + shiftzL * gxyzL;
+	  gyz_rhsL += shiftxL * gyzxL + shiftyL * gyzyL + shiftzL * gyzzL;
+	  gxz_rhsL += shiftxL * gxzxL + shiftyL * gxzyL + shiftzL * gxzzL;
+	}
+
+	Kaz = fabs( LAMC * div_beta );
+
+	//The addition of this term is explained in arXiv:gr-qc/0401076 (Duez, Shapiro, Yo): Eqs 12-13
+	Kax = fabs( LAMD *( betaxx + betayy ) ) + Kaz;
+	Kay = fabs( LAMD *( betayy + betazz ) ) + Kaz;
+	Kaz = fabs( LAMD *( betazz + betaxx ) ) + Kaz;
+
+	temx = gxyL - temx;
+	temy = gyzL - temy;
+	temz = gxzL - temz;
+
+	gxy_rhsL = gxy_rhsL - Kax * temx;
+	gyz_rhsL = gyz_rhsL - Kay * temy;
+	gxz_rhsL = gxz_rhsL - Kaz * temz;
+
+
+
+	if (i==1&&j==1&&j==1){
+	  printf("Inside BSSN_rhs!!!! check3 \n");
+	}
+
+
+	//-----------------------------------------------------------------------------
+	// Store TWO * D^l D_l phi + 4 D^l phi D_l phi in f
+	//-----------------------------------------------------------------------------
+	double f = 2.0 * (gupxxL * ( phixx + 2.0 * phixL * phixL ) + 
+			  gupyyL * ( phiyy + 2.0 * phiyL * phiyL ) + 
+			  gupzzL * ( phizz + 2.0 * phizL* phizL) + 
+			  2.0 * gupxyL * ( phixy + 2.0 * phixL * phiyL ) + 
+			  2.0 * gupxzL * ( phixz + 2.0 * phixL * phizL) + 
+			  2.0 * gupyzL * ( phiyz + 2.0 * phiyL * phizL) );
+
+	//-----------------------------------------------------------------------------
+	// Add phi part to Ricci tensor:
+	//-----------------------------------------------------------------------------
+	RxxL = RxxL - 2.0 * phixx + 4.0 * phixL * phixL - gxxL * f;
+	RxyL = RxyL - 2.0 * phixy + 4.0 * phixL * phiyL - gxyL * f;
+	RxzL = RxzL - 2.0 * phixz + 4.0 * phixL * phizL - gxzL * f;
+	RyyL = RyyL - 2.0 * phiyy + 4.0 * phiyL * phiyL - gyyL * f;
+	RyzL = RyzL - 2.0 * phiyz + 4.0 * phiyL * phizL - gyzL * f;
+	RzzL = RzzL - 2.0 * phizz + 4.0 * phizL * phizL - gzzL * f;
+
+	//Before we overwrite alphaij, 
+	// first compute [Laplacian of lapse] = nabla_alpha = g^{ij} alpha_{,ij}:
+	double nabla_alpha = gupxxL * alphaxx + gupyyL * alphayy + gupzzL * alphazz +
+	  2.0 * ( gupxyL * alphaxy + gupxzL * alphaxz + gupyzL * alphayz );
+	// nabla_alpha is used after the next chunk of code [tr(alpha_{,ij}) needed for
+	//    calculation of trK_rhs!
+
+	/*******************************************************************************/	
+	//Covariant derivative of lapse (alpha):
+	// (This is a covariant derivatives w.r.t. *untilded* (i.e. physical) metric!)
+
+	//Make untilded Gamma's out of tilded ones - first raise index on phi_i...
+	double phiupx = gupxxL*phixL + gupxyL*phiyL + gupxzL*phizL;
+	double phiupy = gupxyL*phixL + gupyyL*phiyL + gupyzL*phizL;
+	double phiupz = gupxzL*phixL + gupyzL*phiyL + gupzzL*phizL;
+
+	//... and then add reconstructed *untilded* Christoffels to second derivatives of alpha...
+	alphaxx = alphaxx -  
+	  (GamxxxL + 2.0 * (phixL + phixL- gxxL * phiupx) ) * alphaxL - 
+	  (GamyxxL + 2.0 * (             - gxxL * phiupy) ) * alphayL - 
+	  (GamzxxL + 2.0 * (             - gxxL * phiupz) ) * alphazL;
+	alphaxy = alphaxy - 
+	  (GamxxyL + 2.0 * (phiyL        - gxyL * phiupx) ) * alphaxL - 
+	  (GamyxyL + 2.0 * (       phixL - gxyL * phiupy) ) * alphayL - 
+	  (GamzxyL + 2.0 * (             - gxyL * phiupz) ) * alphazL;
+	alphaxz = alphaxz - 
+	  (GamxxzL + 2.0 * (phizL        - gxzL * phiupx) ) * alphaxL - 
+	  (GamyxzL + 2.0 * (             - gxzL * phiupy) ) * alphayL - 
+	  (GamzxzL + 2.0 * (       phixL - gxzL * phiupz) ) * alphazL;
+	alphayy = alphayy - 
+	  (GamxyyL + 2.0 * (             - gyyL * phiupx) ) * alphaxL - 
+	  (GamyyyL + 2.0 * (phiyL + phiyL- gyyL * phiupy) ) * alphayL - 
+	  (GamzyyL + 2.0 * (             - gyyL * phiupz) ) * alphazL;
+	alphayz = alphayz - 
+	  (GamxyzL + 2.0 * (             - gyzL * phiupx) ) * alphaxL - 
+	  (GamyyzL + 2.0 * (phizL        - gyzL * phiupy) ) * alphayL - 
+	  (GamzyzL + 2.0 * (       phiyL - gyzL * phiupz) ) * alphazL;
+	alphazz = alphazz - 
+	  (GamxzzL + 2.0 * (             - gzzL * phiupx) ) * alphaxL - 
+	  (GamyzzL + 2.0 * (             - gzzL * phiupy) ) * alphayL - 
+	  (GamzzzL + 2.0 * (phizL + phizL- gzzL * phiupz) ) * alphazL;
+	/*******************************************************************************/	
+
+	//-----------------------------------------------------------------------------
+	// Store trace of alpha_{,ij} into trK_rhs (note: still have to multiply with
+	// e^{-4 phi) later!)
+	//-----------------------------------------------------------------------------
+	trK_rhsL = nabla_alpha - GammaxL * alphaxL - GammayL * alphayL - GammazL * alphazL 
+	  + 2.0 * (gupxxL * alphaxL * phixL + gupyyL * alphayL * phiyL + gupzzL * alphazL * phizL 
+		   + gupxyL * (alphaxL * phiyL + alphayL * phixL )  
+		   + gupxzL * (alphaxL * phizL+ alphazL * phixL )  
+		   + gupyzL * (alphayL * phizL+ alphazL * phiyL ) );
+
+	//-----------------------------------------------------------------------------
+	// Add alpha and S_ij parts to Ricci tensor: 
+	//-----------------------------------------------------------------------------
+	RxxL = alpn1 * (RxxL - 8.0 * M_PI * Sxx[index]) - alphaxx;
+	RxyL = alpn1 * (RxyL - 8.0 * M_PI * Sxy[index]) - alphaxy;
+	RxzL = alpn1 * (RxzL - 8.0 * M_PI * Sxz[index]) - alphaxz;
+	RyyL = alpn1 * (RyyL - 8.0 * M_PI * Syy[index]) - alphayy;
+	RyzL = alpn1 * (RyzL - 8.0 * M_PI * Syz[index]) - alphayz;
+	RzzL = alpn1 * (RzzL - 8.0 * M_PI * Szz[index]) - alphazz;
+	
+
+	if (isnan(RxxL)) {
+	  printf("inside BSSN compute_rhsnew.C, RxxL is NAN!!! Sxx[index]=%e, alphaxx=%e \n", Sxx[index], alphaxx);
+        }
+
+
+	//-----------------------------------------------------------------------------
+	// Compute trace-free part (note: exp(4 phi) and exp(-4 phi) cancel!): 
+	//-----------------------------------------------------------------------------
+	
+	f = F1o3 *(gupxxL*RxxL + gupyyL*RyyL + gupzzL*RzzL + 
+		   2.0* ( gupxyL*RxyL + gupxzL*RxzL + gupyzL*RyzL ) );
+
+	RxxL = RxxL - gxxL * f;
+	RxyL = RxyL - gxyL * f;
+	RxzL = RxzL - gxzL * f;
+	RyyL = RyyL - gyyL * f;
+	RyzL = RyzL - gyzL * f;
+	RzzL = RzzL - gzzL * f;
+
+	//-----------------------------------------------------------------------------
+	// Now: store A_il A^l_j into fij: 
+	//-----------------------------------------------------------------------------
+	double fxx = gupxxL * AxxL * AxxL + gupyyL * AxyL * AxyL + gupzzL * AxzL * AxzL +  
+	  2.0 * (gupxyL * AxxL * AxyL + gupxzL * AxxL * AxzL + gupyzL * AxyL * AxzL);
+	double fyy = gupxxL * AxyL * AxyL + gupyyL * AyyL * AyyL + gupzzL * AyzL * AyzL +  
+	  2.0 * (gupxyL * AxyL * AyyL + gupxzL * AxyL * AyzL + gupyzL * AyyL * AyzL);
+	double fzz = gupxxL * AxzL * AxzL + gupyyL * AyzL * AyzL + gupzzL * AzzL * AzzL +  
+	  2.0 * (gupxyL * AxzL * AyzL + gupxzL * AxzL * AzzL + gupyzL * AyzL * AzzL);
+	double fxy = gupxxL * AxxL * AxyL + gupyyL * AxyL * AyyL + gupzzL * AxzL * AyzL +  
+	  gupxyL *(AxxL * AyyL + AxyL * AxyL)+  
+	  gupxzL *(AxxL * AyzL + AxzL * AxyL)+  
+	  gupyzL *(AxyL * AyzL + AxzL * AyyL);
+	double fxz = gupxxL * AxxL * AxzL + gupyyL * AxyL * AyzL + gupzzL * AxzL * AzzL +  
+	  gupxyL *(AxxL * AyzL + AxyL * AxzL)+  
+	  gupxzL *(AxxL * AzzL + AxzL * AxzL)+  
+	  gupyzL *(AxyL * AzzL + AxzL * AyzL);
+	double fyz = gupxxL * AxyL * AxzL + gupyyL * AyyL * AyzL + gupzzL * AyzL * AzzL +  
+	  gupxyL *(AxyL * AyzL + AyyL * AxzL)+  
+	  gupxzL *(AxyL * AzzL + AyzL * AxzL)+  
+	  gupyzL *(AyyL * AzzL + AyzL * AyzL);
+	
+	//-----------------------------------------------------------------------------
+	// Store exp(-4 phi) into f: 
+	//-----------------------------------------------------------------------------
+	if(chi_evolution_enable==0) {
+	  f = exp(- 4.0 * phiL);
+	} else {
+	  f = pow(chiL,-4.0*chi_exponentinv);
+	}
+
+        if (isnan(Axx_rhsL)) {
+          printf("inside BSSN compute_rhsnew.C CHECKPONT1, Axx_rhsL is NAN!!! \n");
+	}
+
+	//*****************************************************************************
+	// Right hand side for A_ij
+	//*****************************************************************************
+
+	//temi = Hii in arXiv:gr-qc/0401076 (Duez, Shapiro, Yo): Eqs 14-15
+	temx = AxxL;
+	temy = AyyL;
+	temz = AzzL;
+
+	if(trA_detg_enforce == 1) {
+	  // keep the trA exponentially-decreasing to zero
+	  temx = gupyyL * AyyL + gupzzL * AzzL + 
+	    2.0*( gupxyL * AxyL + gupyzL * AyzL + gupxzL * AxzL );
+	  temy =gupxxL * AxxL+ gupzzL * AzzL + 
+	    2.0*( gupxyL * AxyL + gupyzL * AyzL + gupxzL * AxzL );
+	  temz =gupxxL * AxxL + gupyyL * AyyL +
+	    2.0*( gupxyL * AxyL + gupyzL * AyzL + gupxzL * AxzL );
+	  
+	  temx = - temx / gupxxL;
+	  temy = - temy / gupyyL;
+	  temz = - temz / gupzzL;
+	}
+
+	Axx_rhsL = f * RxxL+ alpn1 * (trKL * temx - 2.0 * fxx) +  
+	  2.0 * ( temx * betaxx + AxyL * betayx + AxzL * betazx )-  
+	  F2o3 * temx * div_beta;
+		  
+	Ayy_rhsL = f * RyyL+ alpn1 * (trKL * temy - 2.0 * fyy) +  
+	  2.0 * (AxyL * betaxy +temy * betayy + AyzL * betazy )-  
+	  F2o3 * temy * div_beta;
+	
+	Azz_rhsL = f * RzzL+ alpn1 * (trKL * temz - 2.0 * fzz) +  
+	  2.0 * (AxzL * betaxz + AyzL * betayz +temz * betazz )-  
+	  F2o3 * temz * div_beta;
+	
+	if(bssn_enable_shift_upwind!=2) {
+	  Axx_rhsL += shiftxL * Axxx + shiftyL * Axxy + shiftzL * Axxz;
+	  Ayy_rhsL += shiftxL * Ayyx + shiftyL * Ayyy + shiftzL * Ayyz;
+	  Azz_rhsL += shiftxL * Azzx + shiftyL * Azzy + shiftzL * Azzz;
+	}
+
+	Kaz = fabs( LAMC * div_beta ) + fabs( LAME * alpn1 * trKL );
+	
+	Kax = fabs( LAMD * 2.0 * betaxx ) + Kaz ;
+	Kay = fabs( LAMD * 2.0 * betayy ) + Kaz ;
+	Kaz = fabs( LAMD * 2.0 * betazz ) + Kaz ;
+	
+	temx = AxxL - temx;
+	temy = AyyL - temy;
+	temz = AzzL - temz;
+
+	Axx_rhsL = Axx_rhsL - Kax * temx;
+	Ayy_rhsL = Ayy_rhsL - Kay * temy;
+	Azz_rhsL = Azz_rhsL - Kaz * temz;
+	// Yuk Tung says: Hwei-Jang suggested that epdtr2() should not be used because 
+	// sometimes it gives bad results: 
+	//call epdtr2(ex,gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, 
+	// Axx,Axy,Axz,Ayy,Ayz,Azz, 
+	//temx, temy, temz)
+	
+
+	
+	if (isnan(Axx_rhsL)) {
+          printf("inside BSSN compute_rhsnew.C CHECKPONT2, Axx_rhsL is NAN!!! Kax=%e, temx=%e, f=%e, RxxL=%e, fxx=%e, div_beta=%e \n", Kax, temx, f, RxxL,fxx, div_beta);
+	}	
+	
+
+	Axy_rhsL = (f * RxyL+ alpn1 * (trKL * AxyL - 2.0 * fxy)+ 
+		    AxxL * betaxy + AxyL * betayy + AxzL * betazy+  
+		    AxyL * betaxx + AyyL * betayx + AyzL * betazx-  
+		    F2o3 * AxyL * div_beta );
+	
+	Axz_rhsL = (f * RxzL+ alpn1 * (trKL * AxzL - 2.0 * fxz)+ 
+		    AxxL * betaxz + AxyL * betayz + AxzL * betazz+  
+		    AxzL * betaxx + AyzL * betayx + AzzL * betazx-  
+		    F2o3 * AxzL * div_beta );
+	
+	Ayz_rhsL = (f * RyzL+ alpn1 * (trKL * AyzL - 2.0 * fyz)+ 
+		    AxyL * betaxz + AyyL * betayz + AyzL * betazz+  
+		    AxzL * betaxy + AyzL * betayy + AzzL * betazy-  
+		    F2o3 * AyzL * div_beta );
+	
+	if(bssn_enable_shift_upwind!=2) {
+	  Axy_rhsL += shiftxL * Axyx + shiftyL * Axyy + shiftzL * Axyz;
+	  Axz_rhsL += shiftxL * Axzx + shiftyL * Axzy + shiftzL * Axzz;  
+	  Ayz_rhsL += shiftxL * Ayzx + shiftyL * Ayzy + shiftzL * Ayzz;
+	}
+
+	//Axy_rhs = Axy_rhs - temx * LAMF * alpn1
+	//Ayz_rhs = Ayz_rhs - temy * LAMF * alpn1
+	//Axz_rhs = Axz_rhs - temz * LAMF * alpn1 
+	
+	//-----------------------------------------------------------------------------
+	// Compute trace of S_ij 
+	//-----------------------------------------------------------------------------
+	S[index] = f * (gupxxL*Sxx[index] + gupyyL*Syy[index] + gupzzL*Szz[index] + 
+			2.0*( gupxyL*Sxy[index] + gupxzL*Sxz[index] + gupyzL*Syz[index] ) );
+
+	double KxL = D1gf(trK,i,j,k);
+	double KyL = D2gf(trK,i,j,k);
+	double KzL = D3gf(trK,i,j,k);
+
+	//*****************************************************************************
+	// Right hand side for K 
+	//*****************************************************************************
+	
+	trK_rhsL = - f * trK_rhsL + alpn1 * (F1o3 * trKL * trKL +  
+					     gupxxL * fxx + gupyyL * fyy + gupzzL * fzz + 
+					     2.0 * ( gupxyL * fxy + gupxzL * fxz + gupyzL * fyz ) + 
+					     4.0 * M_PI * ( rho[index] + S[index] ));
+
+	if(bssn_enable_shift_upwind!=2) {
+	  trK_rhsL += shiftxL * KxL + shiftyL * KyL + shiftzL * KzL;
+	}
+	  
+	//-----------------------------------------------------------------------------
+	// Raise indices of \tilde A_{ij} and store in AupijL
+	//-----------------------------------------------------------------------------
+	double AupxxL =gupxxL * gupxxL * AxxL + gupxyL * gupxyL * AyyL + gupxzL * gupxzL * AzzL + 
+	  2.0*(gupxxL * gupxyL * AxyL + gupxxL * gupxzL * AxzL + gupxyL * gupxzL * AyzL); 
+	double AupyyL =gupxyL * gupxyL * AxxL + gupyyL * gupyyL * AyyL + gupyzL * gupyzL * AzzL + 
+	  2.0*(gupxyL * gupyyL * AxyL + gupxyL * gupyzL * AxzL + gupyyL * gupyzL * AyzL) ;
+	double AupzzL =gupxzL * gupxzL * AxxL + gupyzL * gupyzL * AyyL + gupzzL * gupzzL * AzzL + 
+	  2.0*(gupxzL * gupyzL * AxyL + gupxzL * gupzzL * AxzL + gupyzL * gupzzL * AyzL) ;
+	double AupxyL =gupxxL * gupxyL * AxxL + gupxyL * gupyyL * AyyL + gupxzL * gupyzL * AzzL + 
+	  (gupxxL * gupyyL + gupxyL * gupxyL)* AxyL + 
+	  (gupxxL * gupyzL + gupxzL * gupxyL)* AxzL + 
+	  (gupxyL * gupyzL + gupxzL * gupyyL)* AyzL;
+	double AupxzL =gupxxL * gupxzL * AxxL + gupxyL * gupyzL * AyyL + gupxzL * gupzzL * AzzL + 
+	  (gupxxL * gupyzL + gupxyL * gupxzL)* AxyL + 
+	  (gupxxL * gupzzL + gupxzL * gupxzL)* AxzL + 
+	  (gupxyL * gupzzL + gupxzL * gupyzL)* AyzL;
+	double AupyzL =gupxyL * gupxzL * AxxL + gupyyL * gupyzL * AyyL + gupyzL * gupzzL * AzzL + 
+	  (gupxyL * gupyzL + gupyyL * gupxzL)* AxyL + 
+	  (gupxyL * gupzzL + gupyzL * gupxzL)* AxzL + 
+	  (gupyyL * gupzzL + gupyzL * gupyzL)* AyzL;
+
+        if (isnan(AxxL)) {
+          printf("inside BSSN compute_rhsnew.C CHECKPONT3, AxxL is NAN!!! \n");
+	}
+
+
+	//*****************************************************************************
+	// Right hand side for Gam^i without shift terms...
+	//*****************************************************************************
+	// 
+	Gammax_rhsL = - 2.0 * ( alphaxL * AupxxL + alphayL * AupxyL + alphazL * AupxzL ) + 
+	  2.0 * alpn1 * (
+			 6.0 * ( phixL * AupxxL + phiyL * AupxyL + phizL* AupxzL ) - 
+			 gupxxL * ( F2o3 * KxL+8.0 * M_PI * Sx[index]) - 
+			 gupxyL * ( F2o3 * KyL+8.0 * M_PI * Sy[index]) - 
+			 gupxzL * ( F2o3 * KzL+8.0 * M_PI * Sz[index]) + 
+			 GamxxxL * AupxxL + GamxyyL * AupyyL + GamxzzL * AupzzL + 
+			 2.0 * ( GamxxyL * AupxyL + GamxxzL * AupxzL + GamxyzL * AupyzL ) );
+
+	Gammay_rhsL = - 2.0 * ( alphaxL * AupxyL + alphayL * AupyyL + alphazL * AupyzL ) + 
+	  2.0 * alpn1 * (
+			 6.0 * ( phixL * AupxyL + phiyL * AupyyL + phizL* AupyzL ) - 
+			 gupxyL * ( F2o3 * KxL+8.0 * M_PI * Sx[index]) - 
+			 gupyyL * ( F2o3 * KyL+8.0 * M_PI * Sy[index]) - 
+			 gupyzL * ( F2o3 * KzL+8.0 * M_PI * Sz[index]) + 
+			 GamyxxL * AupxxL + GamyyyL * AupyyL + GamyzzL * AupzzL + 
+			 2.0 * ( GamyxyL * AupxyL + GamyxzL * AupxzL + GamyyzL * AupyzL ) );
+	
+	Gammaz_rhsL = - 2.0 * ( alphaxL * AupxzL + alphayL * AupyzL + alphazL * AupzzL ) + 
+	  2.0 * alpn1 * (
+			 6.0 * ( phixL * AupxzL + phiyL * AupyzL + phizL* AupzzL ) - 
+			 gupxzL * ( F2o3 * KxL+8.0 * M_PI * Sx[index]) - 
+			 gupyzL * ( F2o3 * KyL+8.0 * M_PI * Sy[index]) - 
+			 gupzzL * ( F2o3 * KzL+8.0 * M_PI * Sz[index]) + 
+			 GamzxxL * AupxxL + GamzyyL * AupyyL + GamzzzL * AupzzL + 
+			 2.0 * ( GamzxyL * AupxyL + GamzxzL * AupxzL + GamzyzL * AupyzL ) );
+
+
+
+	if (i==1&&j==1&&j==1){
+	  printf("Inside BSSN_rhs!!!! check5 \n");
+	}
+	//-----------------------------------------------------------------------------
+	// Store beta^j_{,jm} in K_m L 
+	//-----------------------------------------------------------------------------
+	KxL = betaxxx + betaxyy + betaxzz;
+	KyL = betaxyx + betayyy + betayzz;
+	KzL = betaxzx + betayzy + betazzz;
+	// 
+	//*****************************************************************************
+	// ... now add shift terms!
+	//*****************************************************************************
+	
+	Gammax_rhsL =Gammax_rhsL + F2o3 * GammaxL * div_beta -  
+	  GammaxL * betaxx - GammayL* betaxy - GammazL* betaxz+  
+	  F1o3 * (gupxxL * KxL + gupxyL * KyL + gupxzL * KzL) +  
+	  gupxxL * betaxxx + gupyyL * betayyx + gupzzL * betazzx+  
+	  2.0 * (gupxyL * betaxyx + gupxzL * betaxzx + gupyzL * betayzx);
+
+	Gammay_rhsL =Gammay_rhsL + F2o3 * GammayL * div_beta  -  
+	  GammaxL * betayx - GammayL * betayy - GammazL* betayz+  
+	  F1o3 * (gupxyL * KxL + gupyyL * KyL + gupyzL * KzL) +  
+	  gupxxL * betaxxy + gupyyL * betayyy + gupzzL * betazzy+  
+	  2.0 * (gupxyL * betaxyy + gupxzL * betaxzy + gupyzL * betayzy);
+ 
+	Gammaz_rhsL =Gammaz_rhsL + F2o3 * GammazL * div_beta -  
+	  GammaxL * betazx - GammayL * betazy - GammazL * betazz+  
+	  F1o3 * (gupxzL * KxL + gupyzL * KyL + gupzzL * KzL) +  
+	  gupxxL * betaxxz + gupyyL * betayyz + gupzzL * betazzz+  
+	  2.0 * (gupxyL * betaxyz + gupxzL * betaxzz + gupyzL * betayzz); 
+
+	if(bssn_enable_shift_upwind!=2) {
+	  Gammax_rhsL += shiftxL * Gamxx+ shiftyL * Gamxy+ shiftzL * Gamxz;
+	  Gammay_rhsL += shiftxL * Gamyx+ shiftyL * Gamyy+ shiftzL * Gamyz;
+	  Gammaz_rhsL += shiftxL * Gamzx+ shiftyL * Gamzy+ shiftzL * Gamzz;
+	}
+
+	//The addition of this term is explained in arXiv:gr-qc/0401076 (Duez, Shapiro, Yo)
+	if(Gammai_enforcement_type==1) {
+	  double Gamxa = gupxxL * GamxxxL + gupyyL * GamxyyL + gupzzL * GamxzzL + 
+	    2.0*( gupxyL * GamxxyL + gupxzL * GamxxzL + gupyzL * GamxyzL );
+	  double Gamya = gupxxL * GamyxxL + gupyyL * GamyyyL + gupzzL * GamyzzL + 
+	    2.0*( gupxyL * GamyxyL + gupxzL * GamyxzL + gupyzL * GamyyzL );
+	  double Gamza = gupxxL * GamzxxL + gupyyL * GamzyyL + gupzzL * GamzzzL + 
+	    2.0*( gupxyL * GamzxyL + gupxzL * GamzxzL + gupyzL * GamzyzL );
+
+	  Gammax_rhsL -= F2o3 * GammaxL * div_beta - GammaxL * betaxx;
+	  Gammay_rhsL -= F2o3 * GammayL * div_beta - GammayL * betayy;
+	  Gammaz_rhsL -= F2o3 * GammazL * div_beta - GammazL * betazz;
+
+	  Gammax_rhsL += F2o3 * Gamxa * div_beta - Gamxa * betaxx;
+	  Gammay_rhsL += F2o3 * Gamya * div_beta - Gamya * betayy;
+	  Gammaz_rhsL += F2o3 * Gamza * div_beta - Gamza * betazz;
+
+	  double div_beta2 = LAMA * fabs( div_beta );
+	  
+	  betaxx = LAMB * fabs( betaxx );
+	  betayy = LAMB * fabs( betayy );
+	  betazz = LAMB * fabs( betazz );
+
+	  KxL = Gamxa - GammaxL;
+	  KyL = Gamya - GammayL;
+	  KzL = Gamza - GammazL;
+
+	  Gammax_rhsL = Gammax_rhsL + KxL *( div_beta2 + betaxx );
+	  Gammay_rhsL = Gammay_rhsL + KyL *( div_beta2 + betayy ); 
+	  Gammaz_rhsL = Gammaz_rhsL + KzL *( div_beta2 + betazz );	
+	}
+
+	if(Gammai_enforcement_type==3) {
+	  double Gx = (D1gf(gupxx,i,j,k) + D2gf(gupxy,i,j,k) + D3gf(gupxz,i,j,k)) + GammaxL;
+	  double Gy = (D1gf(gupxy,i,j,k) + D2gf(gupyy,i,j,k) + D3gf(gupyz,i,j,k)) + GammayL;
+	  double Gz = (D1gf(gupxz,i,j,k) + D2gf(gupyz,i,j,k) + D3gf(gupzz,i,j,k)) + GammazL;
+	  
+	  Gammax_rhsL -= 2.0 * Gx;
+	  Gammay_rhsL -= 2.0 * Gy;
+	  Gammaz_rhsL -= 2.0 * Gz;
+	}
+
+	//if(r[index]<dx*1e-1) printf("HI phi_rhs: %e %e %e\n",phi_rhsL,div_beta,alpn1 * trKL);
+	//if(r[index]<dx*1e-1) printf("CHI_RHS: %e %e %e\n",chi_rhsL,chi_exponent*chiL*F1o6*div_beta,-chi_exponent*chiL*F1o6*alpn1 * trKL);
+
+	if(bssn_enable_shift_upwind==2) {
+	  if(shiftxL > 0.0) {
+	    gxx_rhsL += shiftxL*D1_up_gt_gf(gxx,i,j,k);
+	    gxy_rhsL += shiftxL*D1_up_gt_gf(gxy,i,j,k);
+	    gxz_rhsL += shiftxL*D1_up_gt_gf(gxz,i,j,k);
+	    gyy_rhsL += shiftxL*D1_up_gt_gf(gyy,i,j,k);
+	    gyz_rhsL += shiftxL*D1_up_gt_gf(gyz,i,j,k);
+	    gzz_rhsL += shiftxL*D1_up_gt_gf(gzz,i,j,k);
+	  
+	    Axx_rhsL += shiftxL*D1_up_gt_gf(Axx,i,j,k);
+	    Axy_rhsL += shiftxL*D1_up_gt_gf(Axy,i,j,k);
+	    Axz_rhsL += shiftxL*D1_up_gt_gf(Axz,i,j,k);
+	    Ayy_rhsL += shiftxL*D1_up_gt_gf(Ayy,i,j,k);
+	    Ayz_rhsL += shiftxL*D1_up_gt_gf(Ayz,i,j,k);
+	    Azz_rhsL += shiftxL*D1_up_gt_gf(Azz,i,j,k);
+
+	    Gammax_rhsL += shiftxL*D1_up_gt_gf(Gammax,i,j,k);
+	    Gammay_rhsL += shiftxL*D1_up_gt_gf(Gammay,i,j,k);
+	    Gammaz_rhsL += shiftxL*D1_up_gt_gf(Gammaz,i,j,k);
+
+	    if(chi_evolution_enable==0) {
+	      phi_rhsL += shiftxL*D1_up_gt_gf(phi,i,j,k);
+	    } else {
+	      chi_rhsL += shiftxL*D1_up_gt_gf(chi,i,j,k);
+	    }
+
+	    trK_rhsL += shiftxL*D1_up_gt_gf(trK,i,j,k);
+	  } else {
+	    gxx_rhsL += shiftxL*D1_up_lt_gf(gxx,i,j,k);
+	    gxy_rhsL += shiftxL*D1_up_lt_gf(gxy,i,j,k);
+	    gxz_rhsL += shiftxL*D1_up_lt_gf(gxz,i,j,k);
+	    gyy_rhsL += shiftxL*D1_up_lt_gf(gyy,i,j,k);
+	    gyz_rhsL += shiftxL*D1_up_lt_gf(gyz,i,j,k);
+	    gzz_rhsL += shiftxL*D1_up_lt_gf(gzz,i,j,k);
+	  
+	    Axx_rhsL += shiftxL*D1_up_lt_gf(Axx,i,j,k);
+	    Axy_rhsL += shiftxL*D1_up_lt_gf(Axy,i,j,k);
+	    Axz_rhsL += shiftxL*D1_up_lt_gf(Axz,i,j,k);
+	    Ayy_rhsL += shiftxL*D1_up_lt_gf(Ayy,i,j,k);
+	    Ayz_rhsL += shiftxL*D1_up_lt_gf(Ayz,i,j,k);
+	    Azz_rhsL += shiftxL*D1_up_lt_gf(Azz,i,j,k);
+
+	    Gammax_rhsL += shiftxL*D1_up_lt_gf(Gammax,i,j,k);
+	    Gammay_rhsL += shiftxL*D1_up_lt_gf(Gammay,i,j,k);
+	    Gammaz_rhsL += shiftxL*D1_up_lt_gf(Gammaz,i,j,k);
+
+	    if(chi_evolution_enable==0) {
+	      phi_rhsL += shiftxL*D1_up_lt_gf(phi,i,j,k);
+	    } else {
+	      chi_rhsL += shiftxL*D1_up_lt_gf(chi,i,j,k);
+	    }
+
+	    trK_rhsL += shiftxL*D1_up_lt_gf(trK,i,j,k);
+	  }
+	  if(shiftyL > 0.0) {
+	    gxx_rhsL += shiftyL*D2_up_gt_gf(gxx,i,j,k);
+	    gxy_rhsL += shiftyL*D2_up_gt_gf(gxy,i,j,k);
+	    gxz_rhsL += shiftyL*D2_up_gt_gf(gxz,i,j,k);
+	    gyy_rhsL += shiftyL*D2_up_gt_gf(gyy,i,j,k);
+	    gyz_rhsL += shiftyL*D2_up_gt_gf(gyz,i,j,k);
+	    gzz_rhsL += shiftyL*D2_up_gt_gf(gzz,i,j,k);
+	  
+	    Axx_rhsL += shiftyL*D2_up_gt_gf(Axx,i,j,k);
+	    Axy_rhsL += shiftyL*D2_up_gt_gf(Axy,i,j,k);
+	    Axz_rhsL += shiftyL*D2_up_gt_gf(Axz,i,j,k);
+	    Ayy_rhsL += shiftyL*D2_up_gt_gf(Ayy,i,j,k);
+	    Ayz_rhsL += shiftyL*D2_up_gt_gf(Ayz,i,j,k);
+	    Azz_rhsL += shiftyL*D2_up_gt_gf(Azz,i,j,k);
+
+	    Gammax_rhsL += shiftyL*D2_up_gt_gf(Gammax,i,j,k);
+	    Gammay_rhsL += shiftyL*D2_up_gt_gf(Gammay,i,j,k);
+	    Gammaz_rhsL += shiftyL*D2_up_gt_gf(Gammaz,i,j,k);
+
+	    if(chi_evolution_enable==0) {
+	      phi_rhsL += shiftyL*D2_up_gt_gf(phi,i,j,k);
+	    } else {
+	      chi_rhsL += shiftyL*D2_up_gt_gf(chi,i,j,k);
+	    }
+
+	    trK_rhsL += shiftyL*D2_up_gt_gf(trK,i,j,k);
+	  } else {
+	    gxx_rhsL += shiftyL*D2_up_lt_gf(gxx,i,j,k);
+	    gxy_rhsL += shiftyL*D2_up_lt_gf(gxy,i,j,k);
+	    gxz_rhsL += shiftyL*D2_up_lt_gf(gxz,i,j,k);
+	    gyy_rhsL += shiftyL*D2_up_lt_gf(gyy,i,j,k);
+	    gyz_rhsL += shiftyL*D2_up_lt_gf(gyz,i,j,k);
+	    gzz_rhsL += shiftyL*D2_up_lt_gf(gzz,i,j,k);
+	  
+	    Axx_rhsL += shiftyL*D2_up_lt_gf(Axx,i,j,k);
+	    Axy_rhsL += shiftyL*D2_up_lt_gf(Axy,i,j,k);
+	    Axz_rhsL += shiftyL*D2_up_lt_gf(Axz,i,j,k);
+	    Ayy_rhsL += shiftyL*D2_up_lt_gf(Ayy,i,j,k);
+	    Ayz_rhsL += shiftyL*D2_up_lt_gf(Ayz,i,j,k);
+	    Azz_rhsL += shiftyL*D2_up_lt_gf(Azz,i,j,k);
+
+	    Gammax_rhsL += shiftyL*D2_up_lt_gf(Gammax,i,j,k);
+	    Gammay_rhsL += shiftyL*D2_up_lt_gf(Gammay,i,j,k);
+	    Gammaz_rhsL += shiftyL*D2_up_lt_gf(Gammaz,i,j,k);
+
+	    if(chi_evolution_enable==0) {
+	      phi_rhsL += shiftyL*D2_up_lt_gf(phi,i,j,k);
+	    } else {
+	      chi_rhsL += shiftyL*D2_up_lt_gf(chi,i,j,k);
+	    }
+
+	    trK_rhsL += shiftyL*D2_up_lt_gf(trK,i,j,k);
+	  }
+
+	  if(shiftzL > 0.0) {
+	    gxx_rhsL += shiftzL*D3_up_gt_gf(gxx,i,j,k);
+	    gxy_rhsL += shiftzL*D3_up_gt_gf(gxy,i,j,k);
+	    gxz_rhsL += shiftzL*D3_up_gt_gf(gxz,i,j,k);
+	    gyy_rhsL += shiftzL*D3_up_gt_gf(gyy,i,j,k);
+	    gyz_rhsL += shiftzL*D3_up_gt_gf(gyz,i,j,k);
+	    gzz_rhsL += shiftzL*D3_up_gt_gf(gzz,i,j,k);
+	  
+	    Axx_rhsL += shiftzL*D3_up_gt_gf(Axx,i,j,k);
+	    Axy_rhsL += shiftzL*D3_up_gt_gf(Axy,i,j,k);
+	    Axz_rhsL += shiftzL*D3_up_gt_gf(Axz,i,j,k);
+	    Ayy_rhsL += shiftzL*D3_up_gt_gf(Ayy,i,j,k);
+	    Ayz_rhsL += shiftzL*D3_up_gt_gf(Ayz,i,j,k);
+	    Azz_rhsL += shiftzL*D3_up_gt_gf(Azz,i,j,k);
+
+	    Gammax_rhsL += shiftzL*D3_up_gt_gf(Gammax,i,j,k);
+	    Gammay_rhsL += shiftzL*D3_up_gt_gf(Gammay,i,j,k);
+	    Gammaz_rhsL += shiftzL*D3_up_gt_gf(Gammaz,i,j,k);
+
+	    if(chi_evolution_enable==0) {
+	      phi_rhsL += shiftzL*D3_up_gt_gf(phi,i,j,k);
+	    } else {
+	      chi_rhsL += shiftzL*D3_up_gt_gf(chi,i,j,k);
+	    }
+
+	    trK_rhsL += shiftzL*D3_up_gt_gf(trK,i,j,k);
+	  } else {
+	    gxx_rhsL += shiftzL*D3_up_lt_gf(gxx,i,j,k);
+	    gxy_rhsL += shiftzL*D3_up_lt_gf(gxy,i,j,k);
+	    gxz_rhsL += shiftzL*D3_up_lt_gf(gxz,i,j,k);
+	    gyy_rhsL += shiftzL*D3_up_lt_gf(gyy,i,j,k);
+	    gyz_rhsL += shiftzL*D3_up_lt_gf(gyz,i,j,k);
+	    gzz_rhsL += shiftzL*D3_up_lt_gf(gzz,i,j,k);
+	  
+	    Axx_rhsL += shiftzL*D3_up_lt_gf(Axx,i,j,k);
+	    Axy_rhsL += shiftzL*D3_up_lt_gf(Axy,i,j,k);
+	    Axz_rhsL += shiftzL*D3_up_lt_gf(Axz,i,j,k);
+	    Ayy_rhsL += shiftzL*D3_up_lt_gf(Ayy,i,j,k);
+	    Ayz_rhsL += shiftzL*D3_up_lt_gf(Ayz,i,j,k);
+	    Azz_rhsL += shiftzL*D3_up_lt_gf(Azz,i,j,k);
+
+	    Gammax_rhsL += shiftzL*D3_up_lt_gf(Gammax,i,j,k);
+	    Gammay_rhsL += shiftzL*D3_up_lt_gf(Gammay,i,j,k);
+	    Gammaz_rhsL += shiftzL*D3_up_lt_gf(Gammaz,i,j,k);
+
+	    if(chi_evolution_enable==0) {
+	      phi_rhsL += shiftzL*D3_up_lt_gf(phi,i,j,k);
+	    } else {
+	      chi_rhsL += shiftzL*D3_up_lt_gf(chi,i,j,k);
+	    }
+
+	    trK_rhsL += shiftzL*D3_up_lt_gf(trK,i,j,k);
+	  }
+
+	}
+	//if(r[index]<dx*1e-1) printf("CHI_RHSafter: %e\n",chi_rhsL);
+
+	
+        if (isnan(Axx_rhsL)) {
+          printf("inside BSSN compute_rhsnew.C CHECKPONT4, Axx_rhsL is NAN!!! \n");
+        }
+
+
+
+	phix[index] = phixL;
+	phiy[index] = phiyL;
+	phiz[index] = phizL;
+
+	alphax[index] = alphaxL;
+	alphay[index] = alphayL;
+	alphaz[index] = alphazL;
+
+	gxx_rhs[index] = gxx_rhsL;
+	gxy_rhs[index] = gxy_rhsL;
+	gxz_rhs[index] = gxz_rhsL;
+	gyy_rhs[index] = gyy_rhsL;
+	gyz_rhs[index] = gyz_rhsL;
+	gzz_rhs[index] = gzz_rhsL;
+	Axx_rhs[index] = Axx_rhsL;
+	Axy_rhs[index] = Axy_rhsL;
+	Axz_rhs[index] = Axz_rhsL;
+	Ayy_rhs[index] = Ayy_rhsL;
+	Ayz_rhs[index] = Ayz_rhsL;
+	Azz_rhs[index] = Azz_rhsL;
+	chi_rhs[index] = chi_rhsL;
+	phi_rhs[index] = phi_rhsL;
+	trK_rhs[index] = trK_rhsL;
+	Gammax_rhs[index] = Gammax_rhsL;
+	Gammay_rhs[index] = Gammay_rhsL;
+	Gammaz_rhs[index] = Gammaz_rhsL;
+	
+	/*
+	if (isnan(Axx_rhs[index])) {
+	  printf("inside BSSN compute_rhsnew.C POSTCHECK, Axx_rhs[index] is NAN!!! \n");
+	}
+	*/
+      }
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(BSSN_rhs)
+  (const cGH **cctkGH, double *dT, double *dx, double *dy, double *dz,
+   int *nghostzones,int *cctk_lsh,
+   double *PhysicalRadius, double *RadiusDerivative,double *r,
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+   double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,
+   double *Rxx,double *Rxy,double *Rxz,double *Ryy,double *Ryz,double *Rzz,
+   double *trRtilde,double *phi,double *chi,double *PsiRes,double *trK,double *lapm1,
+   double *alphax,double *alphay,double *alphaz,
+   double *shiftx,double *shifty,double *shiftz,
+   double *Gammax,double *Gammay,double *Gammaz,
+   double *S,double *rho,
+   double *Sx,double *Sy,double *Sz,
+   double *Sxx,double *Sxy,double *Sxz,double *Syy,double *Syz,double *Szz,
+   double *gxx_rhs,double *gxy_rhs,double *gxz_rhs,double *gyy_rhs,double *gyz_rhs,double *gzz_rhs,
+   double *Axx_rhs,double *Axy_rhs,double *Axz_rhs,double *Ayy_rhs,double *Ayz_rhs,double *Azz_rhs,
+   double *phi_rhs,double *chi_rhs,double *trK_rhs,
+   double *Gammax_rhs,double *Gammay_rhs,double *Gammaz_rhs,
+   double *phix, double *phiy, double *phiz,
+   double *gxxx, double *gxxy, double *gxxz,
+   double *gxyx, double *gxyy, double *gxyz,
+   double *gxzx, double *gxzy, double *gxzz,
+   double *gyyx, double *gyyy, double *gyyz,
+   double *gyzx, double *gyzy, double *gyzz,
+   double *gzzx, double *gzzy, double *gzzz,
+   double *Gammaxxx, double *Gammaxxy, double *Gammaxxz, double *Gammaxyy, double *Gammaxyz, double *Gammaxzz,
+   double *Gammayxx, double *Gammayxy, double *Gammayxz, double *Gammayyy, double *Gammayyz, double *Gammayzz,
+   double *Gammazxx, double *Gammazxy, double *Gammazxz, double *Gammazyy, double *Gammazyz, double *Gammazzz,
+   double *x,double *y,double *z,
+   double *bh_posn_x,double *bh_posn_y,double *bh_posn_z)
+{
+  BSSN_rhs(*cctkGH,  *dT,  *dx,  *dy,  *dz,
+	   nghostzones, cctk_lsh,
+	   PhysicalRadius, RadiusDerivative,r,
+	   gxx,gxy,gxz,gyy,gyz,gzz,
+	   gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,
+	   Axx,Axy,Axz,Ayy,Ayz,Azz,
+	   Rxx,Rxy,Rxz,Ryy,Ryz,Rzz,
+	   trRtilde,phi,chi,PsiRes,trK,lapm1,
+	   alphax,alphay,alphaz,
+	   shiftx,shifty,shiftz,
+	   Gammax,Gammay,Gammaz,
+	   S,rho,
+	   Sx,Sy,Sz,
+	   Sxx,Sxy,Sxz,Syy,Syz,Szz,
+	   gxx_rhs,gxy_rhs,gxz_rhs,gyy_rhs,gyz_rhs,gzz_rhs,
+	   Axx_rhs,Axy_rhs,Axz_rhs,Ayy_rhs,Ayz_rhs,Azz_rhs,
+	   phi_rhs,chi_rhs,trK_rhs,
+	   Gammax_rhs,Gammay_rhs,Gammaz_rhs,
+	   phix, phiy, phiz,
+	   gxxx, gxxy, gxxz,
+	   gxyx, gxyy, gxyz,
+	   gxzx, gxzy, gxzz,
+	   gyyx, gyyy, gyyz,
+	   gyzx, gyzy, gyzz,
+	   gzzx, gzzy, gzzz,
+	   Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz,
+	   Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz,
+	   Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz,
+	   x,y,z,
+	   bh_posn_x,bh_posn_y,bh_posn_z);
+}

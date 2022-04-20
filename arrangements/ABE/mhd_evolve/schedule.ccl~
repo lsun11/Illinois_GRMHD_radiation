@@ -1,0 +1,764 @@
+# Schedule definitions for thorn mhd_evolve
+
+STORAGE: bssn::BSSN_vars[3], bssn::BSSN_rhs, have_global_bdry
+STORAGE: bssn::BSSN_diag_restrict, bssn::BSSN_gupij, bssn::BSSN_matter, bssn::BSSN_aux_restrict2, phi_derivs, bssn::BSSN_aux_private,bssn::BSSN_AH
+STORAGE: bssn::BSSN_refbd[3]
+
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: Stagger_Bs
+STORAGE: mhd_conservatives[3], mhd_rhs, mhd_primitives, mhd_vs, disk_atmosphere
+STORAGE: rad_conservatives[3], micphys_conservatives[3], rad_conservatives_rhs, rad_primitives,rad_pressure, micphys_conservatives_rhs
+STORAGE: em_Phi[3], em_Phi_rhs
+STORAGE: em_conservativex[3], em_conservativey[3], em_conservativez[3], em_Ax[3], em_Ay[3], em_Az[3], em_Blagrangemultiplier[3], em_rhsx, em_rhsy, em_rhsz, em_Blagrangemultiplier_rhs, em_fijs, em_ftijs
+STORAGE: mhd_sync_nablas, mhd_sync_rho_br_rho_bl, mhd_sync_lr_hydro_quantities, mhd_sync_lr_B_quantities, mhd_sync_metric_facevals
+STORAGE: rad_sync_lr,mhd_sync_nablas_diag, micphys_sync_nablas, micphys_sync_lr_hydro_quantities
+STORAGE: mhd_nosync
+STORAGE: field_line_variables[3], field_line_variables_rhs
+#STORAGE: mhd_sync_d0_quantities, mhd_sync_hydro_fwdbck_quantities, mhd_nosync
+STORAGE: eos_params1, eos_params2, mhdscalar, rhovecs
+STORAGE: mhd_temps, rad_fijs, rad_fijs_diag, microphys_primitives
+#STORAGE: temperatures
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: diagnostics_mhd::volIntegrals_mhd
+STORAGE: movingbox::volIntegrals_movingbox
+
+
+schedule mhd_RegisterVars in MoL_Register
+{
+  LANG: C
+  OPTIONS: META
+} "Register evolved, rhs variables for MoL"
+
+# Tells the symmetry thorn how to apply symmetries on each gridfunction:
+schedule mhd_evolve_InitSymBound at BASEGRID
+{
+  LANG: C
+} "Schedule symmetries"
+
+
+if (em_evolve_enable==1) {
+  # Tells the symmetry thorn what type of symmetry to use on each gridfunction
+  schedule emfields_ct_InitSymBound at BASEGRID
+  {
+    LANG: C
+  } "Schedule symmetries"
+}
+
+
+
+if (em_evolve_enable>0 && constrained_transport_scheme==3) {
+   schedule compute_B_from_A in ABE_PostInitial as compute_b after postid after empostid after lapsepostid
+   {
+     OPTIONS: GLOBAL,loop-local
+     SYNC: Stagger_Bs, mhd_primitives, em_Ax[3], em_Ay[3], em_Az[3],em_Phi[3]
+     LANG:   FORTRAN
+   } "Compute B from A"
+
+   schedule mhd_PostInitialData in ABE_PostInitial as mhdpostid after compute_b 
+   {
+     LANG:          FORTRAN
+     OPTIONS: GLOBAL,loop-local
+     SYNC: em_conservativex[3], em_conservativey[3], em_conservativez[3]
+     SYNC: Stagger_Bs
+     SYNC: mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+#     SYNC: temperatures
+   } "Compute post-initialdata quantities"
+} 
+else {
+   schedule mhd_PostInitialData in ABE_PostInitial as mhdpostid after postid after empostid after lapsepostid
+   {
+     LANG:          FORTRAN
+     OPTIONS: GLOBAL,loop-local
+     SYNC: em_conservativex[3], em_conservativey[3], em_conservativez[3]
+     SYNC: Stagger_Bs
+     SYNC: mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+#     SYNC: temperatures 
+  } "Compute post-initialdata quantities"
+}
+
+
+
+
+
+
+if (use_new_code==0) {
+  # Use old (v1.0) code:
+  schedule mhd_timestepping_v1 in MoL_CalcRHS as mhd_rhs after em_rhs after shift_rhs
+  {
+    LANG:	FORTRAN
+  } "Compute MHD RHS's Version 1.0, applying high-resolution shock capturing scheme"
+  schedule mhd_primitives_and_bcs_v1 in ABE_PostStep as mhd_bc after shift_update_bc
+  {
+    LANG:	FORTRAN
+  } "Solve for primitives, update boundaries"
+} else if (use_new_code==1) {
+  # Use new (v2.0) code:
+###### The following should be 0.
+  if(em_evolve_enable==0) {
+    if (Reconstruction !=2) {
+       schedule mhd_timestepping_v2 in MoL_CalcRHS as mhd_rhs after shift_rhs
+       {
+         LANG:	FORTRAN
+       } "Compute MHD RHS's Version 2.0, applying high-resolution shock capturing scheme"
+
+    } else {
+### These are for PPM reconstruction
+       schedule mhd_timestepping_ppm_step1 in MoL_CalcRHS as mhd_rhs_step1 after shift_rhs
+       {
+         LANG:     FORTRAN
+       } "Compute MHD RHS's using PPM, step 1"
+       if(use_std_PPM_instead_of_efficient_3_gz_version==1) {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_x after mhd_rhs_step1
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_metric_facevals
+            SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+         } "PPM reconstruction in x-direction, part 1, using less-efficient 4-ghostzone version"
+       } else {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_x after mhd_rhs_step1
+         {
+            LANG:     FORTRAN
+         } "PPM reconstruction in x-direction, part 1, using efficient 3-ghostzone version"
+       }
+       schedule reconstruction_ppm_part2 in MoL_CalcRHS as ppm2_x after ppm1_x
+       {
+          LANG:     FORTRAN
+          SYNC:     mhd_sync_metric_facevals
+          SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+          SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+       } "PPM reconstruction in x-direction, part 2"
+
+      schedule mhd_flux_and_rhs1D_v2 in MoL_CalcRHS as flux_x after ppm2_x
+       {
+          LANG:     FORTRAN
+          ##SYNC:     mhd_rhs
+       } "Compute flux in x-direction"
+
+
+
+       if (rad_evolve_enable==1){       	  
+       schedule driver_advect_rad in MoL_CalcRHS as rad_advect_x after flux_x before mhd_rhs_step2 
+       {
+	LANG: FORTRAN
+       } "Advect rad field and compute source terms in x-direction"	     
+       }
+
+
+      schedule mhd_timestepping_ppm_step2 in MoL_CalcRHS as mhd_rhs_step2 after flux_x
+      {
+        LANG:     FORTRAN
+      } "Compute MHD RHS's using PPM, step 2"
+       if(use_std_PPM_instead_of_efficient_3_gz_version==1) {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_y after mhd_rhs_step2
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_metric_facevals
+            SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps, rad_sync_lr
+         } "PPM reconstruction in y-direction, part 1, using less-efficient 4-ghostzone version"
+       } else {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_y after mhd_rhs_step2
+         {
+            LANG:     FORTRAN
+         } "PPM reconstruction in y-direction, part 1, using efficient 3-ghostzone version"
+       }
+      schedule reconstruction_ppm_part2 in MoL_CalcRHS as ppm2_y after ppm1_y
+      {
+         LANG:     FORTRAN
+         SYNC:     mhd_sync_metric_facevals
+         SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+         SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+      } "PPM reconstruction in y-direction, part 2"
+
+      schedule mhd_flux_and_rhs1D_v2 in MoL_CalcRHS as flux_y after ppm2_y
+       {
+          LANG:     FORTRAN
+       } "Compute flux in y-direction"
+
+
+       if (rad_evolve_enable==1){
+       schedule driver_advect_rad in MoL_CalcRHS as rad_advect_y after flux_y before mhd_rhs_step3
+       {
+       LANG: FORTRAN
+        } "Advect rad field and compute source terms in y-direction"
+       }
+
+      schedule mhd_timestepping_ppm_step3 in MoL_CalcRHS as mhd_rhs_step3 after flux_y
+      {
+        LANG:     FORTRAN
+      } "Compute MHD RHS's using PPM, step 3"
+       if(use_std_PPM_instead_of_efficient_3_gz_version==1) {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_z after mhd_rhs_step3
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_metric_facevals
+            SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+         } "PPM reconstruction in z-direction, part 1, using less-efficient 4-ghostzone version"
+       } else {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_z after mhd_rhs_step3
+         {
+            LANG:     FORTRAN
+         } "PPM reconstruction in z-direction, part 1, using efficient 3-ghostzone version"
+       }
+      schedule reconstruction_ppm_part2 in MoL_CalcRHS as ppm2_z after ppm1_z
+      {
+         LANG:     FORTRAN
+         SYNC:     mhd_sync_metric_facevals
+         SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+         SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+      } "PPM reconstruction in z-direction, part 2"
+
+      schedule mhd_flux_and_rhs1D_v2 in MoL_CalcRHS as flux_z after ppm2_z
+       {
+          LANG:     FORTRAN
+          ##SYNC:     mhd_rhs
+       } "Compute flux in z-direction"
+
+
+       if (rad_evolve_enable==1){
+
+       schedule driver_advect_rad in MoL_CalcRHS as rad_advect_z after flux_z before mhd_rhs_tau_curvature
+       {
+       LANG: FORTRAN
+        } "Advect rad field and compute source terms in z-direction"
+       }
+
+
+      schedule mhd_timestepping_tau_curvature in MoL_CalcRHS as mhd_rhs_tau_curvature after flux_z
+      {
+        LANG:     FORTRAN
+        ##SYNC:     mhd_rhs
+      } "Add curvature term to the rhs of energy variable"
+
+    } ### End of PPM reconstruction
+
+
+
+
+   schedule mhd_evolve_InitSymBound in ABE_PostStep as mhd_bc0 after shift_update_bc
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+#Note that the SYNC's here are only processor syncs, used to ensure all evolved variables are correct on processor boundaries before we start the next MoL step.
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: rad_pressure, rad_primitives, microphys_primitives
+     SYNC: em_conservativex[3],em_conservativey[3],em_conservativez[3]
+     SYNC: Stagger_Bs
+#     SYNC: temperatures
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure processor syncs are done BEFORE the primitives solver."
+
+    schedule mhd_primitives_and_bcs_v2 in ABE_PostStep as mhd_bc after mhd_bc0
+    {
+#Note that the SYNC's here are only processor syncs, and are only intended for the coarsest level; no prolongation is done inside the MoL substepping!
+      SYNC:	mhd_conservatives, rad_conservatives, micphys_conservatives
+      SYNC:	mhd_primitives, rad_primitives, rad_pressure,  microphys_primitives
+#     SYNC: temperatures
+      SYNC:	mhd_vs
+#     SYNC:     field_line_variables
+      LANG:	FORTRAN
+    } "Solve for primitives, update boundaries"
+
+  }
+
+
+###################### WITH B-FIELD ########################## 
+
+     else if(em_evolve_enable==1) {
+    if (Reconstruction !=2 ) {
+       schedule mhd_timestepping_v2 in MoL_CalcRHS as mhd_rhs after shift_rhs
+       {
+         SYNC:	em_fijs
+         SYNC:	em_ftijs
+         LANG:	FORTRAN
+       } "Compute MHD RHS's Version 2.0, applying high-resolution shock capturing scheme"
+
+    } else {
+
+### These are for PPM reconstruction
+       schedule mhd_timestepping_ppm_step1 in MoL_CalcRHS as mhd_rhs_step1 after shift_rhs
+       {
+         LANG:     FORTRAN
+       } "Compute MHD RHS's using PPM, step 1"
+
+       if(use_std_PPM_instead_of_efficient_3_gz_version==1) {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_x after mhd_rhs_step1
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_metric_facevals
+            SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+         } "PPM reconstruction in x-direction, part 1, using less-efficient 4-ghostzone version"
+       } else {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_x after mhd_rhs_step1
+         {
+            LANG:     FORTRAN
+         } "PPM reconstruction in x-direction, part 1, using efficient 3-ghostzone version"
+       }
+       schedule reconstruction_ppm_part2 in MoL_CalcRHS as ppm2_x after ppm1_x
+       {
+          LANG:     FORTRAN
+          SYNC:     mhd_sync_metric_facevals
+          SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+          SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+       } "PPM reconstruction in x-direction, part 2"
+
+      schedule mhd_flux_and_rhs1D_v2 in MoL_CalcRHS as flux_x after ppm2_x
+       {
+          LANG:     FORTRAN
+          ##SYNC:     mhd_rhs
+       } "Compute flux in x-direction"
+
+
+
+
+########## Lunan: radiation advection should be called BEFORE B-field advection because the mhd_temps are changed in B-field advection #######
+
+      if (rad_evolve_enable==1){
+
+       schedule driver_advect_rad in MoL_CalcRHS as rad_advect_x after flux_x before Aevolution_ppm_step1
+       {
+       LANG: FORTRAN
+        } "Advect rad field and compute source terms in x-direction"
+
+       }
+############ EM Part #############
+      if (constrained_transport_scheme!=3) {
+         schedule flux_induction_1D_v2 in MoL_CalcRHS as induction_step1 after flux_x
+         {
+            LANG:     FORTRAN
+         } "Compute induction flux, step 1"
+      } else if (constrained_transport_scheme==3) {
+         schedule flux_induction_Aevolution_ppm_step1 in MoL_CalcRHS as Aevolution_ppm_step1 after flux_x
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps
+            SYNC:     em_fijs,em_ftijs
+         } "Compute rhs for the Ai equation using PPM, step 1 part 1"
+         schedule flux_induction_Aevolution_ppm_step1p5 in MoL_CalcRHS as induction_step1 after Aevolution_ppm_step1
+         {
+            LANG:     FORTRAN
+            ##SYNC:     mhd_sync_lr_B_quantities,mhd_temps
+            ##SYNC:     em_fijs,em_ftijs
+         } "Compute rhs for the Ai equation using PPM, step 1 part 2"
+      }
+############ EM	Part #############
+      
+     
+
+      schedule mhd_timestepping_ppm_step2 in MoL_CalcRHS as mhd_rhs_step2 after induction_step1
+      {
+        LANG:     FORTRAN
+      } "Compute MHD RHS's using PPM, step 2"
+
+       if(use_std_PPM_instead_of_efficient_3_gz_version==1) {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_y after mhd_rhs_step2
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_metric_facevals
+            SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+         } "PPM reconstruction in y-direction, part 1, using less-efficient 4-ghostzone version"
+       } else {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_y after mhd_rhs_step2
+         {
+            LANG:     FORTRAN
+         } "PPM reconstruction in y-direction, part 1, using efficient 3-ghostzone version"
+       }
+
+      schedule reconstruction_ppm_part2 in MoL_CalcRHS as ppm2_y after ppm1_y
+      {
+         LANG:     FORTRAN
+         SYNC:     mhd_sync_metric_facevals
+         SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+         SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+      } "PPM reconstruction in y-direction, part 2"
+
+      schedule mhd_flux_and_rhs1D_v2 in MoL_CalcRHS as flux_y after ppm2_y
+       {
+          LANG:     FORTRAN
+          ##SYNC:     mhd_rhs
+       } "Compute flux in y-direction"
+
+
+########## Lunan: radiation advection should be called BEFORE B-field advection because the mhd_temps are changed in B-field advection #######
+
+       if (rad_evolve_enable==1){
+       schedule driver_advect_rad in MoL_CalcRHS as rad_advect_y after flux_y before Aevolution_ppm_step2
+       {	
+	LANG: FORTRAN
+        } "Advect rad field and compute source terms in y-direction"
+       }
+############ EM	  Part #############
+      if (constrained_transport_scheme!=3) {
+         schedule flux_induction_1D_v2 in MoL_CalcRHS as induction_step2 after flux_y
+         {
+            LANG:     FORTRAN
+         } "Compute induction flux, step 2"
+      } else if (constrained_transport_scheme==3) {
+         schedule flux_induction_Aevolution_ppm_step2 in MoL_CalcRHS as Aevolution_ppm_step2 after flux_y
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps
+            SYNC:     em_fijs,em_ftijs
+         } "Compute rhs for the Ai equation using PPM, step 2 part 1"
+         schedule flux_induction_Aevolution_ppm_step2p5 in MoL_CalcRHS as induction_step2 after Aevolution_ppm_step2
+         {
+             LANG:     FORTRAN
+            ##SYNC:     mhd_sync_lr_B_quantities,mhd_temps
+            ##SYNC:     em_fijs,em_ftijs
+         } "Compute rhs for the Ai equation using PPM, step 2 part 2"
+      }
+############ EM	Part #############
+      
+
+
+
+      schedule mhd_timestepping_ppm_step3 in MoL_CalcRHS as mhd_rhs_step3 after induction_step2
+      {
+        LANG:     FORTRAN
+      } "Compute MHD RHS's using PPM, step 3"
+
+       if(use_std_PPM_instead_of_efficient_3_gz_version==1) {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_z after mhd_rhs_step3
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_metric_facevals
+            SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+         } "PPM reconstruction in z-direction, part 1, using less-efficient 4-ghostzone version"
+       } else {
+         schedule reconstruction_ppm_part1 in MoL_CalcRHS as ppm1_z after mhd_rhs_step3
+         {
+            LANG:     FORTRAN
+         } "PPM reconstruction in z-direction, part 1, using efficient 3-ghostzone version"
+       }
+
+      schedule reconstruction_ppm_part2 in MoL_CalcRHS as ppm2_z after ppm1_z
+      {
+         LANG:     FORTRAN
+         SYNC:     mhd_sync_metric_facevals
+         SYNC:     mhd_sync_lr_hydro_quantities, micphys_sync_lr_hydro_quantities
+         SYNC:     mhd_sync_lr_B_quantities,mhd_temps,rad_sync_lr
+      } "PPM reconstruction in z-direction, part 2"
+
+      schedule mhd_flux_and_rhs1D_v2 in MoL_CalcRHS as flux_z after ppm2_z
+       {
+          LANG:     FORTRAN
+          ##SYNC:     mhd_rhs
+       } "Compute flux in z-direction"
+
+
+
+
+
+########## Lunan: radiation advection should be called BEFORE B-field advection because the mhd_temps are changed in B-field advection #######
+
+       if (rad_evolve_enable==1){
+       schedule driver_advect_rad in MoL_CalcRHS as rad_advect_z after flux_z before Aevolution_ppm_step3
+       {
+       LANG: FORTRAN
+         } "Advect rad field and compute source terms in z-direction"
+       }
+############ EM	  Part #############
+      if (constrained_transport_scheme!=3) {
+         schedule flux_induction_1D_v2 in MoL_CalcRHS as induction_step3 after flux_z 
+         {
+            LANG:     FORTRAN
+         } "Compute induction flux, step 3"
+      } else if (constrained_transport_scheme==3) {
+         schedule flux_induction_Aevolution_ppm_step3 in MoL_CalcRHS as Aevolution_ppm_step3 after flux_z 
+         {
+            LANG:     FORTRAN
+            SYNC:     mhd_sync_lr_B_quantities,mhd_temps
+            SYNC:     em_fijs,em_ftijs
+         } "Compute rhs for the Ai equation using PPM, step 3, part 1"
+         schedule flux_induction_Aevolution_ppm_step3p5 in MoL_CalcRHS as induction_step3 after Aevolution_ppm_step3
+         {
+            LANG:     FORTRAN
+            ##SYNC:     mhd_sync_lr_B_quantities,mhd_temps
+            ##SYNC:     em_fijs,em_ftijs
+         } "Compute rhs for the Ai equation using PPM, step 3, part 2"
+      }
+############ EM	Part #############
+
+ 
+
+      schedule mhd_timestepping_tau_curvature in MoL_CalcRHS as mhd_rhs_tau_curvature after induction_step3
+      {
+        LANG:     FORTRAN
+        ##SYNC:     mhd_rhs
+      } "Add curvature term to the rhs of energy variable"
+
+    } #### End of PPM reconstruction
+
+
+
+    schedule driver_constrained_transport in MoL_CalcRHS as mhd_rhs_part2 after mhd_rhs_tau_curvature after shift_rhs
+    {
+      SYNC:	em_fijs
+      SYNC:	em_ftijs
+      LANG:	FORTRAN
+    } "Do constrained transport, if em_evolve_enable==1"
+    schedule driver_advect_b in MoL_CalcRHS as mhd_rhs_part3 after mhd_rhs_part2 after shift_rhs
+    {
+      LANG:	FORTRAN
+    } "Advect \\tilde{B}^i, Version 2.0, applying high-resolution shock capturing scheme"
+
+
+
+
+
+    if (constrained_transport_scheme==3) { 
+
+# Finally, we can compute primitives and fill in other hydro BC's.
+     schedule mhd_evolve_InitSymBound in ABE_PostStep as mhd_bc0 after shift_update_bc
+     {
+       OPTIONS: LEVEL,LOOP-LOCAL
+#Note that the SYNC's here are only processor syncs, used to ensure all evolved variables are correct on processor boundaries before we start the next MoL step.
+       SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+       SYNC: rad_pressure, rad_primitives, microphys_primitives
+       SYNC: em_Ax,em_Ay,em_Az,em_Phi
+       SYNC: em_conservativex[3],em_conservativey[3],em_conservativez[3]
+       SYNC: Stagger_Bs
+#     SYNC: temperatures
+       LANG: C
+     } "Schedule symmetries -- Actually just a placeholder function to ensure processor syncs are done BEFORE the primitives solver."
+
+# Since mhd_primitives_and_bcs_v2 depends on Bi's being defined everywhere, we must first
+#  apply boundary conditions to Ai's:
+      schedule driver_apply_bcs_on_A in ABE_PostStep as A_bc after mhd_bc0
+      {
+        SYNC: em_Ax,em_Ay,em_Az,em_Phi
+        LANG:   FORTRAN
+      } "Apply BC on Ai"
+# Next, we compute Bi from Ai and apply consistent boundary conditions on Bi
+      schedule compute_B_from_A in ABE_PostStep as compute_b after A_bc
+      {
+        SYNC: Stagger_Bs, mhd_primitives
+        LANG:   FORTRAN
+      } "Compute B from A"
+
+      schedule mhd_primitives_and_bcs_v2 in ABE_PostStep as mhd_bc after compute_b
+      {
+#Note that the SYNC's here are only processor syncs, and are only intended for the coarsest level; no prolongation is done inside the MoL substepping!
+        SYNC:   mhd_conservatives, rad_conservatives, micphys_conservatives
+        SYNC:   mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+#     SYNC: temperatures
+        SYNC:   mhd_vs
+        LANG:   FORTRAN
+      } "Solve for primitives, update boundaries"
+    } 
+    
+    else {
+    
+     schedule mhd_evolve_InitSymBound in ABE_PostStep as mhd_bc0 after shift_update_bc
+     {
+       OPTIONS: LEVEL,LOOP-LOCAL
+#Note that the SYNC's here are only processor syncs, used to ensure all evolved variables are correct on processor boundaries before we start the next MoL step.
+       SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+       SYNC: rad_pressure, rad_primitives, microphys_primitives
+       SYNC: em_Ax,em_Ay,em_Az,em_Phi
+       SYNC: em_conservativex[3],em_conservativey[3],em_conservativez[3]
+       SYNC: Stagger_Bs
+#     SYNC: temperatures
+       LANG: C
+     } "Schedule symmetries -- Actually just a placeholder function to ensure processor syncs are done BEFORE the primitives solver."
+
+      schedule mhd_primitives_and_bcs_v2 in ABE_PostStep as mhd_bc after mhd_bc0
+      {
+#Note that the SYNC's here are only processor syncs, and are only intended for the coarsest level; no prolongation is done inside the MoL substepping!
+        SYNC:	mhd_conservatives, rad_conservatives, micphys_conservatives
+        SYNC:	mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+        SYNC:	mhd_vs
+#     SYNC: temperatures
+        LANG:	FORTRAN
+      } "Solve for primitives, update boundaries"
+
+    }
+  }
+}
+
+if (em_evolve_enable>0 && constrained_transport_scheme==3) {
+
+   schedule mhd_evolve_InitSymBound at CCTK_POSTRESTRICT as mhd_postregrid2 before compute_b_regrid after fish_update
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: rad_pressure, rad_primitives, microphys_primitives
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     # SYNC: field_line_variables
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure prolongation / processor syncs are done BEFORE the primitives solver."
+
+   schedule compute_B_from_A_post_regrid at CCTK_POSTRESTRICT as compute_b_regrid after mhd_postregrid2 before mhd_postregrid
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: Stagger_Bs
+     SYNC:      mhd_primitives
+#     SYNC:	mhd_vs
+     LANG:      FORTRAN
+   } "Compute B from A after regridding"
+
+   schedule mhd_post_regrid at CCTK_POSTRESTRICT as mhd_postregrid after compute_b_regrid before bssn_postregrid
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC:   mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC:   mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+     SYNC:   mhd_vs
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     LANG:      FORTRAN
+   } "Set auxiliary mhd_evolve quantities over all grids after Carpet moves any grid."
+
+} else {
+
+   schedule mhd_evolve_InitSymBound at CCTK_POSTRESTRICT as mhd_postregrid2 before bssn_postregrid before mhd_postregrid after fish_update
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: rad_pressure, rad_primitives, microphys_primitives
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     # SYNC: field_line_variables
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure prolongation / processor syncs are done BEFORE the primitives solver."
+
+   schedule mhd_post_regrid at CCTK_POSTRESTRICT as mhd_postregrid before bssn_postregrid after mhd_postregrid2
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC:   mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC:   mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+     SYNC:   mhd_vs
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     LANG:      FORTRAN
+   } "Set auxiliary mhd_evolve quantities over all grids after Carpet moves any grid."
+}
+
+if (em_evolve_enable>0 && constrained_transport_scheme==3) {
+   schedule mhd_evolve_InitSymBound at CCTK_POSTREGRID as mhd_postregrid2 before compute_b_regrid after fish_update
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: rad_pressure, rad_primitives, microphys_primitives 
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     # SYNC: field_line_variables
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure prolongation / processor syncs are done BEFORE the primitives solver."
+
+   schedule compute_B_from_A_post_regrid at CCTK_POSTREGRID as compute_b_regrid after mhd_postregrid2 before mhd_post_regrid
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: Stagger_Bs
+     SYNC:      mhd_primitives
+#     SYNC: 	mhd_vs
+     LANG:      FORTRAN
+   } "Compute B from A after regridding"
+
+   schedule mhd_post_regrid at CCTK_POSTREGRID as mhd_postregrid after compute_b_regrid before bssn_postregrid
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC:   mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC:   mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+     SYNC:   mhd_vs
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     LANG:      FORTRAN
+   } "Set auxiliary mhd_evolve quantities over all grids after Carpet moves any grid."
+} else {
+   schedule mhd_evolve_InitSymBound at CCTK_POSTREGRID as mhd_postregrid2 before bssn_postregrid before mhd_postregrid after fish_update
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: rad_pressure, rad_primitives, microphys_primitives
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     # SYNC: field_line_variables
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure prolongation / processor syncs are done BEFORE the primitives solver."
+
+   schedule mhd_post_regrid at CCTK_POSTREGRID as mhd_postregrid before bssn_postregrid after mhd_postregrid2
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC:   mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC:   mhd_primitives, rad_primitives,rad_pressure,microphys_primitives
+     SYNC:   mhd_vs
+     SYNC: Stagger_Bs
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     LANG:      FORTRAN    
+   } "Set auxiliary mhd_evolve quantities over all grids after Carpet moves any grid."
+}
+
+#schedule GROUP mhd_MoLPostStep at CCTK_EVOL after shift_timestep
+
+
+schedule GROUP mhd_MoLPostStep in CCTK_ANALYSIS before one_surface
+{
+} "Recompute MHD primitive variables after prolongation"
+
+if (em_evolve_enable>0 && constrained_transport_scheme==3) {
+   schedule mhd_evolve_InitSymBound in mhd_MoLPostStep as mhd_mol_post_step before compute_b_poststep
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: Stagger_Bs
+     SYNC: rad_pressure, rad_primitives, microphys_primitives 
+     SYNC: em_conservativex,em_conservativey,em_conservativez,em_Ax,em_Ay,em_Az,em_Phi
+     SYNC: em_Blagrangemultiplier
+#     SYNC: temperatures
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure prolongation / processor syncs are done BEFORE the primitives solver."
+
+   schedule compute_B_from_A in mhd_MoLPostStep as compute_b_poststep before mhd_bc_poststep after mhd_mol_post_step
+   {
+     SYNC: Stagger_Bs
+     SYNC:      mhd_primitives
+     LANG:      FORTRAN
+   } "Compute B from A after a full MoL step"
+
+   schedule mhd_primitives_postmolstep in mhd_MoLPostStep as mhd_bc_poststep after compute_b_poststep
+   {
+     LANG:   FORTRAN
+   } "Solve for primitives after a full MoL step"
+
+} else {
+   schedule mhd_evolve_InitSymBound in mhd_MoLPostStep as mhd_mol_post_step before mhd_bc_poststep
+   {
+     OPTIONS: LEVEL,LOOP-LOCAL
+     SYNC: mhd_conservatives, rad_conservatives, micphys_conservatives
+     SYNC: rad_pressure, rad_primitives,  microphys_primitives
+     SYNC: em_conservativex[3],em_conservativey[3],em_conservativez[3]
+     SYNC: Stagger_Bs
+#     SYNC: temperatures
+     LANG: C
+   } "Schedule symmetries -- Actually just a placeholder function to ensure prolongation / processor syncs are done BEFORE the primitives solver."
+
+if (cctk_iteration == iteration_to_insert_rad){
+   schedule mhd_primitives_postmolstep in mhd_MoLPostStep as mhd_bc_poststep after mhd_mol_post_step
+   {
+     LANG:   FORTRAN
+   } "Solve for primitives after a full MoL step"
+}
+}

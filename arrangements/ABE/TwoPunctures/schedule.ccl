@@ -1,0 +1,25 @@
+# Schedule definitions for thorn TwoPunctures
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::BSSN_matter,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::phi_derivs,BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3],lapse::lapse_derivatives
+STORAGE: shift::shift_vars[3]
+STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::bh_posns diagnostics_vacuum::volIntegrals
+STORAGE: TwoPunctures::M_ADM
+
+schedule TwoPunctures_read_inputfile_driver at CCTK_INITIAL as TwoPunctures_readinfiles before lapse_initialdata
+{
+  LANG:		FORTRAN
+} "Read initial Psi from input file"
+
+schedule TwoPunctures_initialdata at CCTK_INITIAL after TwoPunctures_readinfiles before lapse_initialdata
+{
+  LANG:		FORTRAN
+  SYNC:		BSSN::BSSN_vars[3]
+} "Set up TwoPunctures initial data on individual, local grids - part 1"
+
+schedule TwoPunctures_diagnostics at CCTK_ANALYSIS as poststep
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"

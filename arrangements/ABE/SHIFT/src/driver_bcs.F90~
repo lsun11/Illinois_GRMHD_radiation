@@ -1,0 +1,97 @@
+!------------------------------------------------
+! Master timestepping driver for the shift thorn
+!------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine shift_update_bc(CCTK_ARGUMENTS)
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3)				:: ext
+  integer                                       :: dummy
+  real*8                                        :: dX,dY,dZ
+!
+  integer                                       :: i,j,k
+  real*8                                        :: rfromcenterofAH,shiftmag,AH_radius_minimum,horizdirn_x,horizdirn_y,horizdirn_z
+
+  dX=CCTK_DELTA_SPACE(1)
+  dY=CCTK_DELTA_SPACE(2)
+  dZ=CCTK_DELTA_SPACE(3)
+
+ ext = cctk_lsh
+
+!write(*,*) "Start shift update_bc!!!!!!"
+
+  call CartSymGN(dummy,cctkGH,'shift::shift_vars')
+
+  if(cctk_iteration.gt.0) then
+     !cowling_enable=1 disables bssn+lapse+shift
+     if (Spatial_Gauge.eq.0 .or. Spatial_Gauge.eq.3 .or. cowling_enable.eq.1) then
+        !Do nothing; boundary already updated
+     else if (Spatial_Gauge.eq.1) then
+        call hyperbolic_shift_bc_driver(CCTK_PASS_FTOF)
+     else if (Spatial_Gauge.eq.5 .or. Spatial_Gauge.eq.7) then
+        call hbpuncture_shift_bc_driver(CCTK_PASS_FTOF)
+
+     else if (Spatial_Gauge.eq.6) then
+        call puncture_firstorder_shift_bc_driver(CCTK_PASS_FTOF)
+     end if
+  end if
+
+  call CartSymGN(dummy,cctkGH,'shift::shift_vars')
+
+
+if (1==0) then
+  do k=1, ext(3)
+     do j=1, ext(2)
+        do i=1, ext(1)
+       if (ABS(phi(i,j,k)).ge.10.D0) then
+       write(*,*) "Inside shift driver_bcs, phi(i,j,k) is unphysical, NOT try to fix it", i,j,k, phi(i,j,k), phi(i-1,j,k), phi(i,j-1,k),phi(i,j,k-1)
+       end if
+       end do
+     end do
+  end do
+end if
+
+
+  do k=1, ext(3)
+     do j=1, ext(2)
+        do i=1, ext(1)
+
+if (i==27.and.j==24.and.k==16) then
+   write(*,*) "1.Inside shift driver_update_bcs, BEFORE rad_source_cpp, phi(i,j,k) is ", phi(i,j,k)
+end if
+
+if (i==25.and.j==14.and.k==19) then
+   write(*,*) "2.Inside shift driver_update_bcs, BEFORE rad_source_cpp, phi(i,j,k) is ", phi(i,j,k)
+end if
+
+if (i==50.and.j==2.and.k==2) then
+   write(*,*) "2.Inside shift driver_update_bcs, BEFORE rad_source_cpp, tau(i,j,k) is ", tau(i,j,k)
+end if
+
+if (i==50.and.j==2.and.k==2) then
+   write(*,*) "2.Inside shift driver_update_bcs, BEFORE rad_source_cpp, tau_rhs(i,j,k) is ", tau_rhs(i,j,k)
+end if
+
+
+if (i==50.and.j==2.and.k==2) then
+   write(*,*) "Inside shift driver_post_bcs, tau_rad(i,j,k) is ", tau_rad(i,j,k)
+end if
+
+if (i==50.and.j==2.and.k==2) then
+   write(*,*) "Inside shift driver_post_bcs, tau_rad_rhs(i,j,k) is ", tau_rad_rhs(i,j,k)
+end if
+
+
+	end do
+    end do
+end do
+
+end subroutine shift_update_bc

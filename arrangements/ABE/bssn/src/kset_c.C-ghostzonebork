@@ -1,0 +1,157 @@
+#include <stdio.h>
+#include "cctk.h"
+#include <math.h>
+
+#define F1o3 0.333333333333333333333333333333
+
+#define KRANC_C
+#include "GenericFD.h"
+
+extern "C" void CCTK_FCALL CCTK_FNAME(statpunc_kset_c_arborder_nogz)
+  (const cGH **cctkGH,int *cctk_lsh,int *nghostzones, int *Symmetry,
+   double *dx,double *dy,double *dz,
+   double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,double *trK, 
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz, 
+   double *betax,double *betay,double *betaz,double *lapse);
+
+//-----------------------------------------------------------------------------
+// Compute Aij using (d/dt)\gamma_{ij} = 0
+// WARNING: this routine will set Aij everywhere _except_ the ghostzones!
+//-----------------------------------------------------------------------------
+extern "C" void statpunc_kset_c_arborder_nogz(const cGH *cctkGH,int *cctk_lsh,int *nghostzones, int Symmetry,
+					      double dx,double dy,double dz,
+					      double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,double *trK, 
+					      double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz, 
+					      double *betax,double *betay,double *betaz,double *lapse) {
+  /* Initialise finite differencing variables.  NEED THIS FOR GenericFD.h */
+#include "../../GenFD_decl_set_varCPP.h"
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart = nghostzones[0];
+  int jstart = nghostzones[1];
+  int kstart = nghostzones[2];
+  int iend = cctk_lsh[0] - nghostzones[0];
+  int jend = cctk_lsh[1] - nghostzones[1];
+  int kend = cctk_lsh[2] - nghostzones[2];
+
+  //Following lines needed since nghostzones[0] = ORDER, and 
+  //   not ORDER-1 in axisymmetry 
+  //   (so that rotation can be done on multiprocessor runs)
+  if(Symmetry==4) {
+    istart--;
+    iend++;
+  }
+
+  for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+
+    double gxxL = gxx[index];
+    double gxyL = gxy[index];
+    double gxzL = gxz[index];
+    double gyyL = gyy[index];
+    double gyzL = gyz[index];
+    double gzzL = gzz[index];
+    
+    double lapseL = lapse[index];
+
+    double betaxL = betax[index];
+    double betayL = betay[index];
+    double betazL = betaz[index];
+    
+    //-----------------------------------------------------------------------------
+    // Compute first derivatives of the shift and physical metric
+    //-----------------------------------------------------------------------------
+    double betaxx = D1gf(betax,i,j,k);
+    double betayx = D1gf(betay,i,j,k);
+    double betazx = D1gf(betaz,i,j,k);
+
+    double betaxy = D2gf(betax,i,j,k);
+    double betayy = D2gf(betay,i,j,k);
+    double betazy = D2gf(betaz,i,j,k);
+
+    double betaxz = D3gf(betax,i,j,k);
+    double betayz = D3gf(betay,i,j,k);
+    double betazz = D3gf(betaz,i,j,k);
+
+    double gxxx = D1gf(gxx,i,j,k);
+    double gxyx = D1gf(gxy,i,j,k);
+    double gxzx = D1gf(gxz,i,j,k);
+    double gyyx = D1gf(gyy,i,j,k);
+    double gyzx = D1gf(gyz,i,j,k);
+    double gzzx = D1gf(gzz,i,j,k);
+
+    double gxxy = D2gf(gxx,i,j,k);
+    double gxyy = D2gf(gxy,i,j,k);
+    double gxzy = D2gf(gxz,i,j,k);
+    double gyyy = D2gf(gyy,i,j,k);
+    double gyzy = D2gf(gyz,i,j,k);
+    double gzzy = D2gf(gzz,i,j,k);
+
+    double gxxz = D3gf(gxx,i,j,k);
+    double gxyz = D3gf(gxy,i,j,k);
+    double gxzz = D3gf(gxz,i,j,k);
+    double gyyz = D3gf(gyy,i,j,k);
+    double gyzz = D3gf(gyz,i,j,k);
+    double gzzz = D3gf(gzz,i,j,k);
+    
+    double AxxL = ( betaxL*gxxx + betayL*gxxy + betazL*gxxz 
+	    + gxxL*betaxx + gxyL*betayx + gxzL*betazx 
+	    + gxxL*betaxx + gxyL*betayx + gxzL*betazx)  
+      / (2.0 * (lapseL + 1.0) );
+    double AxyL = ( betaxL*gxyx + betayL*gxyy + betazL*gxyz 
+	    + gxxL*betaxy + gxyL*betayy + gxzL*betazy 
+	    + gxyL*betaxx + gyyL*betayx + gyzL*betazx)  
+      / (2.0 * (lapseL + 1.0) );
+    double AxzL = ( betaxL*gxzx + betayL*gxzy + betazL*gxzz 
+	    + gxxL*betaxz + gxyL*betayz + gxzL*betazz 
+	    + gxzL*betaxx + gyzL*betayx + gzzL*betazx)  
+      / (2.0 * (lapseL + 1.0) );
+    double AyyL = ( betaxL*gyyx + betayL*gyyy + betazL*gyyz 
+	    + gxyL*betaxy + gyyL*betayy + gyzL*betazy 
+	    + gxyL*betaxy + gyyL*betayy + gyzL*betazy)  
+      / (2.0 * (lapseL + 1.0) );
+    double AyzL = ( betaxL*gyzx + betayL*gyzy + betazL*gyzz 
+	    + gxyL*betaxz + gyyL*betayz + gyzL*betazz 
+	    + gxzL*betaxy + gyzL*betayy + gzzL*betazy) 
+      / (2.0 * (lapseL + 1.0) );
+    double AzzL = ( betaxL*gzzx + betayL*gzzy + betazL*gzzz 
+	    + gxzL*betaxz + gyzL*betayz + gzzL*betazz 
+	    + gxzL*betaxz + gyzL*betayz + gzzL*betazz)  
+      / (2.0 * (lapseL + 1.0) );
+
+    double detgij =  gxxL * gyyL * gzzL + gxyL * gyzL * gxzL + gxzL * gxyL * gyzL 
+      - gxzL * gyyL * gxzL - gxyL * gxyL * gzzL - gxxL * gyzL * gyzL;
+    double gupxx =   ( gyyL * gzzL - gyzL * gyzL )/ detgij;
+    double gupxy = - ( gxyL * gzzL - gyzL * gxzL )/ detgij;
+    double gupxz =   ( gxyL * gyzL - gyyL * gxzL )/ detgij;
+    double gupyy =   ( gxxL * gzzL - gxzL * gxzL )/ detgij;
+    double gupyz = - ( gxxL * gyzL - gxyL * gxzL )/ detgij;
+    double gupzz =   ( gxxL * gyyL - gxyL * gxyL )/ detgij;  
+    double trKL = (gupxx*AxxL + gupyy*AyyL + gupzz*AzzL +  
+		  2.0*(gupxy*AxyL + gupxz*AxzL + gupyz*AyzL));
+
+    Axx[index] = AxxL - F1o3 * gxxL * trKL;
+    Axy[index] = AxyL - F1o3 * gxyL * trKL;
+    Axz[index] = AxzL - F1o3 * gxzL * trKL;
+    Ayy[index] = AyyL - F1o3 * gyyL * trKL;
+    Ayz[index] = AyzL - F1o3 * gyzL * trKL;
+    Azz[index] = AzzL - F1o3 * gzzL * trKL;
+
+    trK[index] = trKL;
+
+  }
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(statpunc_kset_c_arborder_nogz)
+  (const cGH **cctkGH,int *cctk_lsh,int *nghostzones, int *Symmetry,
+   double *dx,double *dy,double *dz,
+   double *Axx,double *Axy,double *Axz,double *Ayy,double *Ayz,double *Azz,double *trK, 
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz, 
+   double *betax,double *betay,double *betaz,double *lapse) 
+{
+  statpunc_kset_c_arborder_nogz(*cctkGH,cctk_lsh,nghostzones,*Symmetry,
+				*dx,*dy,*dz,
+				Axx,Axy,Axz,Ayy,Ayz,Azz,trK, 
+				gxx,gxy,gxz,gyy,gyz,gzz, 
+				betax,betay,betaz,lapse);
+}

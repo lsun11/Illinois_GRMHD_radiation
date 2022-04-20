@@ -1,0 +1,1437 @@
+/*
+  Set the symmetries for the mhd_evolve variables
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Parameters.h"
+#include "Symmetry.h"
+
+static char *rcsid="$Header: /peter/piper/picked/a/peck/of/pickled/whatever $";
+
+CCTK_FILEVERSION(mhd_evolve_InitSymBound)
+
+  extern "C" void mhd_evolve_InitSymBound(CCTK_ARGUMENTS)
+{
+  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_PARAMETERS;
+  
+  //  int index = CCTK_GFINDEX3D(cctkGH,77,69,1); 
+  // printf("cctk_iteration==%d \n",cctk_iteration);
+  
+  // printf ("In initSynbound, tau(78.70.2) is %e \n", tau[index]);
+
+
+  if (Symmetry==4 && Reconstruction==2) {
+     printf("PPM reconstruction does not support axismmetry (yet).\n");
+     exit(1);
+  }
+
+  if (Reconstruction==2 && use_std_PPM_instead_of_efficient_3_gz_version==1 && (cctk_nghostzones[0]<4 || cctk_nghostzones[1]<4 || cctk_nghostzones[2]<4)) {
+    printf("ERROR: use_std_PPM_instead_of_eff_3_gz_version has been set to 1, which requires 4 ghostzones. You only have %d ghostzones!\n",cctk_nghostzones[0]);
+    exit(1);
+  }
+
+  if (Reconstruction==2 && use_std_PPM_instead_of_efficient_3_gz_version==0 && (cctk_nghostzones[0]<3 || cctk_nghostzones[1]<3 || cctk_nghostzones[2]<3)) {
+    printf("ERROR: use_std_PPM_instead_of_eff_3_gz_version has been set to 0, which requires 3 ghostzones. You only have %d ghostzones!\n",cctk_nghostzones[0]);
+    exit(1);
+  }
+
+ 
+  int sym[3];
+
+  if(cctk_iteration==0) {
+
+    printf("SETTING SYMMETRY = %d... AT ITERATION = %d\n",Symmetry,cctk_iteration);
+    /* FIRST OCTANT SYMMETRY */
+    if(Symmetry==2) {
+      sym[0] = 1; sym[1] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_psi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_psi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_chi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_chi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Blagrangemultiplier");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_b"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::smallb2"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h_p"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::w");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau"); 
+
+      //////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radl");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuel");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxl");      
+      ////////////////////////////////////////////////////////////////// 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_e");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_er");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_el");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nue");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mu_nu");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluid");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidle");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_thermal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_cld");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_tot");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_cld");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+      // Don't worry about the wrong sym values since Ai's are staggered 
+      // and we're going to impose the symmetry separately
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ax");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ay");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Az");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fyx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fzx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fzy");
+
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_flux");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nue_flux");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nux_flux");
+      ////////////////////////////////////////////////////////////////// 
+
+
+      sym[0] = -1; sym[1] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_x"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x"); 
+      sym[0] = 1; sym[1] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_y"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y"); 
+      sym[0] = 1; sym[1] = 1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_z"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z"); 
+
+      sym[0] = -1; sym[1] = 1; sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxtilde");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxl");
+      sym[0] = -1; sym[1] = 1; sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ex"); 
+
+      sym[0] = 1; sym[1] = -1; sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sby");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::By"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bytilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byl");
+      sym[0] = 1; sym[1] = -1; sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ey"); 
+
+      sym[0] = 1; sym[1] = 1; sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bz"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bztilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzl");
+      sym[0] = 1; sym[1] = 1; sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbt"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ez"); 
+
+      /**************************************************/
+      sym[0] = 1; sym[1] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::lapm1_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0rho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02rho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2rho_b_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2rho_b_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dP_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drhoYe_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dT_fluid_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0P_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02P_m");
+      //    SetCartSymVN(cctkGH, sym,"mhd_evolve::dP0_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::dP02_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2P_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2P_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br_ppm");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl_ppm");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pl");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02r");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02l");
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuel");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxl");
+      ////////////////////////////////////////////////////////////////// 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax");
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::u0");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nux");
+      //////////////////////////////////////////////////////////////////  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhob_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gzz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupzz_f");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nux");
+      //////////////////////////////////////////////////////////////////  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::phi_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBy_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBz_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvy_m"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvz_m");
+ 
+
+      sym[0] = -1; sym[1] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxl");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxle");
+      //////////////////////////////////////////////////////////////////  
+
+      sym[0] = 1; sym[1] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shifty_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vy"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyl");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxle");
+      //////////////////////////////////////////////////////////////////  
+
+      sym[0] = 1; sym[1] = 1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzl");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxle");
+      //////////////////////////////////////////////////////////////////  
+
+      sym[0] = -1; sym[1] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxy_f");
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nux");
+      //////////////////////////////////////////////////////////////////  
+
+
+      sym[0] = -1; sym[1] = 1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxz_f");
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nux");
+      //////////////////////////////////////////////////////////////////  
+
+      sym[0]= 1; sym[1] = -1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyz_f");
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nux");
+      //////////////////////////////////////////////////////////////////  
+    }
+    /* NEXT, AXISYMMETRY: sym[1] DOES NOT MATTER! */
+    else if (Symmetry==4) {
+      sym[1] = 1; 
+    
+      sym[0] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_psi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_psi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_chi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_chi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Blagrangemultiplier");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_b"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::smallb2"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h_p"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::w");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau"); 
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radl");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuel");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxl");
+      //////////////////////////////////////////////////////////////////  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_e");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_er");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_el");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nue");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nux");
+      //////////////////////////////////////////////////////////////////   
+      
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mu_nu");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluid");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidle");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_thermal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_cld");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_tot");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_cld");
+
+      //////////////////////////////////////////////////////////////////                                                                                                                                                                                                    
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nux");
+      //////////////////////////////////////////////////////////////////                                                                                                                                 
+
+      sym[0] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_x"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x"); 
+      sym[0] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_y"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y"); 
+      sym[0] = 1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_z"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z"); 
+
+      sym[0] = -1; sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bx"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxtilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxl");
+      sym[0] = -1; sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ex"); 
+
+      sym[0] = -1; sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sby");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::By"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bytilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byl");
+      sym[0] = -1; sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ey"); 
+
+      sym[0] = 1; sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bz"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bztilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzl");
+      sym[0] = 1; sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbt"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ez"); 
+
+      /**************************************************/
+      sym[0] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::lapm1_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drho_b_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dP_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drhoYe_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dT_fluid_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02r");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02l");
+      //////////////////////////////////////////////////////////////////                                                                                                                                                                                                    
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuel");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxl");
+      //////////////////////////////////////////////////////////////////  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax");
+      //////////////////////////////////////////////////////////////////                                                                                                                                                                                                    
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nux");
+      //////////////////////////////////////////////////////////////////   
+  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::u0");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nux");
+      //////////////////////////////////////////////////////////////////                  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhob_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gzz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupzz_f");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nux");
+      //////////////////////////////////////////////////////////////////                                                                                                                                                                                                     
+
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::phi_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBy_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBz_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvy_m"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvz_m");
+      
+      //////////////////////////////////////////////////////////////////   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_flux");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nue_flux");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nux_flux");
+      ////////////////////////////////////////////////////////////////// 
+
+      sym[0] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxl");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_rhs");  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxle");
+      ////////////////////////////////////////////////////////////////// 
+
+      sym[0] = -1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shifty_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vy"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyl");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_rhs");  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxle");
+      //////////////////////////////////////////////////////////////////
+
+
+      sym[0] = 1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzl");
+
+      //////////////////////////////////////////////////////////////////   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxle");
+      //////////////////////////////////////////////////////////////////     
+
+
+      sym[0] = 1; sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxy_f");
+      //////////////////////////////////////////////////////////////////   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nux");
+      //////////////////////////////////////////////////////////////////  
+
+      sym[0] = 1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxz_f");
+      //////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nux");
+      //////////////////////////////////////////////////////////////////  
+      sym[0]= -1; sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyz_f");   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyz_f");
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nux");
+      //////////////////////////////////////////////////////////////////    
+    }
+    /* NEXT EQUATORIAL SYMMETRY: sym[0] AND sym[1] SHOULD BE SET TO 1 FOR ALL GFS! */
+    else if(Symmetry==1) {
+      sym[0] = 1; 
+      sym[1] = 1; 
+
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_psi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_psi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_chi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_chi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Blagrangemultiplier");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_b"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::smallb2"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h_p"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::w");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau"); 
+
+      // Don't worry about the wrong sym values since Ai's are staggered
+      // and we're going to impose the symmetry separately
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ax");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ay");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Az");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fyx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fzx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fzy");
+      
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radl");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuel");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxl");
+      //////////////////////////////////////////////////////////////////  
+
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_e");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_er");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_el");
+      //////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf");
+      
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nue");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nux");
+      //////////////////////////////////////////////////////////////////       
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mu_nu");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluid");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidle");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_thermal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_cld");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_tot");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_cld");
+
+      //////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal");      
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxle");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuele");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuele");
+
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxle");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxle");
+      /////////////////////////////////////////////////////////////////  
+
+
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_x"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux");
+      sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bx"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxtilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxl");
+      sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ex"); 
+
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_y"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux");
+
+      sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sby");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::By"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bytilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byl");
+      sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ey"); 
+
+      sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_z"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z"); 
+
+      /////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxle");
+      /////////////////////////////////////////////////////////////////
+
+      sym[2] = Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bz"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bztilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzl");
+      sym[2] = -Sym_Bz;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ez"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbt"); 
+
+      /**************************************************/
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::lapm1_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0rho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02rho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2rho_b_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2rho_b_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dP_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drhoYe_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dT_fluid_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0P_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02P_m");
+      //    SetCartSymVN(cctkGH, sym,"mhd_evolve::dP0_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::dP02_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2P_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2P_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br_ppm");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl_ppm");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pl");
+
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02r");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02l");
+      //////////////////////////////////////////////////////////////////   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuel");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxl");
+      //////////////////////////////////////////////////////////////////    
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax");
+      //////////////////////////////////////////////////////////////////   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nux");
+      //////////////////////////////////////////////////////////////////     
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::u0");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nux");
+      //////////////////////////////////////////////////////////////////     
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhob_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gzz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupzz_f");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nux");
+      //////////////////////////////////////////////////////////////////  
+
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::phi_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBy_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBz_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvy_m"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvz_m");
+      
+     
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxl");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0vx_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02vx_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vx_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vx_fwd");
+
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shifty_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vy"); 
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0vy_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02vy_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vy_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vy_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyl");
+
+      sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vz");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0vz_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02vz_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vz_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vz_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzl");
+
+      sym[2] = 1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxy_f");
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+      sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxz_f");
+      //////////////////////////////////////////////////////////////////    
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nux");
+      //////////////////////////////////////////////////////////////////  
+
+      sym[2] = -1;
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyz_f");
+      //////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nux");
+      //////////////////////////////////////////////////////////////////    
+    }
+    /* FINALLY NO SYMMETRY: sym[0], sym[1], AND sym[2] SHOULD BE SET TO 1 FOR ALL GFS! */
+    else if(Symmetry==0) {
+      sym[0] = 1; 
+      sym[1] = 1; 
+      sym[2] = 1;
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_psi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_psi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_chi_line");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_u_chi");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Blagrangemultiplier");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_b"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::smallb2"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::h_p"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::w");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau"); 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ax");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ay");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Az");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fyx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fzx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::fzy");
+
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_flux");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nue_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nue_flux");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radx_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rady_nux_flux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_radz_nux_flux");
+      //////////////////////////////////////////////////////////////////    
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_x"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bx"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxtilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bxl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ex"); 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_y"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sby");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::By"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bytilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Byl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ey"); 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::st_z"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bz"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bztilde"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Bzl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Ez"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::sbt"); 
+
+      /**************************************************/
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_star_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhoYe_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::lapm1_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0rho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02rho_b_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2rho_b_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2rho_b_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dP_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::drhoYe_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dT_fluid_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0P_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02P_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2P_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2P_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_br_ppm");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::rho_bl_ppm");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Pl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02r");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02l");
+      //////////////////////////////////////////////////////////////////  
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_radl");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuel");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::v02_rad_nuxl");
+      //////////////////////////////////////////////////////////////////  
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax");
+      //////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmin_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::cmax_rad_nux");
+      //////////////////////////////////////////////////////////////////   
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::u0");
+
+      ////////////////////////////////////////////////////////////////
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad0_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rad_scalar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::chi_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::zeta_rad_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::rhob_floor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_OBfloor");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gzz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupzz_f");
+
+      //////////////////////////////////////////////////////////////////   
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyy_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radzz_nux");
+      //////////////////////////////////////////////////////////////////   
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::phi_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBy_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dBz_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvy_m"); 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dvz_m");
+      
+      /* 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dE_rad_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dF_radx_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dF_rady_m");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::dF_radz_m");
+      */
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftx_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vxl");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0vx_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02vx_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vx_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vx_fwd");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shifty_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vy"); 
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0vy_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02vy_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vy_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vy_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vyl");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mhd_st_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::shiftz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vz");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d0vz_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d02vz_m");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vz_bck");
+      //SetCartSymVN(cctkGH, sym,"mhd_evolve::d2vz_fwd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::vzl");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gxz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gyz_f");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxy_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupxz_f");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::gupyz_f");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxy_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radxz_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_radyz_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_radl");
+      
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuel");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::tau_rad_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::E_rad_nuxl");
+      ////////////////////////////////////////////////////////////////// 
+
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_e");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_er");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::Y_el");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nue");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ka_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::ks_gf_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::emission_gf_nux");
+      ////////////////////////////////////////////////////////////////// 
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::optd_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::mu_nu");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluid");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::T_fluidle");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_thermal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_cld");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::eps_tot");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::P_cld");
+
+      ////////////////////////////////////////////////////////////////// 
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFar_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::FaFal_nux");
+      //////////////////////////////////////////////////////////////////  
+
+      //////////////////////////////////////////////////////////////////                                                                                                                       
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radxle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_x_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radx_nuxle");
+      ////////////////////////////////////////////////////////////////// 
+
+      //////////////////////////////////////////////////////////////////                                                                                                                       
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radyle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_y_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_rady_nuxle");
+      ////////////////////////////////////////////////////////////////// 
+
+      //////////////////////////////////////////////////////////////////                                                                                                                       
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radzle");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nue_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nue");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuer");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuele");
+
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::S_rad_z_nux_rhs");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nux");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxr");
+      SetCartSymVN(cctkGH, sym,"mhd_evolve::F_radz_nuxle");
+      ////////////////////////////////////////////////////////////////// 
+   
+    }
+    else {
+      printf("mhd_initsymbound: SYMMETRY = %d NOT SUPPORTED (yet)!  Exiting...\n",Symmetry);
+      exit(1);
+    }
+  }
+
+}

@@ -1,0 +1,16 @@
+# Main make.code.defn file for thorn IDAnalyticBH
+# $Header: /cactus/CactusEinstein/IDAnalyticBH/src/make.code.defn,v 1.6 2003/03/24 13:31:01 jthorn Exp $
+
+# Source files in this directory
+SRCS = 	ParamChecker.c\
+	Schwarzschild.c\
+	Kerr.c\
+	BrillLindquist.c\
+        Misner_standard.c\
+	Misner_multiple.c\
+	Misner_points.c \
+        misc.c
+
+# Subdirectories containing source files
+SUBDIRS = 
+

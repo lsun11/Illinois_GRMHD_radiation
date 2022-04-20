@@ -1,0 +1,6 @@
+# Configuration definition for thorn IOASCII
+# $Header: /cactusdevcvs/CactusBase/IOASCII/configuration.ccl,v 1.5 2004/06/08 21:12:47 schnetter Exp $
+
+REQUIRES IOUtil
+
+REQUIRES THORNS: IOUtil

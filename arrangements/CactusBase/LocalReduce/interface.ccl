@@ -1,0 +1,4 @@
+# Interface definition for thorn LocalReduce
+# $Header: /cactusdevcvs/CactusBase/LocalReduce/interface.ccl,v 1.2 2004/08/29 09:20:01 yye00 Exp $
+
+Implements: LocalReduce

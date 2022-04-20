@@ -1,0 +1,72 @@
+# Interface definition for thorn OS_collapse
+
+implements: OS_collapse
+inherits: grid
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+friend: gw_extraction
+
+USES INCLUDE: Symmetry.h
+
+private:
+
+REAL OS_center_diagnostics TYPE=scalar
+{
+  tau_center_OS
+} "variables necessary to compute quantities at the origin"
+
+cctk_real analytic type = GF
+{
+ rho_b_analytic
+} "analytic stuff"
+
+cctk_real h17 type = GF TAGS='prolongation="none" InterpNumTimelevels=1' 
+{
+#RHS of Equation H.17 in 'numerical relativity', by baumgarte and shapiro
+  h17_rhs 
+} "useful for checking if Eq H.17 in baumgarte and shapiro is satisfied for a relaxed BH with advective 1+log slicing"
+
+REAL particle_tracer TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=narr,4 
+{
+  coord,slope,coordt,slopet,slopem
+} "particle tracers"
+
+REAL pcle_stuff TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=narr
+{
+areal_radius,gxx_pcle,gxz_pcle,gzz_pcle,phi_pcle,rho_b_pcle,P_pcle,u0_pcle,E_rad_pcle,Ec_pcle,eta,Q,F_pcle,Fc_pcle,z_anal,rho_b_anal,Ec_anal,Fc_anal,E_anal,F_anal,E_rad_gradient,F_coeff
+}
+
+REAL more_pcle_stuff TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=narr,3
+{
+  pos
+}
+
+cctk_real v_previous type = GF 
+{
+  vx_p,vy_p,vz_p,u0_p
+} "velocity variables at previous level"
+
+###########################################################################
+# Following needed for setting the original of BH and radii of AH from ahfinderdirect
+
+CCTK_INT FUNCTION HorizonWasFound(CCTK_INT IN horizon_number)
+REQUIRES FUNCTION HorizonWasFound
+
+CCTK_INT FUNCTION HorizonLocalCoordinateOrigin                          \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_REAL OUT origin_x, CCTK_REAL OUT origin_y, CCTK_REAL OUT origin_z)
+REQUIRES FUNCTION HorizonLocalCoordinateOrigin
+
+CCTK_INT FUNCTION HorizonRadiusInDirection                              \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_INT IN N_points,                                               \
+    CCTK_REAL IN ARRAY x, CCTK_REAL IN ARRAY y, CCTK_REAL IN ARRAY z,   \
+    CCTK_REAL OUT ARRAY radius)
+REQUIRES FUNCTION HorizonRadiusInDirection
+
+###########################################################################

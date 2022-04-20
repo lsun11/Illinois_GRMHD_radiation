@@ -1,0 +1,97 @@
+# Parameter definitions for the thorn lapse 
+
+shares: grid
+
+USES KEYWORD type 
+USES KEYWORD domain
+USES KEYWORD quadrant_direction
+USES KEYWORD bitant_plane
+
+shares: bssn
+USES KEYWORD Xcenter
+USES KEYWORD Ycenter
+USES KEYWORD Zcenter
+USES KEYWORD enable_lower_order_at_boundaries
+
+#########################################################
+# Timestepping (MoL) stuff
+shares: MethodOfLines
+
+USES CCTK_INT MoL_Num_Evolved_Vars
+USES CCTK_INT MoL_Num_Constrained_Vars
+USES CCTK_INT MoL_Num_SaveAndRestore_Vars
+
+restricted:
+
+CCTK_INT lapse_MaxNumEvolvedVars "The maximum number of evolved variables used by lapse" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Evolved_Vars
+{
+  2:2           :: "Just 2: lapse and lapset"
+} 2
+
+CCTK_INT lapse_MaxNumConstrainedVars "The maximum number of constrained variables used by lapse" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Constrained_Vars
+{
+  1:1           :: "The Analytic-Numerical gridfunction"
+} 1
+#########################################################
+
+restricted:
+
+KEYWORD slicing_type "Type of slicing to use" STEERABLE=ALWAYS
+{
+  "geodesic"  :: "Apply geodesic slicing,setting lapse to 1 initially"
+  "frozen"  :: "Freeze the lapse to its initial value"
+  "harmonic"  :: "Apply harmonic slicing"
+  "parabolic"  :: "Apply parabolic slicing"
+  "hyperbolic"  :: "Apply hyperbolic slicing"
+  "opl" :: "Apply one plus log slicing"
+  "opl_loglapse" :: "Apply one plus log slicing, try to evolve log(alpha)"
+} "geodesic" 
+
+
+INT f_of_alpha "Function multiplying RHS of 1+log type slicing, dt alpha = -\alpha^2*f(alpha)*K" STEERABLE=ALWAYS
+{
+  0:*  :: "0:f(alpha)=2/alpha, 1:f(alpha)=2"
+} 0
+
+
+REAL hyper_a1 "a1 parameter for hyperbolic slicing"
+{
+ *:* :: "Anything"
+} 1.0
+
+REAL hyper_a2 "a2 parameter for hyperbolic slicing"
+{
+ *:* :: "Anything"
+} 0.0
+
+REAL hyper_a3 "a3 parameter for hyperbolic slicing"
+{
+ *:* :: "Anything"
+} 0.0
+
+INT hyper_Integration_Order "Integration Order for timestepping"
+{
+ 0:* :: "Positive"
+} 2
+
+INT opl_advect_enable "advection enabled for opl slicing : 0 = off, 1 = (mixed 1st/2nd order), 2 = (4th order)" STEERABLE=ALWAYS
+{
+ 0:2 :: "either zero (no upwinding), one (mixed 1st/2nd order), or two (4th order)"
+} 1
+
+INT opl_a0lap "alpha(t=0)=psi^(-opl_a0lap); negative values -> initial data thorn must set initial lapse! NOTE: negative = OFF" STEERABLE=ALWAYS
+{
+ *:* :: "anything"
+} -1
+
+INT opl_alap "dt alpha = -2 \alpha K psi^(-opl_alap) + advection.." STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+} 0
+
+private:
+REAL opl_lapse_floor "Impose floor on 1+log lapse?  If so, set == floor value you want." STEERABLE=ALWAYS
+{
+ *:* :: "Anything"
+} 0.0
+

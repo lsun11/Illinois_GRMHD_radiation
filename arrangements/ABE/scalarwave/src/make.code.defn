@@ -1,0 +1,10 @@
+# Main make.code.defn file for thorn scalarwave
+# $Header: /home/astro/CVS/Cactus/arrangements/ABE/scalarwave/src/make.code.defn,v 1.1.1.1 2006/02/17 21:31:26 zetienne Exp $
+
+# Source files in this directory
+SRCS = Scalar_Methods.C CheckParameters.C Startup.C InitSymBound.C \
+	Laplace.F90 Updaters.F90 scalarwave_update_boundary.F90
+
+# Subdirectories containing source files (if they exist)
+#SUBDIRS = Cprogs Fprogs
+

@@ -1,0 +1,46 @@
+# Interface definition for thorn CPPUtils
+IMPLEMENTS: CPPUtils
+
+INCLUDES HEADER: utils_macro.h IN utils_macro.h
+
+INCLUDE HEADER: utils.hh IN utils.hh
+INCLUDE HEADER: utils_arithmetic.hh IN utils_arithmetic.hh
+INCLUDE HEADER: utils_bisec.hh IN utils_bisec.hh
+INCLUDE HEADER: utils_blas_small.hh IN utils_blas_small.hh
+INCLUDE HEADER: utils_cactus.hh IN utils_cactus.hh
+INCLUDE HEADER: utils_config.hh IN utils_config.hh
+INCLUDE HEADER: utils_dot.hh IN utils_dot.hh
+INCLUDE HEADER: utils_filter.hh IN utils_filter.hh
+INCLUDE HEADER: utils_functional.hh IN utils_functional.hh
+INCLUDE HEADER: utils_gdot.hh IN utils_gdot.hh
+INCLUDE HEADER: utils_gemv.hh IN utils_gemv.hh
+INCLUDE HEADER: utils_metric.hh IN utils_metric.hh
+INCLUDE HEADER: utils_newton.hh IN utils_newton.hh
+INCLUDE HEADER: utils_pow.hh IN utils_pow.hh
+INCLUDE HEADER: utils_regfalsi.hh IN utils_regfalsi.hh
+INCLUDE HEADER: utils_sequence.hh IN utils_sequence.hh
+INCLUDE HEADER: utils_sti.hh IN utils_sti.hh
+INCLUDE HEADER: utils_tensor.hh IN utils_tensor.hh
+INCLUDE HEADER: utils_valencia.hh IN utils_valencia.hh
+
+USES INCLUDE: utils_macro.h
+
+USES INCLUDE: utils.hh
+USES INCLUDE: utils_arithmetic.hh
+USES INCLUDE: utils_bisec.hh
+USES INCLUDE: utils_blas_small.hh
+USES INCLUDE: utils_cactus.hh
+USES INCLUDE: utils_config.hh
+USES INCLUDE: utils_dot.hh
+USES INCLUDE: utils_filter.hh
+USES INCLUDE: utils_functional.hh
+USES INCLUDE: utils_gdot.hh
+USES INCLUDE: utils_gemv.hh
+USES INCLUDE: utils_metric.hh
+USES INCLUDE: utils_newton.hh
+USES INCLUDE: utils_pow.hh
+USES INCLUDE: utils_regfalsi.hh
+USES INCLUDE: utils_sequence.hh
+USES INCLUDE: utils_sti.hh
+USES INCLUDE: utils_tensor.hh
+USES INCLUDE: utils_valencia.hh

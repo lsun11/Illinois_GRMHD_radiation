@@ -1,0 +1,372 @@
+int font_fix_gamma_equals2(double &u_x, double &u_y, double &u_z, double &rhob, 
+	     double &rho_starL,double &mhd_st_xL,double &mhd_st_yL,double &mhd_st_zL,
+	     double &BxL,double &ByL,double &BzL,
+	     double &gxx_physL,double &gxy_physL,double &gxz_physL,double &gyy_physL,double &gyz_physL,double &gzz_physL,
+	     double &gupxx_physL,double &gupxy_physL,double &gupxz_physL,double &gupyy_physL,double &gupyz_physL,double &gupzz_physL,double &Psi6, double &kpoly,
+			   int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse)
+{
+  double f1os4p = 1.0/sqrt(4.0*M_PI);
+  double kpoly2 = 2.0*kpoly;
+  double tol = 1.e-15;
+  double Bxbar = BxL*f1os4p;
+  double Bybar = ByL*f1os4p;
+  double Bzbar = BzL*f1os4p;
+  double Bbar_x = gxx_physL*Bxbar + gxy_physL*Bybar + gxz_physL*Bzbar;
+  double Bbar_y = gxy_physL*Bxbar + gyy_physL*Bybar + gyz_physL*Bzbar;
+  double Bbar_z = gxz_physL*Bxbar + gyz_physL*Bybar + gzz_physL*Bzbar;
+  double B2bar = Bxbar*Bbar_x + Bybar*Bbar_y + Bzbar*Bbar_z;
+  double Bbar = sqrt(B2bar);
+  double check_B_small = fabs(Bxbar)+fabs(Bybar)+fabs(Bzbar);
+
+  //  printf("check NaNs on BBAR Bbar %e kpoly2 %e Bxbar %e  Bybar %e Bzbar %e \n",Bbar,kpoly2);
+  /*  printf("NAN from Imput %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e \n",
+	 u_x,u_y,u_z,rhob,rho_starL,
+	 mhd_st_xL,mhd_st_yL,mhd_st_zL,
+	 BxL,ByL,BzL,
+	 gxx_physL,gxy_physL,gxz_physL,gyy_physL,gyz_physL,gzz_physL,
+	 gupxx_physL,gupxy_physL,gupxz_physL,gupyy_physL,gupyz_physL,gupzz_physL,
+	 Psi6,kpoly);*/
+
+  if (check_B_small>0 && check_B_small<1.e-150) {
+     // need to compute B2bar specially to prevent floating-point underflow
+     double Bmax = fabs(Bxbar);
+     if (Bmax < fabs(Bybar)) Bmax=fabs(Bybar);
+     if (Bmax < fabs(Bzbar)) Bmax=fabs(Bzbar);
+     double Bxtmp=Bxbar/Bmax, Bytemp=Bybar/Bmax, Bztemp=Bzbar/Bmax;
+     double B_xtemp=Bbar_x/Bmax, B_ytemp=Bbar_y/Bmax, B_ztemp=Bbar_z/Bmax;
+     Bbar = sqrt(Bxtmp*B_xtemp + Bytemp*B_ytemp + Bztemp*B_ztemp)*Bmax;
+     //     printf("2 check NaNs on  Bbar %e Bxtmp %e  Bxmax %e\n",Bbar,Bxtmp, Bmax);
+  }
+
+  double BbardotS = Bxbar*mhd_st_xL + Bybar*mhd_st_yL + Bzbar*mhd_st_zL;
+  double BbardotS2 = BbardotS*BbardotS;
+  double hatBbardotS = BbardotS/Bbar;
+
+//  printf("3 check NaNs on BbardotS %e hatBbardotS %e  Bxmax %e\n",BbardotS,hatBbardotS);
+  
+if (Bbar<1.e-300) hatBbardotS = 0.0;
+  double Psim6 = 1.0/Psi6;
+
+  // Limit hatBbardotS
+  //double max_gammav = 100.0;
+  //double rhob_max = rho_starL*Psim6;
+  //double hmax = 1.0 + kpoly2*rhob_max;
+  //double abs_hatBbardotS_max = sqrt(SQR(max_gammav)-1.0)*rho_starL*hmax;
+  //if (fabs(hatBbardotS) > abs_hatBbardotS_max) {
+  //   double fac_reduce = abs_hatBbardotS_max/fabs(hatBbardotS);
+  //   double hatBbardotS_max = hatBbardotS*fac_reduce;
+  //   double Bbar_inv = 1.0/Bbar;
+  //   double hat_Bbar_x = Bbar_x*Bbar_inv;
+  //   double hat_Bbar_y = Bbar_y*Bbar_inv;
+  //   double hat_Bbar_z = Bbar_z*Bbar_inv;
+  //   double sub_fact = hatBbardotS_max - hatBbardotS;
+  //   mhd_st_xL += sub_fact*hat_Bbar_x;
+  //   mhd_st_yL += sub_fact*hat_Bbar_y;
+  //   mhd_st_zL += sub_fact*hat_Bbar_z;
+  //   hatBbardotS = hatBbardotS_max;
+  //   BbardotS *= fac_reduce;
+  //   BbardotS2 = BbardotS*BbardotS;
+  //}
+
+  double sdots = gupxx_physL*SQR(mhd_st_xL) + gupyy_physL*SQR(mhd_st_yL) + gupzz_physL*SQR(mhd_st_zL)
+                 + 2.0*( gupxy_physL*mhd_st_xL*mhd_st_yL + gupxz_physL*mhd_st_xL*mhd_st_zL
+                         + gupyz_physL*mhd_st_yL*mhd_st_zL);
+
+//  printf("4 check NaNs on sdots %e \n",sdots);
+
+  if (sdots<1.e-300) {
+    rhob = rho_starL*Psim6;
+    u_x=0.0; u_y=0.0; u_z=0.0;
+    return 0;
+  }
+
+  //if (fabs(BbardotS2 - sdots*B2bar) > 1e-8) {
+  if (BbardotS2 > sdots*B2bar) { 
+     printf("(Bbar dot S)^2, Bbar^2 * sdotS, %e %e\n",SQR(BbardotS),sdots*B2bar);
+     printf("Cauchy-Schwartz inequality is violated!\n");
+     //     exit(1);
+  }
+
+  // Initial guess for W, S_fluid and rhob
+  double W0 = sqrt( SQR(hatBbardotS) + SQR(rho_starL) ) * Psim6;
+  double Sf20 = (SQR(W0)*sdots + BbardotS2*(B2bar + 2.0*W0))/SQR(W0+B2bar);
+  double rhob0 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL));
+  double W=W0,Sf2=Sf20,rhob1=rhob0;
+
+//  printf("5 check NaNs on W0 %e  Sf20 %e rhob0%e rho_starL %e \n",W0,Sf20,rhob0,rho_starL);
+
+
+  //****************************************************************
+  //                          FONT FIX
+  // Impose Font fix when HARM primitives solver fails to find
+  //   acceptable set of primitives.
+  //****************************************************************
+  bool fontcheck=true;
+
+  int itcount = 0, maxits=300;
+  while(fontcheck && itcount < maxits) {
+     itcount++;
+     W0 = W;
+     Sf20 = Sf2;
+     rhob0 = rhob1;
+
+     // first, find rhob for the given S_fluid^2
+
+     double eps_cold, P_cold;
+     compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+     double h = 1.0 + eps_cold + P_cold/rhob0;
+
+     //     double h = 1.0 + kpoly2*rhob0;
+     rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+     while( fabs(rhob1-rhob0) > rhob1*tol) {
+        rhob0 = rhob1;
+	compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	h = 1.0 + eps_cold + P_cold/rhob0;
+	//        h = 1.0 + kpoly2*rhob0;
+        rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+	//	printf("6 check NaNs on h %e rho_starL %e Psim6 %e Sf20 %e rho_starL %e \n",h,rho_starL,Psim6,Sf20,rho_starL);
+     }
+     compute_pcold_epscold_cpp(rhob1, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+     h = 1.0 + eps_cold + P_cold/rhob1;
+     //     h = 1.0 + kpoly2*rhob1;
+     W = sqrt( Sf20 + SQR(rho_starL*h))*Psim6;
+     Sf2 = (SQR(W)*sdots + BbardotS2*(B2bar + 2.0*W))/SQR(W+B2bar);
+     if ( fabs(W-W0) < W*tol && fabs(Sf20-Sf2) < Sf2*tol) fontcheck=false;
+  }
+  
+  if (itcount>=maxits) {
+     // Increase tol and try again 
+    maxits*=100;
+     tol *=10.0;
+     itcount = 0;
+     fontcheck=true;
+     while(fontcheck && itcount < maxits) {
+        itcount++;
+        W0 = W;
+        Sf20 = Sf2;
+        rhob0 = rhob1;
+
+        // first, find rhob for the given S_fluid^2
+	double eps_cold, P_cold;
+	compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	double h = 1.0 + eps_cold + P_cold/rhob0;	
+	//        double h = 1.0 + kpoly2*rhob0; 
+        rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+        while( fabs(rhob1-rhob0) > rhob1*tol) {
+           rhob0 = rhob1;
+	   compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	   h = 1.0 + eps_cold + P_cold/rhob0;
+	   //   h = 1.0 + kpoly2*rhob0;
+           rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+	   //	   printf("7 check NaNs on h %e rho_starL %e Psim6 %e Sf20 %e rho_starL %e \n",h,rho_starL,Psim6,Sf20,rho_starL);
+
+        }
+	compute_pcold_epscold_cpp(rhob1, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+        h = 1.0 + eps_cold + P_cold/rhob1;
+	//        h = 1.0 + kpoly2*rhob1;
+        W = sqrt( Sf20 + SQR(rho_starL*h))*Psim6;
+        Sf2 = (SQR(W)*sdots + BbardotS2*(B2bar + 2.0*W))/SQR(W+B2bar);
+        if ( fabs(W-W0) < W*tol && fabs(Sf20-Sf2) < Sf2*tol) fontcheck=false;
+     }
+  }
+  //************************************************************************************************************** 
+
+  if(fontcheck==true) {
+     return 1;
+  }
+
+  // Font fix works, now compute u_i
+  rhob = rhob1;
+  double P_cold,eps_cold;
+  compute_pcold_epscold_cpp(rhob, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+  double h = 1.0 + eps_cold + P_cold/rhob;
+  // double h = 1.0+kpoly2*rhob;
+  double gammav = rho_starL*Psim6/rhob;
+  double rhosh = rho_starL*h;
+  double fac1 = Psi6*BbardotS/(gammav*rhosh);
+  double fac2 = 1.0/(rhosh + Psi6*B2bar/gammav);
+  u_x = fac2*(mhd_st_xL + fac1*Bbar_x);
+  u_y = fac2*(mhd_st_yL + fac1*Bbar_y);
+  u_z = fac2*(mhd_st_zL + fac1*Bbar_z);
+  return 0;
+}
+
+int font_fix_general_gamma(double &u_x, double &u_y, double &u_z, double &rhob, 
+	     double &rho_starL,double &mhd_st_xL,double &mhd_st_yL,double &mhd_st_zL,
+	     double &BxL,double &ByL,double &BzL,
+	     double &gxx_physL,double &gxy_physL,double &gxz_physL,double &gyy_physL,double &gyz_physL,double &gzz_physL,
+	     double &gupxx_physL,double &gupxy_physL,double &gupxz_physL,double &gupyy_physL,double &gupyz_physL,double &gupzz_physL,double &Psi6, double &gamma, double &kpoly,
+			   int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse)
+{
+  double f1os4p = 1.0/sqrt(4.0*M_PI);
+  double tol = 1.e-15;
+  double gam1 = gamma-1.0;
+  double gam_gamm1_kpoly = gamma/gam1*kpoly;
+
+  double Bxbar = BxL*f1os4p;
+  double Bybar = ByL*f1os4p;
+  double Bzbar = BzL*f1os4p;
+  double Bbar_x = gxx_physL*Bxbar + gxy_physL*Bybar + gxz_physL*Bzbar;
+  double Bbar_y = gxy_physL*Bxbar + gyy_physL*Bybar + gyz_physL*Bzbar;
+  double Bbar_z = gxz_physL*Bxbar + gyz_physL*Bybar + gzz_physL*Bzbar;
+  double B2bar = Bxbar*Bbar_x + Bybar*Bbar_y + Bzbar*Bbar_z;
+  double Bbar = sqrt(B2bar);
+
+  double check_B_small = fabs(Bxbar)+fabs(Bybar)+fabs(Bzbar);
+  if (check_B_small>0 && check_B_small<1.e-150) {
+     // need to compute B2bar specially to prevent floating-point underflow
+     double Bmax = fabs(Bxbar);
+     if (Bmax < fabs(Bybar)) Bmax=fabs(Bybar);
+     if (Bmax < fabs(Bzbar)) Bmax=fabs(Bzbar);
+     double Bxtmp=Bxbar/Bmax, Bytemp=Bybar/Bmax, Bztemp=Bzbar/Bmax;
+     double B_xtemp=Bbar_x/Bmax, B_ytemp=Bbar_y/Bmax, B_ztemp=Bbar_z/Bmax;
+     Bbar = sqrt(Bxtmp*B_xtemp + Bytemp*B_ytemp + Bztemp*B_ztemp)*Bmax;
+  }
+  double BbardotS = Bxbar*mhd_st_xL + Bybar*mhd_st_yL + Bzbar*mhd_st_zL;
+  double BbardotS2 = BbardotS*BbardotS;
+  double hatBbardotS = BbardotS/Bbar;
+  if (Bbar<1.e-300) hatBbardotS = 0.0;
+  double Psim6 = 1.0/Psi6;
+
+  // Limit hatBbardotS
+  //double max_gammav = 100.0;
+  //double rhob_max = rho_starL*Psim6;
+  //double hmax = 1.0 + gam_gamm1_kpoly*pow(rhob_max,gam1);
+  //double abs_hatBbardotS_max = sqrt(SQR(max_gammav)-1.0)*rho_starL*hmax;
+  //if (fabs(hatBbardotS) > abs_hatBbardotS_max) {
+  //   double fac_reduce = abs_hatBbardotS_max/fabs(hatBbardotS);
+  //   double hatBbardotS_max = hatBbardotS*fac_reduce;
+  //   double Bbar_inv = 1.0/Bbar;
+  //   double hat_Bbar_x = Bbar_x*Bbar_inv;
+  //   double hat_Bbar_y = Bbar_y*Bbar_inv;
+  //   double hat_Bbar_z = Bbar_z*Bbar_inv;
+  //   double sub_fact = hatBbardotS_max - hatBbardotS;
+  //   mhd_st_xL += sub_fact*hat_Bbar_x;
+  //   mhd_st_yL += sub_fact*hat_Bbar_y;
+  //   mhd_st_zL += sub_fact*hat_Bbar_z;
+  //   hatBbardotS = hatBbardotS_max;
+  //   BbardotS *= fac_reduce;
+  //   BbardotS2 = BbardotS*BbardotS;
+  //}
+
+  double sdots = gupxx_physL*SQR(mhd_st_xL) + gupyy_physL*SQR(mhd_st_yL) + gupzz_physL*SQR(mhd_st_zL)
+                 + 2.0*( gupxy_physL*mhd_st_xL*mhd_st_yL + gupxz_physL*mhd_st_xL*mhd_st_zL
+                         + gupyz_physL*mhd_st_yL*mhd_st_zL);
+
+  if (sdots<1.e-300) {
+    rhob = rho_starL*Psim6;
+    u_x=0.0; u_y=0.0; u_z=0.0;
+    return 0;
+  }
+
+  if (BbardotS2 > sdots*B2bar) {
+     printf("(Bbar dot S)^2, Bbar^2 * sdotS, %e %e\n",SQR(BbardotS),sdots*B2bar);
+     printf("Bbar^2, sdotS, %e, %e \n", B2bar, sdots);
+     printf("Bxbar,Bybar,Bzbar, %e, %e, %e\n", Bxbar,Bybar,Bzbar);
+     printf("mhd_st_xL,mhd_st_yL,mhd_st_zL, %e, %e, %e\n", mhd_st_xL,mhd_st_yL,mhd_st_zL);
+     printf("gxx_physL,gyy_physL,gzz_physL,gxy_physL,gxz_physL,gyz_physL, %e, %e, %e, %e, %e, %e\n", gxx_physL,gyy_physL,gzz_physL,gxy_physL,gxz_physL,gyz_physL);
+     printf("gupxx_physL,gupyy_physL,gupzz_physL,gupxy_physL,gupxz_physL,gupyz_physL, %e, %e, %e, %e, %e, %e\n", gupxx_physL,gupyy_physL,gupzz_physL,gupxy_physL,gupxz_physL,gupyz_physL);
+     printf("Cauchy-Schwartz inequality is violated!\n");
+     //     exit(1);
+  }
+
+  // Initial guess for W, S_fluid and rhob
+  double W0 = sqrt( SQR(hatBbardotS) + SQR(rho_starL) ) * Psim6;
+  double Sf20 = (SQR(W0)*sdots + BbardotS2*(B2bar + 2.0*W0))/SQR(W0+B2bar);
+  double rhob0 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL));
+  double W=W0,Sf2=Sf20,rhob1=rhob0;
+
+  //****************************************************************
+  //                          FONT FIX
+  // Impose Font fix when HARM primitives solver fails to find
+  //   acceptable set of primitives.
+  //****************************************************************
+
+  bool fontcheck=true;
+
+  int itcount = 0, maxits=500;
+  while(fontcheck && itcount < maxits) {
+     itcount++;
+     W0 = W;
+     Sf20 = Sf2;
+     rhob0 = rhob1;
+
+     // first, find rhob for the given S_fluid^2
+     double eps_cold, P_cold;
+     compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+     double h = 1.0 + eps_cold + P_cold/rhob0;
+     //double h = 1.0 + gam_gamm1_kpoly*pow(rhob0,gam1); 
+     rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+     while( fabs(rhob1-rhob0) > rhob1*tol) {
+        rhob0 = rhob1;
+	compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	h = 1.0 + eps_cold + P_cold/rhob0;
+	//h = 1.0 + gam_gamm1_kpoly*pow(rhob0,gam1);
+        rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+     }
+
+     compute_pcold_epscold_cpp(rhob1, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+     h = 1.0 + eps_cold + P_cold/rhob1;
+     //h = 1.0 + gam_gamm1_kpoly*pow(rhob1,gam1);
+     W = sqrt( Sf20 + SQR(rho_starL*h))*Psim6;
+     Sf2 = (SQR(W)*sdots + BbardotS2*(B2bar + 2.0*W))/SQR(W+B2bar);
+     if ( fabs(W-W0) < W*tol && fabs(Sf20-Sf2) < Sf2*tol) fontcheck=false;
+  }
+
+  if (itcount>=maxits) {
+     // Increase tol and try again
+     fontcheck=true;
+     tol *=100.0;
+     itcount = 0;
+     while(fontcheck && itcount < maxits) {
+        itcount++;
+        W0 = W;
+        Sf20 = Sf2;
+        rhob0 = rhob1;
+
+        // first, find rhob for the given S_fluid^2
+	double eps_cold, P_cold;
+	compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	double h = 1.0 + eps_cold + P_cold/rhob0;
+        //double h = 1.0 + gam_gamm1_kpoly*pow(rhob0,gam1);
+        rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+        while( fabs(rhob1-rhob0) > rhob1*tol) {
+           rhob0 = rhob1;
+	   compute_pcold_epscold_cpp(rhob0, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	   h = 1.0 + eps_cold + P_cold/rhob0;
+	   //h = 1.0 + gam_gamm1_kpoly*pow(rhob0,gam1);
+           rhob1 = rho_starL*Psim6/sqrt(1.0+Sf20/SQR(rho_starL*h));
+        }
+
+	compute_pcold_epscold_cpp(rhob1, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	h = 1.0 + eps_cold + P_cold/rhob1;
+        //h = 1.0 + gam_gamm1_kpoly*pow(rhob1,gam1);
+        W = sqrt( Sf20 + SQR(rho_starL*h))*Psim6;
+        Sf2 = (SQR(W)*sdots + BbardotS2*(B2bar + 2.0*W))/SQR(W+B2bar);
+        if ( fabs(W-W0) < W*tol && fabs(Sf20-Sf2) < Sf2*tol) fontcheck=false;
+     }
+  }
+  //************************************************************************************************************** 
+
+  if(fontcheck==true) {
+     return 1;
+  }
+
+  // Font fix works, now compute u_i
+  rhob = rhob1;
+  double eps_cold, P_cold;
+  compute_pcold_epscold_cpp(rhob, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+  double h = 1.0 + eps_cold + P_cold/rhob;
+  //double h = 1.0+gam_gamm1_kpoly*pow(rhob,gam1);
+  double gammav = rho_starL*Psim6/rhob;
+  double rhosh = rho_starL*h;
+  double fac1 = Psi6*BbardotS/(gammav*rhosh);
+  double fac2 = 1.0/(rhosh + Psi6*B2bar/gammav);
+  u_x = fac2*(mhd_st_xL + fac1*Bbar_x);
+  u_y = fac2*(mhd_st_yL + fac1*Bbar_y);
+  u_z = fac2*(mhd_st_zL + fac1*Bbar_z);
+
+  if(isnan(u_x)) { printf("inside font_fix_gamma_law.C u_x is nan, fac1, fac2, mhd_st_xL, Bbar_x are %e,%e,%e, %e\n", fac1, fac2, mhd_st_xL, Bbar_x);}
+
+  return 0;
+}

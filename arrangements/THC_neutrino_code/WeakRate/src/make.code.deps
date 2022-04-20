@@ -1,0 +1,23 @@
+#module dependencies. Manually declared.
+Abar.F90.o:                  table3d_mod.F90.o
+Abar.F90.o:                  lk_interpolations.F90.o
+Abar.F90.o:                  weak_constants.F90.o
+atomic_mass.F90.o:           table3d_mod.F90.o
+atomic_mass.F90.o:           weak_constants.F90.o
+Emissions_cgs.F90.o:         infnan.F90.o
+Emissions_cgs.F90.o:         table3d_mod.F90.o
+Emissions_cgs.F90.o:         lk_interpolations.F90.o
+Emissions_cgs.F90.o:         weak_constants.F90.o
+NeutrinoDens_cgs.F90.o:      infnan.F90.o
+NeutrinoDens_cgs.F90.o:      table3d_mod.F90.o
+NeutrinoDens_cgs.F90.o:      weak_constants.F90.o
+Opacities_cgs.F90.o:         infnan.F90.o
+Opacities_cgs.F90.o:         table3d_mod.F90.o
+Opacities_cgs.F90.o:         lk_interpolations.F90.o
+Opacities_cgs.F90.o:         weak_constants.F90.o
+SetTableBounds.F90.o:        table3d_mod.F90.o
+weak_table_reader.F90.o:     table3d_mod.F90.o
+weak_table_reader.F90.o:     lk_hdfOpenField.F90.o
+weakrates_impl.F90.o:        infnan.F90.o
+weakrates_impl.F90.o:        table3d_mod.F90.o
+weakrates_impl.F90.o:        lk_interpolations.F90.o

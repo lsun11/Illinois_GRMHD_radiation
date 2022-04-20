@@ -1,0 +1,107 @@
+# Parameter definitions for thorn gw_extraction
+
+shares: IO
+USES KEYWORD out_every
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD numtheta
+USES KEYWORD numphi
+USES KEYWORD rbr
+
+restricted:
+
+REAL radius_GW_phys "The distance from the origin where GW's are measured, PHYSICAL COORDINATES!" STEERABLE = ALWAYS
+{
+ *:* :: "Anything, negative means set = to surf_radius converted to phys coords!"
+} -1.0
+
+REAL dR_GW "dR/dr" 
+{
+ *:* :: "Anything, negative means set = to surf_radius converted to phys coords!"
+} -1.0
+
+REAL ddR_GW "d^2R/dr^2"
+{
+ *:* :: "Anything, negative means set = to surf_radius converted to phys coords!"
+} -1.0
+
+REAL radius_GW "The distance from the origin where GW's are measured" STEERABLE = ALWAYS
+{
+ *:* :: "Anything, negative means set = to surf_radius!"
+} -1.0
+
+REAL theta_GW "The angle theta in radians in which GW's are measured" STEERABLE = ALWAYS
+{
+ 0:* :: "Positive"
+} 0.79
+
+REAL phi_GW "The angle phi in radians in which GW's are measured" STEERABLE = ALWAYS
+{
+ 0:* :: "Positive"
+} 0.52
+
+private:
+
+#################################
+# PsiKadelia-specific parameters
+#################################
+
+REAL compute_Psi4_min_radius "Minimum radius at which to compute Psi4" STEERABLE = ALWAYS
+{ 
+    0:* :: "Zero or positive"
+} 0.0
+
+REAL compute_Psi4_max_radius "Maximum radius at which to compute Psi4" STEERABLE = ALWAYS
+{ 
+    0:* :: "Zero or positive"
+} 100000.0
+
+
+
+BOOLEAN scale_with_radius "Multiply all scalars by power of radial coordinate"
+{
+} "no"
+
+INT radius_power "Power of radial coordinate to multiply by"
+{
+ 1:* :: ""
+} 1
+
+KEYWORD psif_vec "Where does the basis vector point?"
+{
+        "radial"        :: ""
+        "cartesian"     :: ""
+        "metric_diag"   :: ""
+        "shock"         :: ""
+} "radial"
+
+INT use_Rij_from_compute_ricci "Compute Ricci using the built-in PsiKadelia routine instead of our own Ricci computation?  WARNING: Do not yet trust results when this is set to 1."
+{ 
+    0:* :: "Positive"
+} 0
+
+INT enable_interp_onepoint "Interpolate Psi4re and Psi4im to one point on the grid?  Useful for linearized wave; uses radius_GW,theta_GW,phi_GW"
+{ 
+    0:* :: "Positive"
+} 0
+
+INT num_extraction_radii "Number of extraction radii"
+{ 
+    0:* :: "Positive"
+} 1
+
+REAL radius_GW_Psi4[101] "extraction radii"
+{ 
+    0:* :: "Zero or positive"
+} 0
+
+INT nmodes_ZM "number of modes for GW extraction routine" STEERABLE = ALWAYS
+{
+  0:* :: "Number of spin-weight -2 l,m modes to output. Set this to 7 for all l<=3 modes."
+} 7
+
+INT nmodes_Psi4 "number of modes for GW extraction routine" STEERABLE = ALWAYS
+{
+  0:* :: "Number of spin-weight -2 l,m modes to output. Set this to 21 for all l<=3 modes."
+} 21

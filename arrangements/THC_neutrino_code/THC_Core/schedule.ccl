@@ -1,0 +1,169 @@
+# Schedule definitions for thorn THC_Core
+
+###############################################################################
+# Storage
+###############################################################################
+
+# Evolved variables
+if(CCTK_Equals(eos_type, "barotropic")) {
+    STORAGE: dens[timelevels]
+}
+if(CCTK_Equals(eos_type, "ideal")) {
+    STORAGE: dens[timelevels]
+}
+if(CCTK_Equals(eos_type, "nuclear")) {
+    STORAGE: dens[timelevels]
+    STORAGE: densxn[timelevels]
+    STORAGE: densxp[timelevels]
+}
+
+STORAGE: scon[timelevels]
+
+if(!CCTK_Equals(eos_type, "barotropic")) {
+    STORAGE: tau[timelevels]
+}
+
+# Extra fields
+STORAGE: csound
+if(!CCTK_Equals(eos_type, "ultrarelativistic")) {
+    STORAGE: zvec[timelevels]
+    STORAGE: volform
+}
+
+# RHS
+if(CCTK_Equals(eos_type, "barotropic")) {
+    STORAGE: rhs_dens
+}
+if(CCTK_Equals(eos_type, "ideal")) {
+    STORAGE: rhs_dens
+}
+if(CCTK_Equals(eos_type, "nuclear")) {
+    STORAGE: rhs_densxn
+    STORAGE: rhs_densxp
+}
+
+STORAGE: rhs_scon
+
+if(!CCTK_Equals(eos_type, "barotropic")) {
+    STORAGE: rhs_tau
+}
+
+# Debug variables
+STORAGE: bitmask
+if(!CCTK_Equals(eos_type, "ultrarelativistic")) {
+    STORAGE: densgain[timelevels]
+    STORAGE: c2a_densgain
+    STORAGE: c2a_densgain_db
+    STORAGE: rhs_densgain
+    STORAGE: c2a_nbiter
+}
+
+###############################################################################
+# Initialization
+###############################################################################
+SCHEDULE THC_Init AT CCTK_STARTUP
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register banner"
+
+SCHEDULE THC_ParamCheck AT CCTK_PARAMCHECK
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Check parameters"
+
+SCHEDULE THC_SetSym AT CCTK_BASEGRID
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Setup symmetries"
+
+SCHEDULE THC_SetupAtmosphere AT CCTK_WRAGH
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Setup atmosphere parameters"
+
+SCHEDULE THC_HRSCCRegister AT CCTK_WRAGH AFTER THC_SetupAtmosphere
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register variable indices with HRSCCore"
+
+SCHEDULE THC_MoLRegister IN MoL_Register
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register variables with MoL"
+
+###############################################################################
+# Post-initial data
+###############################################################################
+# Notice that THC never copies data to the past timelevels
+SCHEDULE THC_PrimToAllInitial IN HydroBase_Prim2ConInitial
+{
+    LANG: C
+} "Initialize all the other variables"
+
+###############################################################################
+# Post recover
+###############################################################################
+if(reset_densgain) {
+    SCHEDULE THC_ResetDensgain AT CCTK_POST_RECOVER_VARIABLES
+    {
+        LANG: C
+    } "Resets densgain to zero"
+}
+
+###############################################################################
+# Main loop
+###############################################################################
+if (CCTK_Equals(evolution_method, "THCode")) {
+    SCHEDULE GROUP THC_SetExcisionMask IN HydroBase_Con2Prim
+    {
+    } "Thorns providing excision should set the bitmask"
+
+    SCHEDULE THC_ConsToAll IN HydroBase_Con2Prim AFTER THC_SetExcisionMask
+    {
+        LANG: C
+    } "Computes the primitives from the conservatives"
+
+    SCHEDULE THC_InitSource IN HydroBase_RHS
+    {
+        LANG: C
+    } "Initializes the source term"
+
+    if(CCTK_Equals(physics, "GRHD")) {
+        SCHEDULE THC_GRSource IN HydroBase_RHS AFTER THC_InitSource
+        {
+            LANG: C
+        } "Computes the geometric source terms"
+    }
+
+    SCHEDULE THC_RHS IN HydroBase_RHS AFTER (THC_InitSource THC_GRSource)
+    {
+        LANG: C
+    } "Compute the RHS for MoL"
+
+    if(CCTK_Equals(physics, "GRHD")) {
+        SCHEDULE THC_AddToTmunu IN AddToTmunu
+        {
+            LANG: C
+        } "Adds the contribution of the fluid to the global stress-energy tensor"
+    }
+
+    SCHEDULE THC_SelectBC IN HydroBase_Select_Boundaries
+    {
+        LANG: C
+        # This goes in SINGLEMAP, because cctk_nghostzones
+        # is not defined in LEVEL mode
+        OPTIONS: SINGLEMAP
+        SYNC: dens
+        SYNC: densxn
+        SYNC: densxp
+        SYNC: scon
+        SYNC: tau
+        SYNC: densgain
+    } "Select boundary conditions"
+}

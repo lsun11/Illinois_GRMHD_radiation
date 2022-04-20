@@ -1,0 +1,50 @@
+# Schedule definitions for thorn WaveMoL
+# $Header: /cactusdevcvs/CactusExamples/WaveMoL/schedule.ccl,v 1.2 2005/02/09 17:34:33 schnetter Exp $
+
+STORAGE: scalarevolvemol_scalar[3], scalarevolvemol_vector[3]
+STORAGE: scalarrhsmol_scalar, scalarrhsmol_vector
+STORAGE: energy
+
+schedule WaveMoL_Startup at STARTUP
+{
+  LANG: C
+} "Register Banner"
+
+schedule WaveMoL_InitSymBound at BASEGRID
+{
+  LANG: C
+  OPTIONS: META
+} "Schedule symmetries"
+
+schedule WaveMoL_RegisterVars in MoL_Register
+{
+  LANG: C
+  OPTIONS: META
+} "Register variables for MoL"
+
+schedule WaveMoL_CalcRHS in MoL_CalcRHS
+{
+  LANG: C
+} "Register RHS calculation for MoL"
+
+schedule WaveMoL_Energy in MoL_PostStep
+{
+  LANG: C
+} "Calculate the energy"
+
+schedule WaveMoL_Energy at POSTINITIAL
+{
+  LANG: C
+} "Calculate the energy"
+
+schedule WaveMoL_Boundaries in MoL_PostStep
+{
+  LANG: C
+  OPTIONS: LEVEL
+  SYNC: scalarevolvemol_scalar
+  SYNC: scalarevolvemol_vector
+} "Register boundary enforcement in MoL"
+
+schedule GROUP ApplyBCs as WaveMoL_ApplyBCs in MoL_PostStep after WaveMoL_Boundaries
+{
+} "Apply boundary conditions for WaveMoL"

@@ -1,0 +1,17 @@
+# Parameter definitions for thorn fisheye
+# $Header:$
+
+shares: bssn
+
+shares: IO
+USES KEYWORD out_every
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+global:
+INT fisheye_enable "Enable Fisheye"
+{
+  0:1 :: "Either 0 (no) or 1 (yes)"
+} 0

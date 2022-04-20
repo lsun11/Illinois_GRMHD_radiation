@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn bondi
+
+# Source files in this directory
+SRCS = initialdata.F90 diagnostics.F90 moving_bondi.F90 setup_multiple_rhosurfaces.F90
+
+
+# Subdirectories containing source files
+SUBDIRS = 

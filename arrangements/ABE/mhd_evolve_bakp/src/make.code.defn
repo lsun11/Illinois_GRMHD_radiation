@@ -1,0 +1,40 @@
+# Main make.code.defn file for thorn mhd_evolve
+
+# Source files in this directory
+SRCS =  driver_check_tau.F90\
+     	MoL_registration.C mhd_postinitialdata.F90 zero_emfields_rhs.F90 \
+	driver_mhd_flux_and_rhs1D_v1.F90  driver_timestepping_v1.F90  driver_primitives_and_bcs_v1.F90  driver_reconstruction_v1.F90 \
+	advection_flux.F90 ceno.F90 hydro_advection.F90 mhd_source_z_tau_curvaturev1.F90 \
+	mhdflux-hybrid.F90 hydro_routines.F90 \
+	primitives_hybrid.F90 primitives_hybrid_alt_disk.F90 \
+	matter_bc_movbh.F90 \
+	setup_rhovec.F90 \
+	mhd_advection.F90 mhdppm.F90 InitSymBound.C \
+	cell_centered_or_not.F90 monopole_checker.F90 convert_fish_matter.F90 \
+	\
+	matter_bc_mhd_disk.F90  \
+	\
+	driver_mhd_flux_and_rhs1D_v2.F90  driver_timestepping_v2.F90 driver_timestepping_ppm.F90  driver_primitives_and_bcs_v2.F90  driver_reconstruction_v2.F90 \
+	\
+	driver_reconstruction_ppm.F90 driver_emfields_bcs_v2.F90 \
+	apply_bcs.F90 apply_rad_bcs.F90 set_U_syms.C apply_U_syms.F90 set_have_global_bdry_minmax.F90 \
+	mhdfluxnew-hybrid.C source_z_tau.C mc_reconstruct.C faceval.C z_advect.C rho_e.C tau_curvature.C \
+	\
+	hydro_primitivesv2.C driver_post_regrid.F90 \
+	\
+	ppm_reconstruct_v2.F90 primitives_hybrid.C \
+	\
+	ppm_find_centderivs_f_cpp.C ppm_compute_face_avg.C ppm_shift_v2.C ppm_monotonize_v2.C ppm_ftilde_v2.C ppm_find_facevals.C ppm_steepen_rho_v2.C ppm_flatten_v2.C \
+	\
+	driver_apply_bcs_on_A.F90 compute_B_from_A.F90 compute_B_from_A_post_regrid.F90 P_Pthermal_conversion.C driver_primitives_postmolstep.F90 hydro_primitives_inside_horizon.C \
+	\
+	get_ah_radius_in_dirn.C \
+	\
+	primitives_generic.C harm_primitives_metric_source_etc.C mhd_A_psi6phi_rhs.C compute_b2.C mhd_A_psi6phi_rhs-evolved_but_not_Lorenz.C \
+	recompute_conservs_standalone.C \
+	\
+	tau_curvature_with_cooling.C tau_curvature_with_cooling_HARM.C compute_T_fluid.C
+
+#	compute_riccinew-inhoriz.C
+
+SUBDIRS = emfields  rad_fields

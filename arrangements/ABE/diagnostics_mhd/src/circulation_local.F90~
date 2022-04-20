@@ -1,0 +1,184 @@
+!-----------------------------------------------------------------------------
+! Compute c= \int_0^2pi h u^m dS_m.
+!  Note that we work around a surface centered at xcenter,ycenter,zcenter
+!-----------------------------------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine circulation(cctkGH,x_cm,y_cm,z_cm,r_local,output_integral)
+  implicit none
+  DECLARE_CCTK_FUNCTIONS
+  DECLARE_CCTK_PARAMETERS
+  
+  ! Variables in the function call
+  CCTK_POINTER                             :: cctkGH
+  real*8                                   :: x_cm,y_cm,z_cm,r_local
+  real*8                                   :: output_integral
+  ! Variables needed for interpolation
+  CCTK_POINTER, dimension(3)               :: interp_coords
+  character(60)                            :: options_string
+  integer                                  :: interpolation_order,nchars
+  integer                                  :: ierr,N_dims,interp_handle,param_table_handle,coord_system_handle,N_interp_points
+  integer                                  :: N_input_arrays,N_output_arrays
+  real*8, dimension(Nphi_points)                 :: xinterp,yinterp,zinterp
+  integer,dimension(15)                    :: input_array_type_codes,input_array_varindices,output_array_type_codes
+  CCTK_POINTER,dimension(15)               :: output_array_pointers
+  ! Output arrays, dummy indices, parameters
+  real*8,dimension(Nphi_points)            :: Psi4i,gxxi,gxyi,gxzi,gyyi,gyzi,gzzi
+  real*8,dimension(Nphi_points)            :: shiftxi,shiftyi,shiftzi,lamp1i,vxi,vyi,vzi,hi
+  real*8,dimension(Nphi_points)            :: v2
+  real*8                                   :: phiangle,PI,nxp,nyp,nzp
+  real*8                                   :: alp_u02,u02,u0,u_x,u_y
+  integer                                  :: i,j,n
+
+  PI = 3.14159265358979323846D0
+
+  N_dims = 3
+  interpolation_order = 2
+  N_interp_points = Nphi_points
+
+  interp_handle = -1 
+  call CCTK_InterpHandle (interp_handle, "Lagrange polynomial interpolation")
+!  call CCTK_InterpHandle (interp_handle, "uniform cartesian")
+  if (interp_handle .lt. 0) then
+     call CCTK_WARN(0,"Cannot get handle for interpolation ! Forgot to activate an implementation providing interpolation operators ??")
+  endif
+  
+  param_table_handle = -1
+  options_string = "order = " // char(ichar('0') + interpolation_order)
+  call Util_TableCreateFromString (param_table_handle, options_string)
+  if (param_table_handle .lt. 0) then
+     call CCTK_WARN(0,"Cannot create parameter table for interpolator")
+  endif
+
+  coord_system_handle = -1
+  call CCTK_CoordSystemHandle (coord_system_handle, "cart3d")
+  if (coord_system_handle .lt. 0) then
+     call CCTK_WARN(0,"Cannot get handle for cart3d coordinate system ! Forgot to activate an implementation providing coordinates ??")
+  endif
+
+  input_array_type_codes = CCTK_VARIABLE_REAL
+  output_array_type_codes = CCTK_VARIABLE_REAL
+
+  ! Specify interpolation input arrays, output arrays:
+  N_input_arrays = 15
+  N_output_arrays = 15
+
+  print *,"before call arrays"
+
+  call CCTK_VarIndex (input_array_varindices(1), "bssn::phi")
+  call CCTK_VarIndex (input_array_varindices(2), "bssn::gxx")
+  call CCTK_VarIndex (input_array_varindices(3), "bssn::gxy")
+  call CCTK_VarIndex (input_array_varindices(4), "bssn::gxz")
+  call CCTK_VarIndex (input_array_varindices(5), "bssn::gyy")
+  call CCTK_VarIndex (input_array_varindices(6), "bssn::gyz")
+  call CCTK_VarIndex (input_array_varindices(7), "bssn::gzz")
+
+  call CCTK_VarIndex (input_array_varindices(8),  "shift::shiftx")
+  call CCTK_VarIndex (input_array_varindices(9),  "shift::shifty")
+  call CCTK_VarIndex (input_array_varindices(10), "shift::shiftz")
+  call CCTK_VarIndex (input_array_varindices(11), "lapse::lapm1")
+  call CCTK_VarIndex (input_array_varindices(12), "mhd_evolve::vx")
+  call CCTK_VarIndex (input_array_varindices(13), "mhd_evolve::vy")
+  call CCTK_VarIndex (input_array_varindices(14), "mhd_evolve::vz")
+!  call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+
+  call CCTK_VarIndex (input_array_varindices(15), "mhd_evolve::h")
+
+  print *,"after call arrays"
+  output_array_pointers(1) = CCTK_PointerTo(Psi4i)
+  output_array_pointers(2) = CCTK_PointerTo(gxxi)
+  output_array_pointers(3) = CCTK_PointerTo(gxyi)
+  output_array_pointers(4) = CCTK_PointerTo(gxzi)
+  output_array_pointers(5) = CCTK_PointerTo(gyyi)
+  output_array_pointers(6) = CCTK_PointerTo(gyzi)
+  output_array_pointers(7) = CCTK_PointerTo(gzzi)
+  output_array_pointers(8) = CCTK_PointerTo(shiftxi)
+  output_array_pointers(9) = CCTK_PointerTo(shiftyi)
+  output_array_pointers(10) = CCTK_PointerTo(shiftzi)
+  output_array_pointers(11) = CCTK_PointerTo(lamp1i)
+  output_array_pointers(12) = CCTK_PointerTo(vxi)
+  output_array_pointers(13) = CCTK_PointerTo(vyi)
+  output_array_pointers(14) = CCTK_PointerTo(vzi)
+  output_array_pointers(15) = CCTK_PointerTo(hi)
+
+  print *,"output  array ponters"
+
+  ! Set up interpolation coordinate arrays:
+  n = 1
+
+  dphi = 2.0d0*PI/Nphi_points
+  do j=1,Nphi_points
+!     phiangle = (j - 0.5D0)*dphi
+     phiangle = j*dphi
+!     if(N_phi==1) phiangle = 0.D0
+     xinterp(n) = r_local*cos(phiangle)+x_cm
+     yinterp(n) = r_local*sin(phiangle)+y_cm
+     zinterp(n) = 0.0
+     n = n + 1
+  end do
+  
+  interp_coords(1) = CCTK_PointerTo(xinterp)
+  interp_coords(2) = CCTK_PointerTo(yinterp)
+  interp_coords(3) = CCTK_PointerTo(zinterp)
+
+  ! Perform interpolation:
+  call CCTK_InterpGridArrays(ierr,cctkGH,N_dims,interp_handle, &
+       param_table_handle,coord_system_handle, &
+       N_interp_points,input_array_type_codes,interp_coords, &
+       N_input_arrays,input_array_varindices, &
+       N_output_arrays, output_array_type_codes, output_array_pointers)
+
+
+  print *,"after interpolation"
+
+! define new arrays
+  psi4i  = exp(4.d0*psi4i)
+  lamp1i = 1.0+lamp1i
+  gxxi   = psi4i*gxxi
+  gxyi   = psi4i*gxyi
+  gxzi   = psi4i*gxzi
+  gyyi   = psi4i*gyyi
+  gyzi   = psi4i*gyzi
+  gzzi   = psi4i*gzzi
+
+  v2     = (    gxxi*(vxi + shiftxi)*(vxi + shiftxi)  &
+        + 2.0d0*gxyi*(vxi + shiftxi)*(vyi + shiftyi)  & 
+        + 2.0d0*gxzi*(vxi + shiftxi)*(vzi + shiftzi)  &
+        +       gyyi*(vyi + shiftyi)*(vyi + shiftyi)  &
+        + 2.0d0*gyzi*(vyi + shiftyi)*(vzi + shiftzi)  &
+        +       gzzi*(vzi + shiftzi)*(vzi + shiftzi) ) /  &
+        (lamp1i*lamp1i)
+
+
+
+  if(ierr.ge.0) then
+     !|~~~~~> Integrate the dot product of Dphi with the surface normal:
+     output_integral = 0.D0
+     do i=1,N_interp_points
+
+        alp_u02 = 1.0/(1.0-v2(i))
+        u02 = alp_u02 /(lamp1i(i)*lamp1i(i))
+        u0 = sqrt(u02)
+
+        !compute u_i
+        u_x = u0*(gxxi(i)*(vxi(i)+shiftxi(i)) + gxyi(i)*(vyi(i)+shiftyi(i)) + &
+              gxzi(i)*(vzi(i)+shiftzi(i)) )
+        u_y = u0*(gxyi(i)*(vxi(i)+shiftxi(i)) + gyyi(i)*(vyi(i)+shiftyi(i)) + &
+              gyzi(i)*(vzi(i)+shiftzi(i)) )
+
+        !tangent vector
+        nxp= -(yinterp(i)-y_cm)
+        nyp=  (xinterp(i)-x_cm)
+
+        output_integral = output_integral + hi(i)*(nxp*u_x +nyp*u_y)
+     end do
+     
+     output_integral = output_integral * dphi
+  else
+     output_integral = -9999.D0
+  end if
+
+end subroutine circulation

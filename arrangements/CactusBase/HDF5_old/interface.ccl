@@ -1,0 +1,5 @@
+# Interface definition for thorn HDF5
+# $Header: /cactusdevcvs/AlphaThorns/HDF5/interface.ccl,v 1.1.1.1 2004/04/13 18:34:40 yye00 Exp $
+
+implements: HDF5
+inherits:

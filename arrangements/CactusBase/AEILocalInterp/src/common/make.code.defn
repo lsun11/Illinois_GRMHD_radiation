@@ -1,0 +1,5 @@
+# make.code.defn file for support routines common to multiple molecule families
+# $Header: /numrelcvs/AEIThorns/AEILocalInterp/src/common/make.code.defn,v 1.1.1.1 2003/07/06 11:16:19 jthorn Exp $
+
+# Source files in this directory
+SRCS = load.c evaluate.c store.c

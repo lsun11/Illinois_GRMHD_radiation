@@ -1,0 +1,11 @@
+Cactus Code Thorn THC_LeakageBase
+Author(s)    : David Radice <dradice@caltech.edu>
+             : Filippo Galeazzi <galeazzi@th.physik.uni-frankfurt.de>
+Maintainer(s): David Radice <dradice@caltech.edu>
+             : Filippo Galeazzi <galeazzi@th.physik.uni-frankfurt.de>
+Licence      : GPLv3
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Neutrino leakage for the Templated Hydrodynamics Code

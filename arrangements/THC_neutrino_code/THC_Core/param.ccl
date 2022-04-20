@@ -1,0 +1,253 @@
+# Parameter definitions for thorn THC_Core
+
+SHARES: ADMMacros
+
+USES INT spatial_order
+
+SHARES: HydroBase
+
+EXTENDS KEYWORD initial_entropy "Initial value for the entropy"
+{
+    "THCode" :: "Templated Hydrodynamics Code"
+}
+EXTENDS KEYWORD initial_temperature "Initial value for temperature"
+{
+    "THCode" :: "Templated Hydrodynamics Code"
+}
+
+EXTENDS KEYWORD evolution_method "The hydro evolution method"
+{
+    "THCode" :: "Templated Hydrodynamics Code"
+}
+EXTENDS KEYWORD entropy_evolution_method "The entropy evolution method"
+{
+    "THCode" :: "Templated Hydrodynamics Code"
+}
+EXTENDS KEYWORD temperature_evolution_method "The temperature evolution method"
+{
+    "THCode" :: "Templated Hydrodynamics Code"
+}
+EXTENDS KEYWORD Y_e_evolution_method "The Ye evolution method"
+{
+    "THCode" :: "Templated Hydrodynamics Code"
+}
+
+USES INT hydro_excision
+USES KEYWORD initial_Y_e
+USES KEYWORD prolongation_type
+USES INT timelevels
+
+SHARES: MethodOfLines
+USES INT MoL_Num_Evolved_Vars
+USES INT MoL_Num_Constrained_Vars
+USES INT MoL_Num_SaveAndRestore_Vars
+
+SHARES: HRSCCore
+USES KEYWORD scheme
+USES BOOLEAN pplim
+USES BOOLEAN refluxing
+
+SHARES: Time
+USES KEYWORD timestep_method
+
+RESTRICTED:
+
+###############################################################################
+# Physics
+###############################################################################
+# NOTE: ADMBase is always required, even for SRHD!
+KEYWORD physics "The physical system to simulate"
+{
+    "SRHD"      :: "Special Relativistic Hydrodynamics"
+    "GRHD"      :: "General Relativistic Hydrodynamics"
+    "GRMHD"     :: "General Relativistic Magneto-Hydrodynamics"
+} "GRHD"
+
+KEYWORD eos_type "Type of the equation of state to use"
+{
+    "barotropic"         :: "Barotropic EOS (e.g. polytropes)"
+    "ideal"              :: "Idealized two parameter EOS (e.g. ideal gas)"
+    "nuclear"            :: "Temperature and composition dependent nuclear EOS"
+    "ultrarelativistic"  :: "Ultrarelativistic EOS (only in Minkowsky!)"
+} "ideal"
+
+CCTK_REAL ultrarelativistic_gamma "Adiabatic index for the ultrarelativistic hydrodynamics case"
+{
+    (1:2) :: "Any physically reasonable number"
+} 1.33333333333333
+
+###############################################################################
+# Atmosphere
+###############################################################################
+CCTK_REAL atmo_rho "Density in the atmosphere" STEERABLE=recover
+{
+    (0:* :: "Any positive value"
+} 1e-10
+
+# This is used if eos == "ideal"
+CCTK_REAL atmo_eps "Specific internal energy in the atmosphere" STEERABLE=recover
+{
+    (0:* :: "Any positive value"
+} 1e-8
+
+# This is used if eos == "nuclear"
+CCTK_REAL atmo_temperature "Temperature in the atmosphere" STEERABLE=recover
+{
+    0:* :: "Exact range depends on the EOS validity regions"
+} 1.0
+
+# This is used if eos == "nuclear"
+CCTK_REAL atmo_Y_e "Y_e in the atmosphere" STEERABLE=recover
+{
+    0:1 :: "Any value between 0 and 1"
+} 0.4
+
+# Set to zero for positivity preserving!
+CCTK_REAL atmo_tolerance "Tolerance on the atmosphere" STEERABLE=recover
+{
+    * :: "Any value"
+} 0.01
+
+BOOLEAN atmo_I_know_what_I_am_doing "Set to yes to disable strict paramchecks" STEERABLE=recover
+{
+} "no"
+
+BOOLEAN atmo_is_dynamic "Dynamic atmosphere (only for ultrarelativistic fluids)" STEERABLE=recover
+{
+} "no"
+
+###############################################################################
+# Boundary conditions
+###############################################################################
+KEYWORD bc_type "Which boundary conditions"
+{
+    "flat" :: "0th order extrapolation"
+    "none" :: "Do nothing boundary conditions"
+} "none"
+
+###############################################################################
+# Eigenvector decomposition
+###############################################################################
+# These parameters apply only to algorithms using the full characteristic informations
+CCTK_REAL eig_min_csound "Switch to the component-wise Lax-Friedrichs flux-split if the csound is smaller than a given value" STEERABLE=always
+{
+    0:* :: "Any non-negative value"
+} 1e-3
+
+CCTK_REAL eig_min_rho  "Switch to the component-wise Lax-Friedrichs flux-split if the density is smaller than a given value" STEERABLE=always
+{
+    0:* :: "Any non-negative value"
+} 0.0
+
+CCTK_REAL eig_min_alp "Switch to the component-wise Lax-Friedrichs flux-split if the lapse is smaller than a given value" STEERABLE=always
+{
+    0:* :: "Any non-negative value"
+} 0.1
+
+###############################################################################
+# Recovery from the conservatives variables
+###############################################################################
+CCTK_REAL c2a_accuracy "Target minimum absolute value for the residual in the rootfinding method" STEERABLE=always
+{
+    0:* :: "Any non-negative number"
+} 1e-8
+
+CCTK_REAL c2a_BH_alp "Assume that we are in BH if the lapse is smaller than this value and use a more lenient c2a" STEERABLE=always
+{
+    0:* :: "Any non-negative number"
+} 0.1
+
+CCTK_REAL c2a_rho_strict "Strict cons_to_all above this density threshold" STEERABLE=always
+{
+    0:* :: "Any non-negative number"
+} 1e-5
+
+CCTK_REAL c2a_zmax "Maximum allowed value of W vel" STEERABLE=always
+{
+    (0:* :: "Any positive number"
+} 10.0
+
+CCTK_INT c2a_max_iter "Maximum number of iterations for the Newton-Raphson rootfinding method" STEERABLE=always
+{
+    0:* :: "Any non-negative integer"
+} 100
+
+BOOLEAN c2a_fail_if_eps_lt_min "Fail the c2a if the specific internal energy is less than the minimum (if c2a is strict)" STEERABLE=always
+{
+} "no"
+
+BOOLEAN c2a_fail_if_eps_gt_max "Fail the c2a if the specific internal energy is greater than the maximum (if c2a is strict)" STEERABLE=always
+{
+} "yes"
+
+BOOLEAN c2a_fail_if_ye_lt_min "Fail the c2a if the electron fraction is less than the minimum (if c2a is strict)" STEERABLE=always
+{
+} "yes"
+
+BOOLEAN c2a_fail_if_ye_gt_max "Fail the c2a if the electron fraction is greater than the maximum (if c2a is strict)" STEERABLE=always
+{
+} "yes"
+
+BOOLEAN c2a_kill_on_failure "Kills the simulation if c2a fails" STEERABLE=always
+{
+} "no"
+
+BOOLEAN c2a_fix_nans "Fix NaNs in the c2a by setting points to atmosphere" STEERABLE=always
+{
+} "no"
+
+BOOLEAN c2a_set_to_nan_on_failure "Sets the conservative to NaN if c2a fails" STEERABLE=always
+{
+} "no"
+
+BOOLEAN c2a_fix_conservatives "Update the conservatives after cons_to_all" STEERABLE=always
+{
+} "no"
+
+CCTK_INT c2a_max_num_msg "Maximum number of messagges to print to stderr for each process / iteration" STEERABLE=always
+{
+    0:* :: "Any non-negative number"
+} 10
+
+###############################################################################
+# Misc
+###############################################################################
+# This is used only in the GR case
+INT fd_order "Finite-Differencing order for the spacetime"
+{
+    2:8:2 :: "Supported values are 2, 4, 6 and 8"
+} 4
+
+BOOLEAN verbose "Debug output" STEERABLE=always
+{
+} "no"
+
+BOOLEAN give_wrong_results "Use funny arithmetics"
+{
+} "yes"
+
+BOOLEAN reset_densgain "Reset densgain after recovery" STEERABLE=recover
+{
+} "no"
+
+RESTRICTED:
+
+CCTK_INT max_num_substeps "The maximum number of substeps in the time integration method"
+{
+    1:* :: "Any positive integer"
+} 4
+
+CCTK_INT THC_Core_MaxNumEvolvedVars "The maximum number of evolved variables used by THC_Core" ACCUMULATOR-BASE=MethodOfLines::MoL_Num_Evolved_Vars
+{
+    4:7 :: "[dens || densxn, densxp]?, scon[0], scon[1], scon[2], tau, [densgain]"
+} 7
+
+CCTK_INT THC_Core_MaxNumConstrainedVars "The maximum number of constrained variables used by THC_Core" ACCUMULATOR-BASE=MethodOfLines::MoL_Num_Constrained_Vars
+{
+    8:14 :: "rho, vel[0], vel[1], vel[2], eps, press, [temperature]?, [Y_e]?, w_lorentz, csound, [zvec[0], zvec[1], zvec[2]]?, [dens]?"
+} 14
+
+CCTK_INT THC_Core_MaxNumSaveAndRestoreVars "The maximum number of save-and-restore variables used by THC_Core" ACCUMULATOR-BASE=MethodOfLines::MoL_Num_SaveAndRestore_Vars
+{
+    0 :: "-"
+} 0

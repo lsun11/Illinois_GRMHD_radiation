@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn bssn
+# $Header:$
+
+# Source files in this directory
+SRCS = excision_bc.F90 matter_excision_bc.F90 masking_functions.F90 radius.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

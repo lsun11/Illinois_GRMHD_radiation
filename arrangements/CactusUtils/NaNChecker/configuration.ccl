@@ -1,0 +1,8 @@
+# Configuration definitions for thorn NaNChecker
+# $Header: /cactusdevcvs/CactusUtils/NaNChecker/configuration.ccl,v 1.1 2004/04/28 14:45:01 tradke Exp $
+
+PROVIDES NaNChecker
+{
+  SCRIPT
+  LANG
+}

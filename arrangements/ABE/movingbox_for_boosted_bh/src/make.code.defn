@@ -1,0 +1,4 @@
+# Main make.code.defn file for thorn movingbox
+
+# Source files in this directory
+SRCS = movingbox_update_center_part1.F90 movingbox_update_center_part2.F90 movingbox_update_center_part3.F90 setup_moving_box_center.F90

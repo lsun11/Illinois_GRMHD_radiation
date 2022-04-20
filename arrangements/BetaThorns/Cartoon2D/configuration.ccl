@@ -1,0 +1,4 @@
+# Configuration definition for thorn Cartoon2D
+# $Header: /cactusdevcvs/BetaThorns/Cartoon2D/configuration.ccl,v 1.1 2005/11/10 14:05:35 hawke Exp $
+
+REQUIRES SpaceMask

@@ -1,0 +1,8 @@
+# Main make.code.defn file for disk initial data thorn
+
+# Source files in this directory
+SRCS =  read_inputfiles_disk.C initialdata.F90 analytic_horizon.F90 \
+	diagnostics.F90 diagnostic_routines.F90 setup_alt_atmosphere.F90 \
+	trans_fish_phys_fullgridfunction.F90 ks_initial_metric_disk.F90 accretion_disk.F90 \
+	monopole_checker_disk.F90
+

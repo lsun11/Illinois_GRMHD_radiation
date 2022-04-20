@@ -1,0 +1,53 @@
+K 25
+svn:wc:ra_dav:version-url
+V 38
+/h5check/!svn/ver/171/tags/h5check_2_0
+END
+configure
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/h5check/!svn/ver/171/tags/h5check_2_0/configure
+END
+Makefile.in
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/h5check/!svn/ver/171/tags/h5check_2_0/Makefile.in
+END
+configure.ac
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/h5check/!svn/ver/171/tags/h5check_2_0/configure.ac
+END
+COPYING
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/h5check/!svn/ver/171/tags/h5check_2_0/COPYING
+END
+Makefile.am
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/h5check/!svn/ver/171/tags/h5check_2_0/Makefile.am
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/h5check/!svn/ver/171/tags/h5check_2_0/README
+END
+aclocal.m4
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/h5check/!svn/ver/171/tags/h5check_2_0/aclocal.m4
+END
+RELEASE.txt
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/h5check/!svn/ver/171/tags/h5check_2_0/RELEASE.txt
+END

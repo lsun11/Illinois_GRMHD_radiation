@@ -1,0 +1,33 @@
+# Main make.code.defn file for thorn diagnostics_mhd
+
+# Source files in this directory
+SRCS = 	Integrate_vol_integrand.F90 \
+	\
+	vol_integrand-b_phi.F90 vol_integrand-em_energy2.F90 vol_integrand-em_energy.F90 \
+	vol_integrand-kinetic_energy_T.F90 vol_integrand-minternal_hybrid.F90 \
+	vol_integrand-rest_mass.F90 vol_integrand-rest_mass_inside_AH.F90 \
+	vol_integrand-CenterofMass.F90 vol_integrand-monopole_checker.F90 \
+	vol_integrand-rest_mass_4surf.F90 vol_integrand-escaping_rest_mass.F90 \
+	vol_integrand-fluid_energy_4surf.F90 \
+	vol_integrand-fluid_J_4surf.F90 \
+	vol_integrand-minternal_hybrid_4surf.F90 vol_integrand-minternal_cold_hybrid_4surf.F90 \
+	\
+	surface_integrals-mhd_fluxes.F90  \
+	mass_integral.F90 energies.F90 \
+	find_equatorial_radius.F90 find_massweighted_average.F90 \
+	em_energies.F90 rhosurf_integrals.F90 surface_integral_j_surf_local.F90\
+	em_energies-disk_excise.F90 M0_flux_BH.F90 M0_flux_through_nonstatic_BH.F90 \
+	flux_through_nonstatic_bh.F90 \
+	flux_through_analytic_BH.F90 \
+	bessk2.F90 bremsstrahlung.F90 \
+	vol_integrand-bremsstrahlung_qei.F90 \
+	vol_integrand-bremsstrahlung_qee.F90 \
+	synch_temp_dependence.F90 vol_integrand-synchrotron.F90 \
+	estimate_ah_radius.F90 circulation_local.F90\
+	compute_fluid_energy_dens.C vol_integrand-fluid_energy.F90 \
+        vol_integrand-mag_energies.F90 compute_mag_energy_dens.C \
+        vol_integrand-meq0_density.F90 vol_integrand-meq12_density.F90\
+        vol_integrand-meq34_density.F90 vol_integrand-meq56_density.F90 vol_integrand-rad_energy.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

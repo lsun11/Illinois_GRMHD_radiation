@@ -1,0 +1,102 @@
+# Parameter definitions for thorn OS_collapse
+
+shares: IO
+USES KEYWORD out_every
+
+shares: driver
+
+shares: mhd_evolve
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD pfloor
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+
+shares: diagnostics_mhd
+USES KEYWORD N_rad_ray
+USES KEYWORD rhosurf_rmin
+USES KEYWORD rhosurf_rmax
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD scaledsurf
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD sym_factor
+
+shares: gw_extraction
+#USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+shares: shift
+USES KEYWORD Spatial_Gauge
+
+shares: lapse
+USES KEYWORD slicing_type
+USES KEYWORD opl_advect_enable
+USES KEYWORD opl_a0lap
+USES KEYWORD opl_alap
+
+private:
+
+INT set_lapse_one "set to one if you want the lapse to be one everywhere (lapm1=0)"
+{
+ 0:1 :: "zero or one"
+} 0
+
+#REAL K_poly "initial polytropic constant"
+#{
+# 0:* :: "Positive"
+#} 1.0
+
+##########################################################
+# EM Field stuff:
+REAL betam1 "P_B / P_gas"
+{
+ 0:* :: "Positive"
+} 1e-4
+
+INT em_field_type "poloidal (0) or toroidal (1) fields?"
+{
+ *:* :: "Any Integer"
+} 0
+##########################################################
+
+real moncrief_radius_GW[11] "Radii at which to measure GW's" STEERABLE=recover
+{
+  0:* :: "zero or any positive number"
+} 1.0
+
+INT moncrief_gw_num_radii "How many radii will to measure GW's"
+{ 
+ 1:10 :: "Positive int <= 10"
+} 1
+
+##########################################################
+REAL R_edge "areal radius of OS star"
+ {
+   0:* :: "Positive"
+ } 3.0
+
+STRING OS_filename "name of file containing initial OS data"
+{
+  ".+" :: "a valid filename"
+} "data_r4"
+
+INT narr "size of particle tracer array"
+{
+ *:* :: "Any Integer"
+} 100

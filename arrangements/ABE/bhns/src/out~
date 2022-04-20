@@ -1,0 +1,64 @@
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:        if(Symmetry==1 .and. angle_to_tilt_magnetic_fields.ne.0) then
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:             angle_to_tilt_magnetic_fields,Aphi_power,rloop,Iloop,               &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:             angle_to_tilt_magnetic_fields,Aphi_power,rloop,Iloop,                    &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:             angle_to_tilt_magnetic_fields,Aphi_power,rloop,Iloop,               &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:        if(Symmetry==1 .and. angle_to_tilt_magnetic_fields.ne.0) then
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:             angle_to_tilt_magnetic_fields,Aphi_power)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:             angle_to_tilt_magnetic_fields,Aphi_power)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:             angle_to_tilt_magnetic_fields,Aphi_power)
+driver_setup_emfields_part2-local-setBi_bkp.F90:          if(Symmetry==1 .and. angle_to_tilt_magnetic_fields.ne.0) then
+driver_setup_emfields_part2-local-setBi_bkp.F90:               angle_to_tilt_magnetic_fields,Aphi_power,rloop,Iloop,               &
+driver_setup_emfields_part2-local-setBi_bkp.F90:       angle_to_tilt_magnetic_fields,Aphi_power,a0,I0,two_ns,              &
+driver_setup_emfields_part2-local-setBi_bkp.F90:    real*8 					   :: angle_to_tilt_magnetic_fields,Aphi_power,a0tmp,I0tmp,bhns_P_max_tmp,fac_tmp
+driver_setup_emfields_part2-local-setBi_bkp.F90:                if(angle_to_tilt_magnetic_fields.gt.0.D0) then
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   costheta = cos(-angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   sintheta = sin(-angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                      write(*,*) "Stopping: em_field_type=4 not supported for angle_to_tilt_magnetic_fields > 0, yet"
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   costheta = cos(angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   sintheta = sin(angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                if(angle_to_tilt_magnetic_fields.gt.0.D0) then
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   costheta = cos(-angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   sintheta = sin(-angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                if(angle_to_tilt_magnetic_fields.gt.0.D0) then 
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   costheta = cos(-angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   sintheta = sin(-angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   costheta = cos(angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi_bkp.F90:                   sintheta = sin(angle_to_tilt_magnetic_fields)
+#driver_setup_emfields_part2-local-setBi.F90#:          if(Symmetry==1 .and. angle_to_tilt_magnetic_fields.ne.0) then
+#driver_setup_emfields_part2-local-setBi.F90#:               angle_to_tilt_magnetic_fields,Aphi_power,rloop,Iloop,               &
+#driver_setup_emfields_part2-local-setBi.F90#:       angle_to_tilt_magnetic_fields,Aphi_power,a0,I0,two_ns,              &
+#driver_setup_emfields_part2-local-setBi.F90#:    real*8 					   :: angle_to_tilt_magnetic_fields,Aphi_power,a0tmp,I0tmp,bhns_P_max_tmp,fac_tmp
+#driver_setup_emfields_part2-local-setBi.F90#:    print *,"Andrea,tilted,angle,two_ns",angle_to_tilt_magnetic_fields,two_ns
+#driver_setup_emfields_part2-local-setBi.F90#:                if((angle_to_tilt_magnetic_fields.gt.0.D0.and.two_ns.eq.3).or. &
+#driver_setup_emfields_part2-local-setBi.F90#:                      (angle_to_tilt_magnetic_fields.gt.0.D0.and.two_ns.eq.4)) then
+#driver_setup_emfields_part2-local-setBi.F90#:                   costheta = cos(angle_to_tilt_magnetic_fields)
+#driver_setup_emfields_part2-local-setBi.F90#:                   sintheta = sin(angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi.F90:          if(Symmetry==1 .and. angle_to_tilt_magnetic_fields.ne.0) then
+driver_setup_emfields_part2-local-setBi.F90:               angle_to_tilt_magnetic_fields,Aphi_power,rloop,Iloop,               &
+driver_setup_emfields_part2-local-setBi.F90:       angle_to_tilt_magnetic_fields,Aphi_power,a0,I0,two_ns,              &
+driver_setup_emfields_part2-local-setBi.F90:    real*8 					   :: angle_to_tilt_magnetic_fields,Aphi_power,a0tmp,I0tmp,bhns_P_max_tmp,fac_tmp
+driver_setup_emfields_part2-local-setBi.F90:    print *,"Andrea,tilted,angle,two_ns",angle_to_tilt_magnetic_fields,two_ns
+driver_setup_emfields_part2-local-setBi.F90:                if((angle_to_tilt_magnetic_fields.gt.0.D0.and.two_ns.eq.3).or. &
+driver_setup_emfields_part2-local-setBi.F90:                      (angle_to_tilt_magnetic_fields.gt.0.D0.and.two_ns.eq.4)) then
+driver_setup_emfields_part2-local-setBi.F90:                   costheta = cos(angle_to_tilt_magnetic_fields)
+driver_setup_emfields_part2-local-setBi.F90:                   sintheta = sin(angle_to_tilt_magnetic_fields)
+tmpII:                   if(angle_to_tilt_magnetic_fields.gt.0.D0) then
+tmpII:                      costheta = cos(-angle_to_tilt_magnetic_fields)
+tmpII:                      sintheta = sin(-angle_to_tilt_magnetic_fields)
+tmpII:                      write(*,*) "Stopping: em_field_type=4 not supported for angle_to_tilt_magnetic_fields > 0, yet"
+tmpII:                   costheta = cos(angle_to_tilt_magnetic_fields)
+tmpII:                   sintheta = sin(angle_to_tilt_magnetic_fields)
+tmpII:                if(angle_to_tilt_magnetic_fields.gt.0.D0) then
+tmpII:                   costheta = cos(-angle_to_tilt_magnetic_fields)
+tmpII:                   sintheta = sin(-angle_to_tilt_magnetic_fields)
+tmpII:                      write(*,*) "Stopping: em_field_type=4 not supported for angle_to_tilt_magnetic_fields > 0, yet"
+tmpII:                   costheta = cos(angle_to_tilt_magnetic_fields)
+tmpII:                   sintheta = sin(angle_to_tilt_magnetic_fields)
+tmpII:                if(angle_to_tilt_magnetic_fields.gt.0.D0) then
+tmpII:                   costheta = cos(-angle_to_tilt_magnetic_fields)
+tmpII:                   sintheta = sin(-angle_to_tilt_magnetic_fields)
+tmpII:                if(angle_to_tilt_magnetic_fields.gt.0.D0) then 
+tmpII:                   costheta = cos(-angle_to_tilt_magnetic_fields)
+tmpII:                   sintheta = sin(-angle_to_tilt_magnetic_fields)
+tmpII:                   costheta = cos(angle_to_tilt_magnetic_fields)
+tmpII:                   sintheta = sin(angle_to_tilt_magnetic_fields)

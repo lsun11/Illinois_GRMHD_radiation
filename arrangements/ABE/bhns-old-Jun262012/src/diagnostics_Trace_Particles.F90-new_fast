@@ -1,0 +1,279 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+!-----------------------------------------------------------------------------
+! Diagnostic output for bhns thorn
+!-----------------------------------------------------------------------------
+  
+subroutine bhns_diagnostics_trace_particles(CCTK_ARGUMENTS)
+  
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+ 
+  ! Local variables needed for file output:
+  character                                :: filename*50
+  real*8, dimension(50)                    :: export_data
+  character, dimension(50)                 :: data_headers*20
+  integer                                  :: num_cols,header_flag
+
+  ! Local variables needed for RK4 timestepping:
+  real*8                                   :: dT
+  real*8                                   :: k1_x,k1_y,k1_z
+  real*8                                   :: k2_x,k2_y,k2_z
+  real*8                                   :: k3_x,k3_y,k3_z
+  real*8                                   :: k4_x,k4_y,k4_z
+
+  ! Local variables needed for interpolation:
+  real*8, dimension(N_particles_to_trace,3)                   :: pointcoords
+  integer                                  :: vindex
+
+  ! Loop dummy variable
+  integer                                  :: which_particle
+
+  real*8, parameter 			   :: PI = 3.14159265358979323846D0
+
+  if(cctk_iteration.ge.bhns_particle_tracer_start) then
+
+     if(Symmetry.ne.0 .and. Symmetry.ne.1) then
+        write(*,*) "Sorry, particle tracers only work when Symmetry==0 or 1."
+        stop
+     end if
+
+     if(cctk_iteration.eq.bhns_particle_tracer_start) then
+        ! Don't change the default random seed!
+        !CALL RANDOM_SEED                    ! Initialize random number generator
+
+        do which_particle=1,N_particles_to_trace
+           ! Seed particles inside sphere centered on coords of NS, with radius r = bhns_tracer_r
+
+           ! First choose a guess that is very far from the star, so that we go inside the do while loop below.
+           tracer_x(which_particle) = bhns_tracer_r + 1000.D0
+           tracer_y(which_particle) = 0.D0
+           tracer_z(which_particle) = 0.D0
+
+           ! Next we throw particles into a cube, and if they fall within the sphere of the NS, we keep them:
+           do while(sqrt(tracer_x(which_particle)**2 + tracer_y(which_particle)**2 + tracer_z(which_particle)**2) > bhns_tracer_r)
+
+              CALL RANDOM_NUMBER(tracer_x(which_particle))
+              CALL RANDOM_NUMBER(tracer_y(which_particle))
+              CALL RANDOM_NUMBER(tracer_z(which_particle))
+
+              ! tracer_xyz(which_particle) is now between 0 and 1. We want it between -1 and 1:
+              tracer_x(which_particle) = 2.D0*(tracer_x(which_particle) - 0.5D0)
+              tracer_y(which_particle) = 2.D0*(tracer_y(which_particle) - 0.5D0)
+              tracer_z(which_particle) = 2.D0*(tracer_z(which_particle) - 0.5D0)
+
+              ! Multiply tracer_xyz(which_particle) by bhns_tracer_r, which will give us a point within a cube of 
+              !    half sidelength bhns_tracer_r, centered at the origin.
+              tracer_x(which_particle) = tracer_x(which_particle)*bhns_tracer_r
+              tracer_y(which_particle) = tracer_y(which_particle)*bhns_tracer_r
+              tracer_z(which_particle) = tracer_z(which_particle)*bhns_tracer_r
+
+           end do
+
+           ! Shift the center of the ball of particles to the NS center of mass
+           tracer_x(which_particle) = tracer_x(which_particle) + position_x(2)
+           tracer_y(which_particle) = tracer_y(which_particle) + position_y(2)
+           tracer_z(which_particle) = tracer_z(which_particle) + position_z(2)
+
+           ! If we have a particle at z<0 with equatorial symmetry turned on, set it to z>0:
+           if(Symmetry.eq.1 .and. tracer_z(which_particle).lt.0.D0) then
+              tracer_z(which_particle) = abs(tracer_z(which_particle))
+           end if
+
+        end do
+
+        bhns_rk4_particle_tracer_step=1
+
+     end if
+
+
+     if(MOD(cctk_iteration,particle_tracer_substep_every)==0) then
+        ! RK4 Timestepping procedure to advance each particle to the next timestep.
+        ! For notes on the RK4 algorithm used here, visit:
+        !   http://en.wikipedia.org/w/index.php?title=Runge%E2%80%93Kutta_methods&oldid=471711997
+        !
+        ! We are solving y' = f(t,y), where
+        !           y' = dx^i/dt , i=1,2,3
+        !           f(t,y) = v^i , i=1,2,3
+        ! Thus, the basic ODE we're solving is:
+        !           dx^i/dt = v^i.
+        !
+        ! To evaluate the RHS of the above ODE, we need to interpolate v^i at 
+        ! values x^i at times t, t+dt/2, and t+dt -- all as specified by RK4.
+        ! 
+        ! Note that these interpolations are expensive, so dt is some multiple
+        ! of the time between _full_ simulation timesteps, dT.
+        ! We should NOT need dt<dT to get reasonable particle positions!
+
+        dt = CCTK_DELTA_TIME*particle_tracer_substep_every*2
+        write(*,*) "****************"
+        write(*,*) " Particle Tracer substep # ",bhns_rk4_particle_tracer_step
+
+        !--------------------------------------------------------------------------------!
+        if(bhns_rk4_particle_tracer_step==1) then
+           ! We are now at t = t_n
+
+           do which_particle=1,N_particles_to_trace
+              pointcoords(which_particle,1) = tracer_x(which_particle)
+              pointcoords(which_particle,2) = tracer_y(which_particle)
+              pointcoords(which_particle,3) = tracer_z(which_particle)
+           end do
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+        else if(bhns_rk4_particle_tracer_step==2) then
+           ! We are now at t = t_n + 1/2 dt
+
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,1) == f(t_n,y_n) == k1_x / dt
+              k1_x = dt*x_rhs(which_particle,1)
+              k1_y = dt*y_rhs(which_particle,1)
+              k1_z = dt*z_rhs(which_particle,1)
+
+              pointcoords(which_particle,1) = tracer_x(which_particle) + 0.5D0 * k1_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + 0.5D0 * k1_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + 0.5D0 * k1_z
+           end do
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+           bhns_rk4_particle_tracer_step = bhns_rk4_particle_tracer_step + 1
+           write(*,*) " Particle Tracer substep # ",bhns_rk4_particle_tracer_step
+
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,2) == f(t_n + 1/2 dt , y_n + 1/2 k_1) == k2_x / dt
+              k2_x = dt*x_rhs(which_particle,2)
+              k2_y = dt*y_rhs(which_particle,2)
+              k2_z = dt*z_rhs(which_particle,2)
+
+              pointcoords(which_particle,1) = tracer_x(which_particle) + 0.5D0 * k2_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + 0.5D0 * k2_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + 0.5D0 * k2_z
+           end do
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+ 
+        else if(bhns_rk4_particle_tracer_step==4) then
+           ! We are now at t = t_n + dt
+
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,1) == f(t_n,y_n)
+              k1_x = dt*x_rhs(which_particle,1)
+              k1_y = dt*y_rhs(which_particle,1)
+              k1_z = dt*z_rhs(which_particle,1)
+
+              ! x_rhs(...,2) == f(t_n + 1/2 dt , y_n + 1/2 k_1) == k2_x / dt
+              k2_x = dt*x_rhs(which_particle,2)
+              k2_y = dt*y_rhs(which_particle,2)
+              k2_z = dt*z_rhs(which_particle,2)
+
+              ! x_rhs(...,3) == f(t_n + 1/2 dt , y_n + 1/2 k_2) == k3_x / dt
+              k3_x = dt*x_rhs(which_particle,3)
+              k3_y = dt*y_rhs(which_particle,3)
+              k3_z = dt*z_rhs(which_particle,3)
+
+              pointcoords(which_particle,1) = tracer_x(which_particle) + k3_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + k3_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + k3_z
+           end do
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,1) == f(t_n,y_n)
+              k1_x = dt*x_rhs(which_particle,1)
+              k1_y = dt*y_rhs(which_particle,1)
+              k1_z = dt*z_rhs(which_particle,1)
+
+              ! x_rhs(...,2) == f(t_n + 1/2 dt , y_n + 1/2 k_1) == k2_x / dt
+              k2_x = dt*x_rhs(which_particle,2)
+              k2_y = dt*y_rhs(which_particle,2)
+              k2_z = dt*z_rhs(which_particle,2)
+
+              ! x_rhs(...,3) == f(t_n + 1/2 dt , y_n + 1/2 k_2) == k3_x / dt
+              k3_x = dt*x_rhs(which_particle,3)
+              k3_y = dt*y_rhs(which_particle,3)
+              k3_z = dt*z_rhs(which_particle,3)
+
+              ! x_rhs(...,4) == f(t_n + dt , y_n + k_3) == k4_x / dt
+              k4_x = dt*x_rhs(which_particle,4)
+              k4_y = dt*y_rhs(which_particle,4)
+              k4_z = dt*z_rhs(which_particle,4)
+
+              tracer_x(which_particle) = tracer_x(which_particle) + 1.D0/6.D0 * (k1_x + 2.D0*k2_x + 2.D0*k3_x + k4_x)
+              tracer_y(which_particle) = tracer_y(which_particle) + 1.D0/6.D0 * (k1_y + 2.D0*k2_y + 2.D0*k3_y + k4_y)
+              tracer_z(which_particle) = tracer_z(which_particle) + 1.D0/6.D0 * (k1_z + 2.D0*k2_z + 2.D0*k3_z + k4_z)
+
+              ! Truncation error can push particle to z<0 with equatorial symmetry turned on, so correct the problem:
+              if(Symmetry.eq.1 .and. tracer_z(which_particle).lt.0.D0) then
+                 tracer_z(which_particle) = abs(tracer_z(which_particle))
+              end if
+
+           end do
+
+        end if
+
+        !--------------------------------------------------------------------------------!
+
+        bhns_rk4_particle_tracer_step = bhns_rk4_particle_tracer_step + 1
+
+        if(bhns_rk4_particle_tracer_step==5) then
+           
+           write(*,*) "Particle tracer: Dumping data files..."
+           do which_particle=1,N_particles_to_trace
+              write(filename,41)which_particle
+41            FORMAT('bhns-particle.',I4.4)
+              
+              num_cols = 4
+              export_data = 0.D0
+              
+              data_headers(1) = '# Time'
+              export_data(1) = CCTK_TIME
+              
+              data_headers(2) = 'x position'
+              export_data(2) = tracer_x(which_particle)
+              
+              data_headers(3) = 'y position'
+              export_data(3) = tracer_y(which_particle)
+              
+              data_headers(4) = 'z position'
+              export_data(4) = tracer_z(which_particle)
+              
+              call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+           end do
+           write(*,*) "Particle tracer: Finished dumping data files at time",CCTK_TIME
+
+           bhns_rk4_particle_tracer_step = 1
+        end if
+        write(*,*) "****************"
+     end if
+  end if
+
+
+end subroutine bhns_diagnostics_trace_particles

@@ -1,0 +1,12 @@
+# Main make.code.defn file for thorn moving_puncture
+
+# Source files in this directory
+SRCS = initialdata.F90 \
+	ks_initial_metric.F90 laguna_initial_metric.F90 \
+	movpunc_sanitycheck_restore_Aij.F90 \
+	diagnostics.F90 \
+	norm_l2_punc.F90 convert_fish_driver.F90
+
+
+# Subdirectories containing source files
+SUBDIRS = 

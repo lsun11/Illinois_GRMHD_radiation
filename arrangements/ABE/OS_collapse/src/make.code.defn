@@ -1,0 +1,17 @@
+# Main make.code.defn file for thorn bhns
+
+# Source files in this directory
+SRCS = 	OS_id_driver.F90 \
+	OS_initialdata_local.F90 \
+	OS_initialdata_local2.F90 \
+	OS_initialdata_global2.F90 \
+	OS_initialdata_global.F90 \
+	nrutil.C spline.C splint.C \
+	nr.F90 nrtype.F90 nrutil.F90 rtbis.F90 zbrak.F90 \
+	read_OS_metric_inputfile_lowlevel.C \
+	read_OS_metric_inputfile_driver.F90 \
+	OS_metric_initialdata.F90 \
+	diagnostics.F90 \
+	particle_tracer.F90 \
+	OS_analytic.F90 \
+	compute_h17_rhs.C driver_h17.F90

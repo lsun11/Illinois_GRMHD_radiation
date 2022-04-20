@@ -1,0 +1,295 @@
+# Interface definition for thorn MoL
+# $Header: /cactusdevcvs/CactusBase/MoL/interface.ccl,v 1.21 2008/09/22 23:51:41 schnetter Exp $
+
+implements: MethodOfLines
+
+#INCLUDE HEADER: MoLFunctions.h IN MoLFunctions.h
+#INCLUDE HEADER: MoL.h IN MoL.h
+
+#USES INCLUDE: carpet.h
+
+##################################################
+### Functions from NaNChecker that may be used ###
+##################################################
+
+CCTK_INT FUNCTION CheckVarsForNaN              \
+    (CCTK_POINTER_TO_CONST IN cctkGH,          \
+     CCTK_INT              IN report_max,      \
+     CCTK_STRING           IN vars,            \
+     CCTK_STRING           IN check_for,       \
+     CCTK_STRING           IN action_if_found)
+USES FUNCTION CheckVarsForNaN
+
+##############################################
+### Functions from Carpet that may be used ###
+##############################################
+
+CCTK_INT FUNCTION EnableProlongating(CCTK_INT IN Status)
+USES FUNCTION EnableProlongating
+
+################################################################
+### Aliased registration and type changing functions for the ###
+### standard (i.e., real) GFs.                               ###
+################################################################
+
+CCTK_INT FUNCTION MoLRegisterEvolved(CCTK_INT IN EvolvedIndex, \
+                                     CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrained(CCTK_INT IN ConstrainedIndex)
+CCTK_INT FUNCTION MoLRegisterSaveAndRestore(CCTK_INT IN SandRIndex)
+CCTK_INT FUNCTION MoLRegisterEvolvedGroup(CCTK_INT IN EvolvedIndex, \
+                                          CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrainedGroup(CCTK_INT IN ConstrainedIndex)
+CCTK_INT FUNCTION MoLRegisterSaveAndRestoreGroup(CCTK_INT IN SandRIndex)
+CCTK_INT FUNCTION MoLChangeToEvolved(CCTK_INT IN EvolvedIndex, \
+                                     CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLChangeToConstrained(CCTK_INT IN ConstrainedIndex)
+CCTK_INT FUNCTION MoLChangeToSaveAndRestore(CCTK_INT IN SandRIndex)
+CCTK_INT FUNCTION MoLChangeToNone(CCTK_INT IN RemoveIndex)
+CCTK_INT FUNCTION MoLQueryEvolvedRHS(CCTK_INT IN EvolvedIndex)
+CCTK_INT FUNCTION MoLNumIntegratorSubsteps()
+
+PROVIDES FUNCTION MoLRegisterEvolved WITH MoL_RegisterEvolved LANGUAGE C
+PROVIDES FUNCTION MoLRegisterConstrained WITH MoL_RegisterConstrained \
+                  LANGUAGE C
+PROVIDES FUNCTION MoLRegisterSaveAndRestore WITH MoL_RegisterSaveAndRestore \
+                  LANGUAGE C
+PROVIDES FUNCTION MoLRegisterEvolvedGroup WITH MoL_RegisterEvolvedGroup \
+                  LANGUAGE C
+PROVIDES FUNCTION MoLRegisterConstrainedGroup WITH \
+                  MoL_RegisterConstrainedGroup LANGUAGE C
+PROVIDES FUNCTION MoLRegisterSaveAndRestoreGroup WITH \
+                  MoL_RegisterSaveAndRestoreGroup LANGUAGE C
+PROVIDES FUNCTION MoLChangeToEvolved WITH MoL_ChangeToEvolved LANGUAGE C
+PROVIDES FUNCTION MoLChangeToConstrained WITH MoL_ChangeToConstrained \
+                  LANGUAGE C
+PROVIDES FUNCTION MoLChangeToSaveAndRestore WITH MoL_ChangeToSaveAndRestore \
+                  LANGUAGE C
+PROVIDES FUNCTION MoLChangeToNone WITH MoL_ChangeToNone LANGUAGE C
+PROVIDES FUNCTION MoLQueryEvolvedRHS WITH MoL_QueryEvolvedRHS LANGUAGE C
+PROVIDES FUNCTION MoLNumIntegratorSubsteps WITH MoL_NumIntegratorSubsteps \
+                  LANGUAGE C
+
+################################################################
+### Aliased registration and type changing functions for the ###
+### complex GFs.                                             ###
+################################################################
+
+# CCTK_INT FUNCTION MoLRegisterEvolvedComplex(CCTK_INT IN EvolvedIndex, \
+#                                             CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLRegisterConstrainedComplex(CCTK_INT IN ConstrainedIndex)
+# CCTK_INT FUNCTION MoLRegisterSaveAndRestoreComplex(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLRegisterEvolvedComplexGroup(CCTK_INT IN EvolvedIndex, \
+#                                                  CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLRegisterConstrainedComplexGroup(CCTK_INT IN \
+#                                                      ConstrainedIndex)
+# CCTK_INT FUNCTION MoLRegisterSaveAndRestoreComplexGroup(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLChangeToEvolvedComplex(CCTK_INT IN EvolvedIndex, \
+#                                             CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLChangeToConstrainedComplex(CCTK_INT IN ConstrainedIndex)
+# CCTK_INT FUNCTION MoLChangeToSaveAndRestoreComplex(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLChangeToNoneComplex(CCTK_INT IN RemoveIndex)
+#
+# PROVIDES FUNCTION MoLRegisterEvolvedComplex WITH MoL_RegisterEvolvedComplex \
+#                   LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterConstrainedComplex WITH \
+#                   MoL_RegisterConstrainedComplex LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterSaveAndRestoreComplex WITH \
+#                   MoL_RegisterSaveAndRestoreComplex LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterEvolvedComplexGroup WITH \
+#                   MoL_RegisterEvolvedComplexGroup LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterConstrainedComplexGroup WITH \
+#                   MoL_RegisterConstrainedComplexGroup LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterSaveAndRestoreComplexGroup WITH \
+#                   MoL_RegisterSaveAndRestoreComplexGroup LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToEvolvedComplex WITH \
+#                   MoL_ChangeToEvolvedComplex LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToConstrainedComplex WITH \
+#                   MoL_ChangeToConstrainedComplex LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToSaveAndRestoreComplex WITH \
+#                   MoL_ChangeToSaveAndRestoreComplex LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToNoneComplex WITH MoL_ChangeToNoneComplex \
+#                   LANGUAGE C
+
+################################################################
+### Aliased registration and type changing function for real ###
+### grid arrays of all dimensions.                           ###
+################################################################
+
+# CCTK_INT FUNCTION MoLRegisterEvolvedArray(CCTK_INT IN EvolvedIndex, \
+#                                           CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLRegisterConstrainedArray(CCTK_INT IN ConstrainedIndex)
+# CCTK_INT FUNCTION MoLRegisterSaveAndRestoreArray(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLRegisterEvolvedArrayGroup(CCTK_INT IN EvolvedIndex, \
+#                                                CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLRegisterConstrainedArrayGroup(CCTK_INT IN \
+#                                                    ConstrainedIndex)
+# CCTK_INT FUNCTION MoLRegisterSaveAndRestoreArrayGroup(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLChangeToEvolvedArray(CCTK_INT IN EvolvedIndex, \
+#                                           CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLChangeToConstrainedArray(CCTK_INT IN ConstrainedIndex)
+# CCTK_INT FUNCTION MoLChangeToSaveAndRestoreArray(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLChangeToNoneArray(CCTK_INT IN RemoveIndex)
+#
+# PROVIDES FUNCTION MoLRegisterEvolvedArray WITH MoL_RegisterEvolvedArray \
+#                   LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterConstrainedArray WITH \
+#                   MoL_RegisterConstrainedArray LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterSaveAndRestoreArray WITH \
+#                   MoL_RegisterSaveAndRestoreArray LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterEvolvedArrayGroup WITH \
+#                   MoL_RegisterEvolvedArrayGroup LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterConstrainedArrayGroup WITH \
+#                   MoL_RegisterConstrainedArrayGroup LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterSaveAndRestoreArrayGroup WITH \
+#                   MoL_RegisterSaveAndRestoreArrayGroup LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToEvolvedArray WITH MoL_ChangeToEvolvedArray \
+#                   LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToConstrainedArray WITH \
+#                   MoL_ChangeToConstrainedArray LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToSaveAndRestoreArray WITH \
+#                   MoL_ChangeToSaveAndRestoreArray LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToNoneArray WITH MoL_ChangeToNoneArray LANGUAGE C
+
+###################################################################
+### Aliased registration and type changing function for complex ###
+### grid arrays of all dimensions.                              ###
+###################################################################
+
+# CCTK_INT FUNCTION MoLRegisterEvolvedComplexArray(CCTK_INT IN EvolvedIndex, \
+#                                                  CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLRegisterConstrainedComplexArray(CCTK_INT IN \
+#                                                      ConstrainedIndex)
+# CCTK_INT FUNCTION MoLRegisterSaveAndRestoreComplexArray(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLRegisterEvolvedComplexArrayGroup(CCTK_INT IN \
+#                                                       EvolvedIndex, \
+#                                                       CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLRegisterConstrainedComplexArrayGroup(CCTK_INT IN \
+#                                                           ConstrainedIndex)
+# CCTK_INT FUNCTION MoLRegisterSaveAndRestoreComplexArrayGroup(CCTK_INT IN \
+#                                                              SandRIndex)
+# CCTK_INT FUNCTION MoLChangeToEvolvedComplexArray(CCTK_INT IN EvolvedIndex, \
+#                                                  CCTK_INT IN RHSIndex)
+# CCTK_INT FUNCTION MoLChangeToConstrainedComplexArray(CCTK_INT IN \
+#                                                      ConstrainedIndex)
+# CCTK_INT FUNCTION MoLChangeToSaveAndRestoreComplexArray(CCTK_INT IN SandRIndex)
+# CCTK_INT FUNCTION MoLChangeToNoneComplexArray(CCTK_INT IN RemoveIndex)
+#
+# PROVIDES FUNCTION MoLRegisterEvolvedComplexArray WITH \
+#                   MoL_RegisterEvolvedComplexArray LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterConstrainedComplexArray WITH \
+#                   MoL_RegisterConstrainedComplexArray LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterSaveAndRestoreComplexArray WITH \
+#                   MoL_RegisterSaveAndRestoreComplexArray LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterEvolvedComplexArrayGroup WITH \
+#                   MoL_RegisterEvolvedComplexArrayGroup LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterConstrainedComplexArrayGroup WITH \
+#                   MoL_RegisterConstrainedComplexArrayGroup LANGUAGE C
+# PROVIDES FUNCTION MoLRegisterSaveAndRestoreComplexArrayGroup WITH \
+#                   MoL_RegisterSaveAndRestoreComplexArrayGroup LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToEvolvedComplexArray WITH \
+#                   MoL_ChangeToEvolvedComplexArray LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToConstrainedComplexArray WITH \
+#                   MoL_ChangeToConstrainedComplexArray LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToSaveAndRestoreComplexArray WITH \
+#                   MoL_ChangeToSaveAndRestoreComplexArray LANGUAGE C
+# PROVIDES FUNCTION MoLChangeToNoneComplexArray WITH \
+#                   MoL_ChangeToNoneComplexArray LANGUAGE C
+
+private:
+
+CCTK_REAL RKAlphaCoefficients \
+            TYPE    = ARRAY \
+            DIM     = 2 \
+            SIZE    = MoL_Intermediate_Steps,MoL_Num_Scratch_Levels+1 \
+            DISTRIB = CONSTANT \
+            TAGS    = 'Checkpoint="no"'
+#{
+#} "The alpha coefficients used by the generic Runge-Kutta integrators"
+
+CCTK_REAL RKBetaCoefficients \
+            TYPE    = ARRAY \
+            DIM     = 1 \
+            SIZE    = MoL_Intermediate_Steps \
+            DISTRIB = CONSTANT \
+            TAGS    = 'Checkpoint="no"'
+#{
+#} "The beta coefficients used by the generic Runge-Kutta integrators"
+
+CCTK_INT MoL_Counters \
+            TYPE    = SCALAR \
+            TAGS    = 'Checkpoint="no"'
+{
+  MoL_Intermediate_Step
+  MoL_Stepsize_Bad
+} "The counter for the time integration method"
+
+CCTK_REAL MoL_Original_Time \
+            TYPE    = SCALAR \
+            TAGS    = 'Checkpoint="no"'
+{
+  Original_Time
+  Original_Delta_Time
+} "The original time and delta time which are reset by MoL during evolution"
+
+CCTK_REAL ScratchSpace[MoL_Num_Evolved_Vars*MoL_Num_Scratch_Levels] \
+            TYPE       = GF \
+            Timelevels = 1 \
+            TAGS       = 'Prolongation="None" Checkpoint="no"'
+
+CCTK_REAL SandRScratchSpace[MoL_Num_SaveAndRestore_Vars] \
+            TYPE       = GF \
+            Timelevels = 1 \
+            TAGS       = 'Prolongation="None" Checkpoint="no"'
+
+#CCTK_COMPLEX ComplexScratchSpace[MoL_Num_ComplexEvolved_Vars*MoL_Num_Scratch_Levels] \
+#            TYPE       = GF \
+#            Timelevels = 1 \
+#            TAGS       = 'Checkpoint="no"'
+
+#CCTK_COMPLEX ComplexSandRScratchSpace[MoL_Num_ComplexSaveAndRestore_Vars] \
+#            TYPE       = GF \
+#            Timelevels = 1 \
+#            TAGS       = 'Checkpoint="no"'
+
+# CCTK_REAL ArrayScratchSpace[MoL_Num_Scratch_Levels] \
+#             TYPE       = ARRAY \
+#             DIM        = 1 \
+#             SIZE       = MoL_Max_Evolved_Array_Size \
+#             Timelevels = 1 \
+#             TAGS       = 'Checkpoint="no"'
+# 
+# CCTK_REAL ArraySandRScratchSpace \
+#             TYPE       = ARRAY \
+#             DIM        = 1 \
+#             SIZE       = MoL_Max_Evolved_Array_Size \
+#             Timelevels = 1 \
+#             TAGS       = 'Checkpoint="no"'
+
+#CCTK_COMPLEX ComplexArrayScratchSpace[MoL_Num_Scratch_Levels] \
+#            TYPE       = ARRAY \
+#            DIM        = 1 \
+#            SIZE       = MoL_Max_Evolved_ComplexArray_Size \
+#            Timelevels = 1 \
+#            TAGS       = 'Checkpoint="no"'
+
+#CCTK_COMPLEX ComplexArraySandRScratchSpace \
+#            TYPE       = ARRAY \
+#            DIM        = 1 \
+#            SIZE       = MoL_Max_Evolved_ComplexArray_Size \
+#            Timelevels = 1 \
+#            TAGS       = 'Checkpoint="no"'
+
+#Error vector and scalars for RK45
+
+CCTK_REAL ErrorEstimate[MoL_Num_Evolved_Vars] \
+            TYPE       = GF \
+            Timelevels = 1 \
+            TAGS       = 'Prolongation="None" Checkpoint="no"'
+
+CCTK_REAL ErrorScalars \
+            TYPE       = SCALAR
+{
+  Error
+  Count
+  EstimatedDt
+} "Global error estimate"

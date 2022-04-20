@@ -1,0 +1,17 @@
+# Main make.code.defn file for thorn CarpetRegrid
+
+# Source files in this directory
+SRCS =  automatic.cc            \
+        baselevel.cc            \
+        centre.cc               \
+        manualcoordinatelist.cc \
+        manualcoordinates.cc    \
+        manualgridpointlist.cc  \
+        manualgridpoints.cc     \
+        moving.cc               \
+        regrid.cc               \
+        paramcheck.cc
+
+# Subdirectories containing source files
+SUBDIRS = 
+

@@ -1,0 +1,170 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine particle_tracer_toy(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+  integer, dimension(3)                       :: ext,global_ext
+  real*8                                      :: dT,dTo2,dTo6,dX,dY,dZ,xmax
+  integer                                     :: ii,jj
+!  real*8, allocatable,dimension(:)            :: u0_p_int,vx_p_int,vy_p_int,vz_p_int
+!  real*8, allocatable,dimension(:)            :: u0_int,vx_int,vy_int,vz_int
+  integer                                     :: vindex, narr2
+  ext = cctk_lsh
+  global_ext = cctk_gsh
+
+  dT = CCTK_DELTA_TIME
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  narr2 = 100
+
+   do ii=1,3
+       do jj=1,narr
+           pos(jj,ii) = coord(jj,ii+1)
+        end do
+     end do
+
+  
+! Initialize arrays:
+  do ii = 1, narr
+     u0_p_int(ii) = 0.0
+     vx_p_int(ii) = 0.0
+     vy_p_int(ii) = 0.0
+     vz_p_int(ii) = 0.0
+
+     u0_int(ii) = 0.0
+     vx_int(ii) = 0.0
+     vy_int(ii) = 0.0
+     vz_int(ii) = 0.0
+  end do
+
+
+  if (CCTK_TIME .ne. 0) then
+     call CCTK_VarIndex(vindex,"OS_toy::u0_p")  
+     call interp_driver_carp(cctkGH,narr,pos,vindex,u0_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vx_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vx_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vy_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vy_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vz_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vz_p_int)
+
+     
+     slope(:,1)=1.d0/u0_p_int
+     slope(:,2)=vx_p_int
+     slope(:,3)=vy_p_int
+     slope(:,4)=vz_p_int
+
+     dTo2=dT*0.5d0
+     dTo6=dT/6.0d0
+     coordt=coord+dTo2*slope
+         
+     do ii=1,3
+        do jj=1,narr 
+           pos(jj,ii) = coordt(jj,ii+1)
+        end do
+     end do
+
+
+     call CCTK_VarIndex(vindex,"OS_toy::u0_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,u0_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vx_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vx_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vy_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vy_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vz_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vz_p_int)
+
+
+     call CCTK_VarIndex(vindex,"mhd_evolve::u0")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,u0_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vx_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vy_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vz_int) 
+
+     
+     slopet(:,1)=0.5d0*(1.d0/u0_p_int+1.d0/u0_int)
+     slopet(:,2)=0.5d0*(vx_p_int+vx_int)
+     slopet(:,3)=0.5d0*(vy_p_int+vy_int)
+     slopet(:,4)=0.5d0*(vz_p_int+vz_int)
+         
+     coordt=coord+dTo2*slopet
+
+     
+     do ii=1,3
+        do jj=1,narr 
+           pos(jj,ii) = coordt(jj,ii+1)
+        end do
+     end do
+     
+     call CCTK_VarIndex(vindex,"OS_toy::u0_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,u0_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vx_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vx_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vy_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vy_p_int)
+     call CCTK_VarIndex(vindex,"OS_toy::vz_p")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vz_p_int)
+
+     call CCTK_VarIndex(vindex,"mhd_evolve::u0")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,u0_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vx_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vy_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vz_int) 
+
+     slopem(:,1)=0.5d0*(1.d0/u0_p_int+1.d0/u0_int)
+     slopem(:,2)=0.5d0*(vx_p_int+vx_int)
+     slopem(:,3)=0.5d0*(vy_p_int+vy_int)
+     slopem(:,4)=0.5d0*(vz_p_int+vz_int)
+
+
+     coordt=coord+dT*slopem
+     slopem=slopet+slopem
+
+     do ii=1,3
+        do jj=1,narr 
+           pos(jj,ii) = coordt(jj,ii+1)
+        end do
+     end do
+
+     call CCTK_VarIndex(vindex,"mhd_evolve::u0")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,u0_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vx_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vy_int)
+     call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+     call interp_driver_carp(cctkGH,narr,pos,vindex,vz_int)
+ 
+     slopet(:,1)=1.d0/u0_int
+     slopet(:,2)=vx_int
+     slopet(:,3)=vy_int
+     slopet(:,4)=vz_int
+  
+     coord=coord+dTo6*(slope+slopet+2.0d0*slopem)
+  endif
+
+
+
+  vx_p=vx
+  vy_p=vy
+  vz_p=vz
+  u0_p=u0
+
+  ! Here we assign the outmost particle/particle_rad_cut as the stellar surface
+  OS_surf_rad = coord(narr,2)/particle_rad_cut
+  write(*,*) "The stellar surface is at r = ", OS_surf_rad
+
+end subroutine particle_tracer_toy

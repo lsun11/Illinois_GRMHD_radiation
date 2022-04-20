@@ -1,0 +1,338 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine BHNS_setup_thermal_pressure_after_checkpoint(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+
+  integer, dimension(3)                    :: ext
+  real*8                                   :: dX,dY,dZ, xc,yc,zc,rad
+  real*8                                   :: x_NS_CoM_coord,y_NS_CoM_coord,fs4pi
+  real*8                                   :: x_NS_CoM_coord2,y_NS_CoM_coord2
+  real*8                                   :: vx_CM,vy_CM
+  real*8,allocatable,dimension(:,:,:)      :: P_p, P_p_p
+  real*8,dimension(1,3)                    :: points_CM
+  integer                                  :: AXISYM,EQUATORIAL, i,j,k
+  integer                                  :: OCTANT
+  integer                                  :: vindex
+  integer                                  :: repairs_rad_needed
+  real*8, parameter                        :: SYM = 1.d0, ANTI = -1.d0
+  CCTK_REAL reduction_value
+
+
+parameter(EQUATORIAL = 1, OCTANT = 2, AXISYM = 4)
+
+if(CCTK_ITERATION .eq. iteration_to_compute_temp .and. iteration_to_compute_temp.gt.0) then
+   write(*,*) "using temperature dependent thermal energy at iteration:",CCTK_ITERATION
+   
+   fs4pi = sqrt(4.d0*acos(-1.d0))
+   ext = cctk_lsh
+
+    allocate(P_p(ext(1),ext(2),ext(3)))
+    allocate(P_p_p(ext(1),ext(2),ext(3)))
+
+
+  if((use_new_bhns_initial_data.eq.3).or.(use_new_bhns_initial_data.eq.4)) then
+
+        ! compute the position of the NSs                                                                                
+        x_NS_CoM_coord = Box1X_VolInt1/Box1denom_VolInt1
+        y_NS_CoM_coord = Box1Y_VolInt1/Box1denom_VolInt1
+
+        x_NS_CoM_coord2 = Box1X_VolInt2/Box1denom_VolInt2
+        y_NS_CoM_coord2 = Box1Y_VolInt2/Box1denom_VolInt2
+     else
+        ! compute the position of the NS                                                                           
+        x_NS_CoM_coord = Box1X_VolInt/Box1denom_VolInt
+        y_NS_CoM_coord = Box1Y_VolInt/Box1denom_VolInt
+     end if
+
+
+     if(center_Bfields_around_BH_instead==1) then
+        x_NS_CoM_coord = CoMx_VolInt/CoM_VolInt_denominator !initial_ns_coord_x 
+        y_NS_CoM_coord = CoMy_VolInt/CoM_VolInt_denominator !initial_ns_coord_y                                                                                          
+     end if
+
+
+     write(*,*) "INSIDE EPS_THERMAL SETUP: x,y of ns:",x_NS_CoM_coord,y_NS_CoM_coord
+     write(*,*) "INSIDE EPS_THERMAL SETUP: Pmax:",bhns_P_max,p_c
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                         
+     ! FIRST, WE SET UP T-DEP EPS_THERMAL ON _P LEVEL:                                                                              
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                                                              
+     ! The eps_thermal are set based on rho_b. We don't have rho_b_p or rho_b_p_p, so we must compute that using the primitives solver.                                                      
+     ! The primitives solver depends on gupij, so first compute gupij, based on gij_p:                             
+ 
+     temp1 = 1.D0/(gxx_p * gyy_p * gzz_p + gxy_p * gyz_p * gxz_p + gxz_p * gxy_p * gyz_p &
+          - gxz_p * gyy_p * gxz_p - gxy_p * gxy_p * gzz_p - gxx_p * gyz_p * gyz_p)
+
+      gupxx =   ( gyy_p * gzz_p - gyz_p * gyz_p )* temp1
+      gupxy = - ( gxy_p * gzz_p - gyz_p * gxz_p )* temp1
+      gupxz =   ( gxy_p * gyz_p - gyy_p * gxz_p )* temp1
+      gupyy =   ( gxx_p * gzz_p - gxz_p * gxz_p )* temp1
+      gupyz = - ( gxx_p * gyz_p - gxy_p * gxz_p )* temp1
+      gupzz =   ( gxx_p * gyy_p - gxy_p * gxy_p )* temp1
+    write(*,*) "HELLO BEFORE _P primitives! (eps_thermal)"
+
+   ! Next compute primitives, based on _p conservatives:                                                                                                                                              
+     if(primitives_solver==11) then
+        !SKIP INITIAL GUESS.  THIS IS NOT NEEDED ANYWAY.                                                                                                             
+        !Here we use the HARM primitives solver, with a new prescription that minimizes changes to                                                        
+        !  conservatives without applying the "Font" fix.                                                                                                                   
+        !We intend to make the below function truly generic, but currently it only supports Gamma=2.                                                                      
+        !  It can be trivially extended for arbitrary Gamma-law EOS's, but will require work for more                                                                                
+        !  generic EOS's.                                                                                                                                                       
+        !We hope the below function will eventually be used in place of other primitives solver options,                                                           
+        !  since it can be easily extended to use your desired technique for solving primitives.               
+
+        ! For _p level, we set compute_microphysics to get the primitives, consistent with previous setup.
+        call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+             phi_p,gxx_p,gxy_p,gxz_p,gyy_p,gyz_p,gzz_p, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             lapm1_p,shiftx_p,shifty_p,shiftz_p, &
+             Bx,By,Bz, &
+             eps_tot, eps_thermal, eps_cld, P_cld,&
+             ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+             ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+             mhd_st_x_p,mhd_st_y_p,mhd_st_z_p,tau_p,rho_star_p, rhoYe_p,&
+             vx,vy,vz,P,rho_b,h,u0, &
+             rho_b_atm,tau_atm, rho_b_max,&
+             x_NS_CoM_coord, y_NS_CoM_coord, x_NS_CoM_coord2, y_NS_CoM_coord2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+             neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+             temp1,temp2,temp3,temp4,temp5, &
+             primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse,0, 0, &
+             0, T_fluid_cgs_atm, rad_fix)
+
+        
+        !SKIP COMPUTATION OF METRIC SOURCE TERMS.  THAT WOULD BE UNNECESSARY!  
+     else
+        write(*,*) "ERROR. Primitives solver != 11 NOT ALLOWED when setting B fields from checkpoint."
+        stop
+     end if
+     
+
+     write(*,*) "1. Done primitives_generic!!!!!!!!!!!!!!!!!"
+
+     !                                                    
+     ! Compute the eps_thermal
+     !  
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              call compute_pcold_epscold(rho_b(i,j,k),P_cld(i,j,k),eps_cld(i,j,k), &
+                   neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse)
+              
+              eps_thermal(i,j,k) = eps_tot(i,j,k) - eps_cld(i,j,k) ! Here the eps_tot is compute using the gamma-law, we only fix those with issues.
+              eps_tot(i,j,k) = eps_cld(i,j,k) + eps_thermal(i,j,k)
+
+              ! Here we update P using the new eps_tot, need to save the new P in a new array since the original P is used for the next primitive solver. 
+!              call compute_P_T_microphys_insert(P_p(i,j,k), T_fluid(i,j,k), P_cld(i,j,k), eps_tot(i,j,k), eps_cld(i,j,k), rho_b(i,j,k))
+              call compute_P_T_microphys(P_p(i,j,k), T_fluid(i,j,k), P_cld(i,j,k), eps_tot(i,j,k), eps_cld(i,j,k), rho_b(i,j,k))  
+           end do
+        end do
+     end do
+     !
+     ! Now the P and eps have been updated, now update the conservatives
+     !
+
+     ! Set the st_i's:
+     st_x = mhd_st_x_p
+     st_y = mhd_st_y_p
+     st_z = mhd_st_z_p
+
+     ! Recompute conservatives to be consistent with current eps and P
+     call recompute_conservatives_fast_standalone_gf(cctkGH,cctk_lsh, &
+          rho_b,P_p,vx,vy,vz, &
+          phi_p,lapm1_p, &
+          shiftx_p,shifty_p,shiftz_p, &
+          gxx_p,gxy_p,gxz_p,gyy_p,gyz_p,gzz_p, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          Bx,By,Bz, T_fluid,eps_tot,eps_cld,P_cld,&
+          rho_star_p,tau_p,mhd_st_x_p,mhd_st_y_p,mhd_st_z_p, &
+          neos, ergo_star, ergo_sigma, rho_tab, P_tab, eps_tab, &
+          k_tab, gamma_tab, rho_b_max, rho_b_atm, enable_OS_collapse, compute_microphysics)
+
+      write(*,*) "1. Done recompute_conservatives_fast_standalone_gf!!!!!!!"
+
+      ! No need to recompute tau_rad S_rad_i since they are not changed at all.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                         
+  ! NEXT, _P_P LEVEL: 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                                                             
+      ! The eps_thermal are set based on rho_b. We don't have rho_b_p or rho_b_p_p, so we must compute that using the primitives solver.                                                         
+      ! The primitives solver depends on gupij, so first compute gupij, based on gij_p:                                                                                                               
+
+     temp1 = 1.D0/(gxx_p_p * gyy_p_p * gzz_p_p + gxy_p_p * gyz_p_p * gxz_p_p + gxz_p_p * gxy_p_p * gyz_p_p &
+          - gxz_p_p * gyy_p_p * gxz_p_p - gxy_p_p * gxy_p_p * gzz_p_p - gxx_p_p * gyz_p_p * gyz_p_p)
+
+      gupxx =   ( gyy_p_p * gzz_p_p - gyz_p_p * gyz_p_p )* temp1
+      gupxy = - ( gxy_p_p * gzz_p_p - gyz_p_p * gxz_p_p )* temp1
+      gupxz =   ( gxy_p_p * gyz_p_p - gyy_p_p * gxz_p_p )* temp1
+      gupyy =   ( gxx_p_p * gzz_p_p - gxz_p_p * gxz_p_p )* temp1
+      gupyz = - ( gxx_p_p * gyz_p_p - gxy_p_p * gxz_p_p )* temp1
+      gupzz =   ( gxx_p_p * gyy_p_p - gxy_p_p * gxy_p_p )* temp1
+
+     write(*,*) "HELLO BEFORE _P_P primitives! (eps_thermal)"
+
+   ! Next compute primitives, based on _p_p conservatives:                             
+
+                                                       
+     if(primitives_solver==11) then
+        call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+             phi_p_p,gxx_p_p,gxy_p_p,gxz_p_p,gyy_p_p,gyz_p_p,gzz_p_p, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             lapm1_p_p,shiftx_p_p,shifty_p_p,shiftz_p_p, &
+             Bx,By,Bz, &
+             eps_tot, eps_thermal, eps_cld, P_cld,&
+             ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+             ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+             mhd_st_x_p_p,mhd_st_y_p_p,mhd_st_z_p_p,tau_p_p,rho_star_p_p, rhoYe_p_p,&
+             vx,vy,vz,P,rho_b,h,u0, &
+             rho_b_atm,tau_atm, rho_b_max,&
+             x_NS_CoM_coord, y_NS_CoM_coord, x_NS_CoM_coord2, y_NS_CoM_coord2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+             neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+             temp1,temp2,temp3,temp4,temp5, &
+             primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse, 0,0, &
+             0, T_fluid_cgs_atm, rad_fix)
+
+
+        !SKIP COMPUTATION OF METRIC SOURCE TERMS.  THAT WOULD BE UNNECESSARY!                                                                                                                                        
+     else
+        write(*,*) "ERROR. Primitives solver != 11 NOT ALLOWED when setting B fields from checkpoint."
+        stop
+     end if
+
+
+     write(*,*) "2. Done primitives_generic!!!!!!!!!!!!!!!!!1"
+
+
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              call compute_pcold_epscold(rho_b(i,j,k),P_cld(i,j,k),eps_cld(i,j,k), &
+                   neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse)
+
+              eps_thermal(i,j,k) = eps_tot(i,j,k) - eps_cld(i,j,k) ! Here the eps_cold is compute using the gamma-law, we only fix those with issues.                                                  
+!              call compute_P_T_microphys_insert(P_p_p(i,j,k), T_fluid(i,j,k), P_cld(i,j,k), eps_tot(i,j,k), eps_cld(i,j,k), rho_b(i,j,k))
+              call compute_P_T_microphys(P_p_p(i,j,k), T_fluid(i,j,k), P_cld(i,j,k), eps_tot(i,j,k), eps_cld(i,j,k), rho_b(i,j,k))  
+
+           end do
+        end do
+     end do
+
+
+     ! Set the st_i's:                                                                                                             
+     st_x = mhd_st_x_p_p
+     st_y = mhd_st_y_p_p
+     st_z = mhd_st_z_p_p
+
+     ! Recompute conservatives to be consistent with current magnetic fields and atmospheric density                                                   
+     call recompute_conservatives_fast_standalone_gf(cctkGH,cctk_lsh, &
+          rho_b,P_p_p,vx,vy,vz, &
+          phi_p_p,lapm1_p_p, &
+          shiftx_p_p,shifty_p_p,shiftz_p_p, &
+          gxx_p_p,gxy_p_p,gxz_p_p,gyy_p_p,gyz_p_p,gzz_p_p, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          Bx,By,Bz, T_fluid,eps_tot,eps_cld,P_cld,&
+          rho_star_p_p,tau_p_p,mhd_st_x_p_p,mhd_st_y_p_p,mhd_st_z_p_p, &
+          neos, ergo_star, ergo_sigma, rho_tab, P_tab, eps_tab, &
+          k_tab, gamma_tab, rho_b_max, rho_b_atm, enable_OS_collapse, compute_microphysics)
+
+      write(*,*) "2. Done recompute_conservatives_fast_standalone_gf!!!!!!!"
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! FINALLY, LATEST LEVEL (neither _p nor _p_p):   
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!                                                                                       
+
+     temp1 = 1.D0/(gxx * gyy * gzz + gxy * gyz * gxz + gxz * gxy * gyz &
+          - gxz * gyy * gxz - gxy * gxy * gzz - gxx * gyz * gyz)
+
+      gupxx =   ( gyy * gzz - gyz * gyz )* temp1
+      gupxy = - ( gxy * gzz - gyz * gxz )* temp1
+      gupxz =   ( gxy * gyz - gyy * gxz )* temp1
+      gupyy =   ( gxx * gzz - gxz * gxz )* temp1
+      gupyz = - ( gxx * gyz - gxy * gxz )* temp1
+      gupzz =   ( gxx * gyy - gxy * gxy )* temp1
+
+      write(*,*) "HELLO BEFORE primitives! (eps_thermal)"
+   ! Next compute primitives, based on  conservatives:                                                                               
+     if(primitives_solver==11) then                             
+
+        call primitives_generic(cctkGH,cctk_lsh,cctk_nghostzones,X,Y,Z, &
+             phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             lapm1,shiftx,shifty,shiftz, &
+             Bx,By,Bz, &
+             eps_tot, eps_thermal, eps_cld, P_cld,&
+             ka_gf, ks_gf, emission_gf, chi_rad, chi_rad_nue, Y_e, optd, eta_nue,&
+             ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux,ks_gf_nux, emission_gf_nux, &
+             mhd_st_x,mhd_st_y,mhd_st_z,tau,rho_star, rhoYe,&
+             vx,vy,vz,P,rho_b,h,u0, &
+             rho_b_atm,tau_atm, rho_b_max,&
+             x_NS_CoM_coord, y_NS_CoM_coord, x_NS_CoM_coord2, y_NS_CoM_coord2, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,&
+             neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, &
+             temp1,temp2,temp3,temp4,temp5, &
+             primitives_debug,Psi6threshold,rad_const,horizon_enforce_rho_profile,enable_OS_collapse, 0,0, &
+             0, T_fluid_cgs_atm, rad_fix)
+
+     else
+        write(*,*) "ERROR. Primitives solver != 11 NOT ALLOWED when setting B fields from checkpoint."
+        stop
+     end if
+
+
+     write(*,*) "3. Done primitives_generic!!!!!!!!!!!!!!!!!1"
+
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              call compute_pcold_epscold(rho_b(i,j,k),P_cld(i,j,k),eps_cld(i,j,k), &
+                   neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse)
+
+              eps_thermal(i,j,k) = eps_tot(i,j,k) - eps_cld(i,j,k) ! Here the eps_cold is compute using the gamma-law, we only fix those with issues.                                       
+              ! Since this is the current time level, we reset P and h
+!              call compute_P_T_microphys_insert(P(i,j,k), T_fluid(i,j,k), P_cld(i,j,k), eps_tot(i,j,k), eps_cld(i,j,k), rho_b(i,j,k))
+              call compute_P_T_microphys(P(i,j,k), T_fluid(i,j,k), P_cld(i,j,k), eps_tot(i,j,k), eps_cld(i,j,k), rho_b(i,j,k))  
+              h(i,j,k) = 1.d0 + eps_tot(i,j,k) + P(i,j,k)/rho_b(i,j,k)
+           end do
+        end do
+     end do
+
+
+     st_x = mhd_st_x
+     st_y = mhd_st_y
+     st_z = mhd_st_z
+
+     ! Recompute conservatives to be consistent with current magnetic fields and atmospheric density
+     call recompute_conservatives_fast_standalone_gf(cctkGH,cctk_lsh, &
+          rho_b,P,vx,vy,vz, &
+          phi,lapm1, &
+          shiftx,shifty,shiftz, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          Bx,By,Bz, T_fluid,eps_tot,eps_cld,P_cld,&
+          rho_star,tau,mhd_st_x,mhd_st_y,mhd_st_z, &
+          neos, ergo_star, ergo_sigma, rho_tab, P_tab, eps_tab, &
+          k_tab, gamma_tab, rho_b_max, rho_b_atm, enable_OS_collapse, compute_microphysics)
+
+      write(*,*) "3. Done recompute_conservatives_fast_standalone_gf!!!!!!!"
+
+      ! Set the gauge variable to zero.
+      psi6phi = 0.D0
+      psi6phi_p = 0.D0
+      psi6phi_p_p = 0.D0
+      
+      ! recompute u0 velocity                                                                                                                                             
+      call reset_u0(cctk_lsh,phi,lapm1,shiftx,shifty,shiftz,gxx,gxy,gxz,gyy,gyz,gzz,vx,vy,vz,u0,X,Y,Z)
+
+      deallocate(P_p, P_p_p)
+   end if
+   
+end subroutine BHNS_setup_thermal_pressure_after_checkpoint
+
+

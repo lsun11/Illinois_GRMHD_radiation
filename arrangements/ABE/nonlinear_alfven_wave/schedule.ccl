@@ -1,0 +1,34 @@
+# Schedule definitions for thorn nonlinear_alfven_wave
+
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::em_rhsx, mhd_evolve::em_rhsy, mhd_evolve::em_rhsz
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+#STORAGE: mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: diagnostics_vacuum::volIntegrals,diagnostics_mhd::volIntegrals_mhd
+
+# Setup Initial Data
+
+schedule nonlinear_alfven_wave_initialdata_local at CCTK_INITIAL as initialdata before lapse_initialdata
+{
+  LANG:		FORTRAN
+} "Set up initial data for nonlinear_alfven_wave star evolver"
+
+schedule nonlinear_alfven_wave_initialdata_global in ABE_PostInitial after second_initialdata as third_initialdata before postid
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set rho_b_atm, etc."
+
+schedule nonlinear_alfven_wave_analytic_time at CCTK_ANALYSIS as compute_alfven_wave_analytic after sanitycheck_restore_Aij
+{ 
+  LANG:         FORTRAN
+} "Compute analytic solution of the nonlinear Alfven wave"
+

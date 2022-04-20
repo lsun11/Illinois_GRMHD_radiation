@@ -1,0 +1,56 @@
+# Interface definition for thorn lapse
+
+implements: lapse
+inherits: grid
+
+USES INCLUDE: Symmetry.h
+friend: bssn
+friend: excision
+
+###########################################################################
+# Following needed for MoL (timestepping):
+CCTK_INT FUNCTION MoLRegisterEvolvedGroup(CCTK_INT IN EvolvedIndex, \
+                                          CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrained(CCTK_INT IN ConstrainedIndex)
+
+REQUIRES FUNCTION MoLRegisterEvolvedGroup
+REQUIRES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION Boundary_SelectGroupForBC(CCTK_POINTER_TO_CONST IN GH, \
+  CCTK_INT IN faces, CCTK_INT IN boundary_width, CCTK_INT IN table_handle, \
+  CCTK_STRING IN var_name, CCTK_STRING IN bc_name)
+REQUIRES FUNCTION Boundary_SelectGroupForBC
+###########################################################################
+
+protected:
+
+cctk_real lapse_vars type = GF Timelevels=3
+{
+  lapm1,lapset
+} "lapse minus 1 on t0 and t1"
+
+cctk_real lapse_rhs type = GF TAGS='Checkpoint="no"'
+{
+  lapm1_rhs,lapset_rhs
+} "lapse minus 1 on t0 and t1"
+
+# Derivatives of lapse
+cctk_real lapse_derivatives type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+  lapsex,lapsey,lapsez
+} "spatial derivatives of lapse"
+
+# Auxiliary gridfunctions
+cctk_real lapse_vars_aux type = GF
+{
+  lapset_timederiv
+} "Auxiliary gridfunctions for lapse"
+
+private:
+
+# Gridfunctions used for temporary storage
+cctk_real lapse_vars_temp type = GF TAGS='Checkpoint="no"'
+{
+  trK_init
+#  lapset_rhs,trK_init
+} "temporary gridfunctions for lapse"

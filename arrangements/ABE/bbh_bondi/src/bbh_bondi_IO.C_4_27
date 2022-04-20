@@ -1,0 +1,230 @@
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <sys/time.h>
+#include <sstream>
+#include <time.h>
+#include <ctype.h>
+#include <iostream>
+#include <sstream> 
+#include <string>
+#include <unistd.h>
+#include <cmath>
+#include <iomanip> 
+#include <fstream> 
+#include <stdlib.h>
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Parameters.h"
+//#include "utilities.h"
+using namespace std;
+
+extern "C" void CCTK_FCALL CCTK_FNAME(bbh_bondi_IO)
+  (const cGH **cctkGH, double *time,
+   double *output_radmin1,double *output_radmin2,double *output_radmin3,
+   double *output_radmax1,double *output_radmax2,double *output_radmax3,
+   int *output_Nlograd,int *output_Nphi,int *output_Ntheta,
+   double *rho_b_int1,double *rho_b_int2,double *rho_b_int3,
+   double *P_int1,double *P_int2,double *P_int3,
+   double *vx_int1,double *vx_int2,double *vx_int3,
+   double *vy_int1,double *vy_int2,double *vy_int3,
+   double *vz_int1,double *vz_int2,double *vz_int3,
+   double *lapse_rhs_int1,double *lapse_rhs_int2,double *lapse_rhs_int3,
+   double *shiftx_rhs_int1,double *shiftx_rhs_int2,double *shiftx_rhs_int3,
+   double *shifty_rhs_int1,double *shifty_rhs_int2,double *shifty_rhs_int3,
+   double *shiftz_rhs_int1,double *shiftz_rhs_int2,double *shiftz_rhs_int3,
+   double *phi_rhs_int1,double *phi_rhs_int2,double *phi_rhs_int3,
+   double *gxx_rhs_int1,double *gxx_rhs_int2,double *gxx_rhs_int3,
+   double *gxy_rhs_int1,double *gxy_rhs_int2,double *gxy_rhs_int3,
+   double *gxz_rhs_int1,double *gxz_rhs_int2,double *gxz_rhs_int3,
+   double *gyy_rhs_int1,double *gyy_rhs_int2,double *gyy_rhs_int3,
+   double *gyz_rhs_int1,double *gyz_rhs_int2,double *gyz_rhs_int3,
+   double *gzz_rhs_int1,double *gzz_rhs_int2,double *gzz_rhs_int3,
+   double *lapse_int1,double *lapse_int2,double *lapse_int3,
+   double *shiftx_int1,double *shiftx_int2,double *shiftx_int3,
+   double *shifty_int1,double *shifty_int2,double *shifty_int3,
+   double *shiftz_int1,double *shiftz_int2,double *shiftz_int3,
+   double *phi_int1,double *phi_int2,double *phi_int3,
+   double *gxx_int1,double *gxx_int2,double *gxx_int3,
+   double *gxy_int1,double *gxy_int2,double *gxy_int3,
+   double *gxz_int1,double *gxz_int2,double *gxz_int3,
+   double *gyy_int1,double *gyy_int2,double *gyy_int3,
+   double *gyz_int1,double *gyz_int2,double *gyz_int3,
+   double *gzz_int1,double *gzz_int2,double *gzz_int3,
+   double &BH1_posx,double &BH1_posy,double &BH2_posx,double &BH2_posy);
+
+extern "C" void bbh_bondi_IO(const cGH *cctkGH, double time,
+			     double output_radmin1,double output_radmin2,double output_radmin3,
+			     double output_radmax1,double output_radmax2,double output_radmax3,
+			     int output_Nlograd,int output_Nphi,int output_Ntheta,
+			     double *rho_b_int1,double *rho_b_int2,double *rho_b_int3,
+			     double *P_int1,double *P_int2,double *P_int3,
+			     double *vx_int1,double *vx_int2,double *vx_int3,
+			     double *vy_int1,double *vy_int2,double *vy_int3,
+			     double *vz_int1,double *vz_int2,double *vz_int3,
+			     double *lapse_rhs_int1,double *lapse_rhs_int2,double *lapse_rhs_int3,
+			     double *shiftx_rhs_int1,double *shiftx_rhs_int2,double *shiftx_rhs_int3,
+			     double *shifty_rhs_int1,double *shifty_rhs_int2,double *shifty_rhs_int3,
+			     double *shiftz_rhs_int1,double *shiftz_rhs_int2,double *shiftz_rhs_int3,
+			     double *phi_rhs_int1,double *phi_rhs_int2,double *phi_rhs_int3,
+			     double *gxx_rhs_int1,double *gxx_rhs_int2,double *gxx_rhs_int3,
+			     double *gxy_rhs_int1,double *gxy_rhs_int2,double *gxy_rhs_int3,
+			     double *gxz_rhs_int1,double *gxz_rhs_int2,double *gxz_rhs_int3,
+			     double *gyy_rhs_int1,double *gyy_rhs_int2,double *gyy_rhs_int3,
+			     double *gyz_rhs_int1,double *gyz_rhs_int2,double *gyz_rhs_int3,
+			     double *gzz_rhs_int1,double *gzz_rhs_int2,double *gzz_rhs_int3,
+			     double *lapse_int1,double *lapse_int2,double *lapse_int3,
+			     double *shiftx_int1,double *shiftx_int2,double *shiftx_int3,
+			     double *shifty_int1,double *shifty_int2,double *shifty_int3,
+			     double *shiftz_int1,double *shiftz_int2,double *shiftz_int3,
+			     double *phi_int1,double *phi_int2,double *phi_int3,
+			     double *gxx_int1,double *gxx_int2,double *gxx_int3,
+			     double *gxy_int1,double *gxy_int2,double *gxy_int3,
+			     double *gxz_int1,double *gxz_int2,double *gxz_int3,
+			     double *gyy_int1,double *gyy_int2,double *gyy_int3,
+			     double *gyz_int1,double *gyz_int2,double *gyz_int3,
+			     double *gzz_int1,double *gzz_int2,double *gzz_int3,
+			     double &BH1_posx,double &BH1_posy,double &BH2_posx,double &BH2_posy){
+  
+  ofstream outfile;
+  char filenamestring[100];
+  sprintf(filenamestring,"outfile.dat");
+  std::ostringstream filename;filename << filenamestring << ends;
+  outfile.open(filename.str().c_str(),ios::out | ios::ate);
+
+  double PI=acos(-1.0);
+  double thetamin=-PI/100.;
+  double thetamax=PI/2.0 + PI/100.;
+  double phimin=-PI/100.;
+  double phimax=2.0*PI+PI/100.;
+
+  double output_logradmin1 = log(output_radmin1);
+  double output_logradmin2 = log(output_radmin2);
+  double output_logradmin3 = log(output_radmin3);
+  double output_logradmax1 = log(output_radmax1);
+  double output_logradmax2 = log(output_radmax2);
+  double output_logradmax3 = log(output_radmax3);
+
+
+  outfile.write((char *) &time,sizeof(double));
+  outfile.write((char *) &BH1_posx,sizeof(double));
+  outfile.write((char *) &BH1_posy,sizeof(double));
+  outfile.write((char *) &BH2_posx,sizeof(double));
+  outfile.write((char *) &BH2_posy,sizeof(double));
+  outfile.write((char *) &output_Nlograd,sizeof(int));
+  outfile.write((char *) &output_Nphi,sizeof(int));
+  outfile.write((char *) &output_Ntheta,sizeof(int));
+  outfile.write((char *) &output_logradmin1,sizeof(double));
+  outfile.write((char *) &output_logradmin2,sizeof(double));
+  outfile.write((char *) &output_logradmin3,sizeof(double));
+  outfile.write((char *) &output_logradmax1,sizeof(double));
+  outfile.write((char *) &output_logradmax2,sizeof(double));
+  outfile.write((char *) &output_logradmax3,sizeof(double));
+  
+ //  cout << "output_logradmin1: "<< output_logradmin1 << endl;
+//   cout << "output_logradmin2: "<< output_logradmin2 << endl;
+//   cout << "output_logradmin3: "<< output_logradmin3 << endl;
+//   cout << "output_logradmax1: "<< output_logradmax1 << endl;
+//   cout << "output_logradmax2: "<< output_logradmax2 << endl;
+//   cout << "output_logradmax3: "<< output_logradmax3 << endl;
+  int n=0;
+ 
+  //NOTE: Makeing this openMP seems to break things.  Is this unavoidable?
+  //  #pragma omp parallel for
+  for (int k = 0; k < output_Nlograd; k++) for (int j = 0; j < output_Nphi; j++) for (int i = 0; i < output_Ntheta; i++) {
+    double output_lograd1L=output_logradmin1+(output_logradmax1-output_logradmin1)/(output_Nlograd-1.0)*k;
+    double output_lograd2L=output_logradmin2+(output_logradmax2-output_logradmin2)/(output_Nlograd-1.0)*k;
+    double output_lograd3L=output_logradmin3+(output_logradmax3-output_logradmin3)/(output_Nlograd-1.0)*k;
+    double phiL=phimin+(phimax-phimin)/(output_Nphi-1.0)*j;
+    double thetaL = thetamin+(thetamax-thetamin)/(output_Ntheta-1.0)*i;
+    double output_rad1L=exp(output_lograd1L);
+    double output_rad2L=exp(output_lograd2L);
+    double output_rad3L=exp(output_lograd3L);
+    
+    
+    //try getting rid of rad,phi,theta stuff.  It can be reconstructed later
+    //outfile.write((char *) &output_rad1L,sizeof(double));
+    //outfile.write((char *) &output_rad2L,sizeof(double));
+    //outfile.write((char *) &output_rad3L,sizeof(double));
+    //outfile.write((char *) &phiL,sizeof(double));
+    //outfile.write((char *) &thetaL,sizeof(double));
+    outfile.write((char *) &rho_b_int1[n],sizeof(double));
+    outfile.write((char *) &rho_b_int2[n],sizeof(double));
+    outfile.write((char *) &rho_b_int3[n],sizeof(double));
+    n = n + 1;
+  }
+  //close files
+  outfile.close();
+
+
+
+  cout << "hello" << endl;
+}
+extern "C" void CCTK_FCALL CCTK_FNAME(bbh_bondi_IO)
+  (const cGH **cctkGH, double *time,
+   double *output_radmin1,double *output_radmin2,double *output_radmin3,
+   double *output_radmax1,double *output_radmax2,double *output_radmax3,
+   int *output_Nlograd,int *output_Nphi,int *output_Ntheta,
+   double *rho_b_int1,double *rho_b_int2,double *rho_b_int3,
+   double *P_int1,double *P_int2,double *P_int3,
+   double *vx_int1,double *vx_int2,double *vx_int3,
+   double *vy_int1,double *vy_int2,double *vy_int3,
+   double *vz_int1,double *vz_int2,double *vz_int3,
+   double *lapse_rhs_int1,double *lapse_rhs_int2,double *lapse_rhs_int3,
+   double *shiftx_rhs_int1,double *shiftx_rhs_int2,double *shiftx_rhs_int3,
+   double *shifty_rhs_int1,double *shifty_rhs_int2,double *shifty_rhs_int3,
+   double *shiftz_rhs_int1,double *shiftz_rhs_int2,double *shiftz_rhs_int3,
+   double *phi_rhs_int1,double *phi_rhs_int2,double *phi_rhs_int3,
+   double *gxx_rhs_int1,double *gxx_rhs_int2,double *gxx_rhs_int3,
+   double *gxy_rhs_int1,double *gxy_rhs_int2,double *gxy_rhs_int3,
+   double *gxz_rhs_int1,double *gxz_rhs_int2,double *gxz_rhs_int3,
+   double *gyy_rhs_int1,double *gyy_rhs_int2,double *gyy_rhs_int3,
+   double *gyz_rhs_int1,double *gyz_rhs_int2,double *gyz_rhs_int3,
+   double *gzz_rhs_int1,double *gzz_rhs_int2,double *gzz_rhs_int3,
+   double *lapse_int1,double *lapse_int2,double *lapse_int3,
+   double *shiftx_int1,double *shiftx_int2,double *shiftx_int3,
+   double *shifty_int1,double *shifty_int2,double *shifty_int3,
+   double *shiftz_int1,double *shiftz_int2,double *shiftz_int3,
+   double *phi_int1,double *phi_int2,double *phi_int3,
+   double *gxx_int1,double *gxx_int2,double *gxx_int3,
+   double *gxy_int1,double *gxy_int2,double *gxy_int3,
+   double *gxz_int1,double *gxz_int2,double *gxz_int3,
+   double *gyy_int1,double *gyy_int2,double *gyy_int3,
+   double *gyz_int1,double *gyz_int2,double *gyz_int3,
+   double *gzz_int1,double *gzz_int2,double *gzz_int3,
+   double &BH1_posx,double &BH1_posy,double &BH2_posx,double &BH2_posy)
+{  
+  bbh_bondi_IO(*cctkGH, *time,
+	       *output_radmin1,*output_radmin2,*output_radmin3,
+	       *output_radmax1,*output_radmax2,*output_radmax3,
+	       *output_Nlograd,*output_Nphi,*output_Ntheta,
+	       rho_b_int1,rho_b_int2,rho_b_int3,
+	       P_int1,P_int2,P_int3,
+	       vx_int1,vx_int2,vx_int3,
+	       vy_int1,vy_int2,vy_int3,
+	       vz_int1,vz_int2,vz_int3,
+	       lapse_rhs_int1,lapse_rhs_int2,lapse_rhs_int3,
+	       shiftx_rhs_int1,shiftx_rhs_int2,shiftx_rhs_int3,
+	       shifty_rhs_int1,shifty_rhs_int2,shifty_rhs_int3,
+	       shiftz_rhs_int1,shiftz_rhs_int2,shiftz_rhs_int3,
+	       phi_rhs_int1,phi_rhs_int2,phi_rhs_int3,
+	       gxx_rhs_int1,gxx_rhs_int2,gxx_rhs_int3,
+	       gxy_rhs_int1,gxy_rhs_int2,gxy_rhs_int3,
+	       gxz_rhs_int1,gxz_rhs_int2,gxz_rhs_int3,
+	       gyy_rhs_int1,gyy_rhs_int2,gyy_rhs_int3,
+	       gyz_rhs_int1,gyz_rhs_int2,gyz_rhs_int3,
+	       gzz_rhs_int1,gzz_rhs_int2,gzz_rhs_int3,
+	       lapse_int1,lapse_int2,lapse_int3,
+	       shiftx_int1,shiftx_int2,shiftx_int3,
+	       shifty_int1,shifty_int2,shifty_int3,
+	       shiftz_int1,shiftz_int2,shiftz_int3,
+	       phi_int1,phi_int2,phi_int3,
+	       gxx_int1,gxx_int2,gxx_int3,
+	       gxy_int1,gxy_int2,gxy_int3,
+	       gxz_int1,gxz_int2,gxz_int3,
+	       gyy_int1,gyy_int2,gyy_int3,
+	       gyz_int1,gyz_int2,gyz_int3,
+	       gzz_int1,gzz_int2,gzz_int3,
+	       BH1_posx,BH1_posy,BH2_posx,BH2_posy);
+}
+

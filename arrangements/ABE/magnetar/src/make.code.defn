@@ -1,0 +1,21 @@
+# Main make.code.defn file for thorn magnetar
+
+# Source files in this directory
+SRCS =	initialdata_part1-readinputfiles.C \
+	initialdata_part1b_setup_Aijs_Gammais.F90 \
+	initialdata_part2_global-compute_rho_b_atm.F90 \
+	initialdata_part2_local-setup_alt_atmosphere.F90 \
+	initialdata_part3_global-compute_P_max.F90 \
+	initialdata_part3_local-setup_remaining_matter_quantities.F90 \
+	initialdata_part4_global-compute_rhostar_tau_max.F90 \
+	initialdata_part4_local-setup_emfields.F90 \
+	initialdata_part5-recompute_primitives.F90 \
+	\
+	nrutil.C compute_magnetar.F90 \
+	setup_toroidal_fields.F90 setup_poloidal_fields.F90 \
+	setup_alt_atmosphere.F90 compute_magnetar_hybrid_alt_atmosphere.F90 \
+	\
+	diagnostics.F90	sanitycheck_restore_Aij.F90 diagnostics_local.F90 diagnostics_local2.F90 diagnostics_global0.F90 compute_b2.C
+
+# Subdirectories containing source files
+SUBDIRS = 

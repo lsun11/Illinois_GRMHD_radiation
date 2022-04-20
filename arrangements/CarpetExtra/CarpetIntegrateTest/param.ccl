@@ -1,0 +1,9 @@
+REAL constant "Integrand constant"
+{
+  *:* :: ""
+} 1.0
+
+REAL timefact "Time dependence of integrand"
+{
+  *:* :: ""
+} 0.0

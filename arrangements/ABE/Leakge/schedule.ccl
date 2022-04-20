@@ -1,0 +1,180 @@
+# Schedule definitions for thorn THC_LeakageBase
+
+STORAGE: leakage_optd[timelevels]
+STORAGE: leakage_opacity
+if(store_free_rates) {
+    STORAGE: leakage_free_rates
+}
+if(store_neu_luminosity) {
+    STORAGE: leakage_luminosity
+}
+STORAGE: leakage_eff_rates
+STORAGE: leakage_abs
+
+###############################################################################
+# Initialization
+###############################################################################
+SCHEDULE LK_Init AT CCTK_STARTUP
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Register banner"
+
+SCHEDULE LK_SetSym AT CCTK_BASEGRID
+{
+    LANG: C
+    OPTIONS: GLOBAL
+} "Setup symmetries"
+
+# Here we assume that nobody else is evolving hydro so we register HydroBase
+# variables as save and restore
+#if(!CCTK_Equals(evolution_method, "THCode")) {
+#    SCHEDULE LK_MoLRegister IN MoL_Register
+#    {
+#        LANG: C
+#        OPTIONS: GLOBAL
+#    } "Register variables with MoL"
+#}
+
+SCHEDULE LK_InitData AT CCTK_INITIAL
+{
+    LANG: C
+} "Initialize quantities to zero"
+
+###############################################################################
+# Compute rates, optical depth at the initial data
+###############################################################################
+
+SCHEDULE THC_LK_CalcOpticalDepth AT CCTK_POSTINITIAL
+{
+    LANG: C
+    OPTIONS: GLOBAL-LATE
+} "Compute the optical depth on one or more spherical grids"
+
+SCHEDULE THC_LK_InterpOpticalDepth AT CCTK_POSTPOSTINITIAL
+{
+    LANG: C
+    SYNC: thc_leakage_optd
+} "Interpolates the optical depth to the cartesian grid"
+
+SCHEDULE THC_LK_OpticalDepthCleanup AT CCTK_POSTPOSTINITIAL AFTER THC_LK_InterpOpticalDepth
+{
+    LANG: C
+    OPTIONS: GLOBAL-LATE
+} "De-allocate temporary memory used to initialize the optical depth"
+###############################################################################
+
+
+
+
+
+############################################################################### 
+############################################################################### 
+# Let's ingore the part below for time being.
+
+if(1==0){
+###############################################################################
+# Main loop
+###############################################################################
+# -----------------------------------------------------------------------------
+SCHEDULE GROUP THC_LK_UpdateOpticalDepthGroup AT CCTK_EVOL AFTER MoL_Evolution
+# -----------------------------------------------------------------------------
+{
+} "Updates the optical depth"
+
+SCHEDULE THC_LK_CalcOpacity IN THC_LK_UpdateOpticalDepthGroup
+{
+    LANG: C
+} "Compute the opacity"
+
+SCHEDULE THC_LK_UpdateOpticalDepth IN THC_LK_UpdateOpticalDepthGroup AFTER THC_LK_CalcOpacity
+{
+    LANG: C
+} "Update the opacity following Neilsen et al. 2014"
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+SCHEDULE GROUP THC_LK_BoundaryGroup AT CCTK_EVOL AFTER THC_LK_UpdateOpticalDepthGroup
+# -----------------------------------------------------------------------------
+{
+} "Set the boundary conditions for the optical depth"
+
+SCHEDULE THC_LK_SelectBC IN THC_LK_BoundaryGroup
+{
+    LANG: C
+    OPTIONS: SINGLEMAP
+    SYNC: thc_leakage_optd
+} "Select boundary conditions"
+
+SCHEDULE GROUP ApplyBCs AS THC_LK_ApplyBCs IN THC_LK_BoundaryGroup AFTER THC_LK_SelectBC
+{
+} "Apply the boundary conditions to the opacity"
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+SCHEDULE THC_LK_Rates AT CCTK_EVOL AFTER THC_LK_BoundaryGroup
+# -----------------------------------------------------------------------------
+{
+    LANG: C
+} "Compute the effective emission rates"
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+SCHEDULE GROUP THC_LK_CalcNeuAbsorptionGroup AT CCTK_EVOL AFTER MoL_Evolution
+# -----------------------------------------------------------------------------
+{
+} "This is where the neutrino absorption/heating should be computed"
+
+if (CCTK_Equals(neu_abs_type, "None")) {
+    SCHEDULE THC_LK_NoAbsorption AT CCTK_EVOL BEFORE THC_LK_CalcNeuAbsorptionGroup
+    {
+        LANG: C
+    } "Initializes the neutrino absorption/heating to zero"
+}
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+SCHEDULE GROUP THC_LK_ApplyGroup AT CCTK_EVOL \
+    AFTER (THC_LK_CalcNeuAbsorptionGroup, THC_LK_Rates)
+# -----------------------------------------------------------------------------
+{
+} "Apply the leakage sources to the hydro RHS"
+
+if(CCTK_Equals(evolution_method, "THCode")) {
+    SCHEDULE THC_LK_Apply IN THC_LK_ApplyGroup
+    {
+        LANG: C
+    } "Add the contribution of the leakage to the hydro RHS"
+
+    SCHEDULE THC_ConsToAll IN THC_LK_ApplyGroup AFTER THC_LK_Apply
+    {
+        LANG: C
+    } "Computes the primitives from the conservatives"
+}
+# -----------------------------------------------------------------------------
+###############################################################################
+
+###############################################################################
+# Handle restriction/regridding
+###############################################################################
+SCHEDULE GROUP THC_LK_BoundaryGroup AT CCTK_POST_RECOVER_VARIABLES
+{
+} "Ensure that everything is fine after recovery"
+
+SCHEDULE GROUP THC_LK_BoundaryGroup AT CCTK_POSTREGRID
+{
+} "Ensure that everything is fine after regridding"
+
+SCHEDULE GROUP THC_LK_BoundaryGroup AT CCTK_POSTREGRIDINITIAL
+{
+} "Ensure that everything is fine after regridding"
+
+SCHEDULE GROUP THC_LK_BoundaryGroup AT CCTK_POSTRESTRICT
+{
+} "Ensure that everything is fine after restriction"
+
+SCHEDULE GROUP THC_LK_BoundaryGroup AT CCTK_POSTRESTRICTINITIAL
+{
+} "Ensure that everything is fine after restriction"
+###############################################################################
+}

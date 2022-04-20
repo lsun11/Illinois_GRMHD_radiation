@@ -1,0 +1,56 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine compute_u0(CCTK_ARGUMENTS)
+  
+  implicit none
+  
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+  
+  integer               :: i,j,k
+  real*8                :: psi4l,gxxl,gxyl,gxzl
+  real*8                :: v2l,gyyl,gyzl,gzzl
+  real*8                :: alpha,alp_u02,u02
+
+  
+  do k=2,cctk_lsh(3)
+     do j=2,cctk_lsh(2)
+        do i=2,cctk_lsh(1)
+
+           psi4l =  exp(4.0d0*phi(i,j,k))
+           gxxl  =  psi4l*gxx(i,j,k)
+           gxyl  =  psi4l*gxy(i,j,k)
+           gxzl  =  psi4l*gxz(i,j,k)
+           gyyl  =  psi4l*gyy(i,j,k)
+           gyzl  =  psi4l*gyz(i,j,k)
+           gzzl  =  psi4l*gzz(i,j,k)
+           alpha =  1.0d0 + lapm1(i,j,k)
+
+           v2l   = (gxxl     *(vx(i,j,k) + shiftx(i,j,k))*(vx(i,j,k) + shiftx(i,j,k))    &
+                 + 2.0d0*gxyl*(vx(i,j,k) + shiftx(i,j,k))*(vy(i,j,k) + shifty(i,j,k))    &
+                 + 2.0d0*gxzl*(vx(i,j,k) + shiftx(i,j,k))*(vz(i,j,k) + shiftz(i,j,k))    &
+                 + gyyl*      (vy(i,j,k) + shifty(i,j,k))*(vy(i,j,k) + shifty(i,j,k))    &
+                 + 2.0d0*gyzl*(vy(i,j,k) + shifty(i,j,k))*(vz(i,j,k) + shiftz(i,j,k))    &
+                 + gzzl      *(vz(i,j,k) + shiftz(i,j,k))*(vz(i,j,k) + shiftz(i,j,k)))/(alpha*alpha)
+
+           alp_u02 = 1.0d0/(1.0d0 - v2l)
+           u02     =  alp_u02 / (alpha*alpha)
+
+           ! storage 1/u^t
+           temp16(i,j,k)   =  1.0d0/sqrt(u02)
+
+           ! store  u_x
+           temp17(i,j,k)  = sqrt(u02)*(gxxl*(vx(i,j,k) + shiftx(i,j,k)) + gxyl*(vy(i,j,k) + &
+                 shifty(i,j,k)) + gxzl*(vz(i,j,k) + shiftz(i,j,k)))
+           ! store  u_y
+           temp18(i,j,k)  = sqrt(u02)*(gxyl*(vx(i,j,k) + shiftx(i,j,k)) + gyyl*(vy(i,j,k) + &
+                 shifty(i,j,k)) + gyzl*(vz(i,j,k) + shiftz(i,j,k)))
+        end do
+     end do
+  end do
+  
+end subroutine compute_u0

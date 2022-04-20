@@ -1,0 +1,16 @@
+# Main make.code.defn file for thorn THC_LeakageBase
+
+# Source files in this directory
+SRCS = thc_lk_apply.c \
+       thc_lk_init.c \
+       thc_lk_init_data.c \
+       thc_lk_init_optd.c \
+       thc_lk_mol_register.c \
+       thc_lk_opacity.c \
+       thc_lk_rates.c \
+       thc_lk_select_bc.c \
+       thc_lk_setsym.c \
+       thc_lk_update_optd.c
+
+# Subdirectories containing source files
+SUBDIRS =

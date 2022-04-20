@@ -1,0 +1,116 @@
+# Interface definition for thorn THC_LeakageBase
+IMPLEMENTS: THC_LeakageBase
+INHERITS: ADMBase Grid HydroBase THC_Core
+
+#In IL code: BSSN Grid mhd_evolve (THC_Core header will be compied directly)
+
+INCLUDE HEADER: thc_lk_rates.h IN thc_lk_rates.h
+USES INCLUDE: thc_lk_rates.h
+
+USES INCLUDE: Symmetry.h
+USES INCLUDE: thc_sph_grid.h
+USES INCLUDE: utils.hh
+USES INCLUDE: utils_macro.h
+
+
+
+
+
+
+# Boundary conditions
+CCTK_INT FUNCTION Boundary_SelectGroupForBC(                                   \
+        CCTK_POINTER_TO_CONST IN cctkGH,                                       \
+        CCTK_INT IN faces,                                                     \
+        CCTK_INT IN boundary_width,                                            \
+        CCTK_INT IN table_handle,                                              \
+        CCTK_STRING IN group_name,                                             \
+        CCTK_STRING IN bc_name                                                 \
+    )
+USES FUNCTION Boundary_SelectGroupForBC
+
+# MoL (only used if hydro is not evolved)
+CCTK_INT FUNCTION MoLRegisterConstrained(                                      \
+        CCTK_INT IN SandRIndex                                                 \
+    )
+USES FUNCTION MoLRegisterConstrained
+
+# WeakRates
+CCTK_INT FUNCTION NeutrinoEmission( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT r_nue,\
+        CCTK_REAL OUT r_nua,\
+        CCTK_REAL OUT r_nux,\
+        CCTK_REAL OUT q_nue,\
+        CCTK_REAL OUT q_nua,\
+        CCTK_REAL OUT q_nux)
+USES FUNCTION NeutrinoEmission
+
+CCTK_INT FUNCTION NeutrinoOpacity( \
+        CCTK_REAL IN rho,\
+        CCTK_REAL IN temp,\
+        CCTK_REAL IN ye,\
+        CCTK_REAL OUT kappa_0_nue,\
+        CCTK_REAL OUT kappa_0_nua,\
+        CCTK_REAL OUT kappa_0_nux,\
+        CCTK_REAL OUT kappa_1_nue,\
+        CCTK_REAL OUT kappa_1_nua,\
+        CCTK_REAL OUT kappa_1_nux)
+USES FUNCTION NeutrinoOpacity
+
+CCTK_INT FUNCTION NeutrinoDensity( \
+        CCTK_REAL IN rho, \
+        CCTK_REAL IN temp, \
+        CCTK_REAL IN ye, \
+        CCTK_REAL OUT num_nue, \
+        CCTK_REAL OUT num_nua, \
+        CCTK_REAL OUT num_nux, \
+        CCTK_REAL OUT ene_nue, \
+        CCTK_REAL OUT ene_nua, \
+        CCTK_REAL OUT ene_nux)
+USES FUNCTION NeutrinoDensity
+
+CCTK_REAL FUNCTION AverageBaryonMass()
+USES FUNCTION AverageBaryonMass
+
+
+
+
+
+
+PUBLIC:
+
+CCTK_REAL thc_leakage_optd TIMELEVELS=3 TYPE=GF TAGS='TensorTypeAlias="Scalar" ProlongationParameter="HydroBase::prolongation_type" Interpolator="matter" Checkpoint="yes"'
+{
+    optd_0_nue, optd_0_nua, optd_0_nux,
+    optd_1_nue, optd_1_nua, optd_1_nux
+} "Optical depth"
+
+CCTK_REAL thc_leakage_opacity TYPE=GF TAGS='TensorTypeAlias="Scalar" Prolongation="None"'
+{
+    kappa_0_nue, kappa_0_nua, kappa_0_nux,
+    kappa_1_nue, kappa_1_nua, kappa_1_nux,
+} "Opacity on the cartesian grid"
+
+CCTK_REAL thc_leakage_free_rates TYPE=GF TAGS='TensorTypeAlias="Scalar" Prolongation="None"'
+{
+    R_free_nue, R_free_nua, R_free_nux,
+    Q_free_nue, Q_free_nua, Q_free_nux
+} "Free neutrino emission rates"
+
+CCTK_REAL thc_leakage_eff_rates TYPE=GF TAGS='TensorTypeAlias="Scalar" Prolongation="None"'
+{
+    R_eff_nue, R_eff_nua, R_eff_nux,
+    Q_eff_nue, Q_eff_nua, Q_eff_nux
+} "Effective neutrino emission rates"
+
+CCTK_REAL thc_leakage_abs TYPE=GF TAGS='TensorTypeAlias="Scalar" Prolongation="None"'
+{
+    abs_number, abs_energy
+} "Effective absorption of free-streaming neutrinos (must be provided by some other thorn)"
+
+CCTK_REAL thc_leakage_luminosity TYPE=GF TAGS='TensorTypeAlias="Scalar" Prolongation="None"'
+{
+    luminosity_nue, luminosity_nua, luminosity_nux
+} "Neutrino luminosity as computed on the volume (see Galeazzi et al. 2013)"

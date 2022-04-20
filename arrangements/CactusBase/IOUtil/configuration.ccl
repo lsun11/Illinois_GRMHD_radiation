@@ -1,0 +1,10 @@
+# Configuration definitions for thorn IOUTIL
+# $Header: /cactusdevcvs/CactusBase/IOUtil/configuration.ccl,v 1.1 2004/03/27 16:04:43 goodale Exp $
+
+# In future we can hopefully use function aliasing instead.
+
+PROVIDES IOUTIL
+{
+  SCRIPT
+  LANG
+}

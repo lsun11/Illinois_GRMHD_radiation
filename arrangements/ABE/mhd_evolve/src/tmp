@@ -1,0 +1,8 @@
+      // compute  K
+      double knew = best_guess_primitives.P_new/P_cold;
+      if(knew > 100.0){
+	knew = 100.0;}
+      if(knew <1.0){
+	knew =1.0;}
+
+      best_guess_primitives.P_new = knew*best_guess_primitives.rho_b_new*best_guess_primitives.rho_b_new;

@@ -1,0 +1,45 @@
+# Schedule definitions for thorn movingbox
+
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_temps
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::em_rhsx, mhd_evolve::em_rhsy, mhd_evolve::em_rhsz
+STORAGE: mhd_evolve::rad_conservatives[3], mhd_evolve::rad_conservatives_rhs, mhd_evolve::rad_primitives, mhd_evolve::rad_pressure
+STORAGE: mhd_evolve::microphys_primitives, mhd_evolve::micphys_conservatives[3], mhd_evolve::micphys_conservatives_rhs
+STORAGE: mhd_evolve::em_Blagrangemultiplier[3], mhd_evolve::em_Blagrangemultiplier_rhs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+#STORAGE: mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::volIntegrals,diagnostics_mhd::volIntegrals_mhd
+
+STORAGE: movingbox::volIntegrals_movingbox movingbox::diag_movingbox_gf
+
+# Update Moving Box Center Location
+
+######################
+# MOVING BOX INTEGRALS (based mostly on diagnostics_mhd/src/vol_integrand-CenterofMass.F90)
+######################
+
+schedule compute_movingbox_vol_integrands at CCTK_ANALYSIS as movingbox_integrand1 after CoM_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in integrands that help track moving matter distributions"
+schedule Integrate_vol_integrand_movingbox as movingbox_integrate1 at CCTK_ANALYSIS after movingbox_integrand1 before poststep
+{
+        LANG:           FORTRAN
+	STORAGE:	volIntegrals_movingbox
+        OPTIONS:        GLOBAL
+} "Integrate moving box integrands"
+
+schedule movingbox_update_centers at CCTK_ANALYSIS before poststep after sanitycheck_restore_Aij
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Update center locations of moving boxes"

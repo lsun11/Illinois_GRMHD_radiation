@@ -1,0 +1,7 @@
+# Schedule definitions for thorn LocalReduce
+# $Header: /cactusdevcvs/CactusBase/LocalReduce/schedule.ccl,v 1.1.1.2 2004/06/25 07:31:13 yye00 Exp $
+
+schedule LocalReduce_Startup at STARTUP
+{
+  LANG:C
+} "Startup routine"

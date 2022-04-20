@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn Cartoon2D
+# $Header: /cactusdevcvs/BetaThorns/Cartoon2D/src/make.code.defn,v 1.7 2004/05/28 15:59:40 schnetter Exp $
+
+# Source files in this directory
+SRCS = ApplyCartoon.c CheckParameters.c Cartoon2DBC.c interpolate.c RegisterSym.c SymInterp.c SetGrid.c
+
+# Subdirectories containing source files
+SUBDIRS = 

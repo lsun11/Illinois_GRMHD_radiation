@@ -1,0 +1,14 @@
+# Cactus specification of where source code lives for this thorn
+# $Header: /numrelcvs/AEIThorns/AHFinderDirect/src/make.code.defn,v 1.11 2003/06/04 11:54:22 jthorn Exp $
+
+# Source files in this directory
+SRCS = 
+
+# Subdirectories containing source files (normal compilation)
+# ... directories are listed in bottom-up order
+SUBDIRS = jtutil patch \
+          sparse-matrix/ilucg sparse-matrix/umfpack \
+          elliptic gr driver
+
+## Subdirectories containing source files (using src/patch/test_patch_system.cc)
+##SUBDIRS = jtutil patch

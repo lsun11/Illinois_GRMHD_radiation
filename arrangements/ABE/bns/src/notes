@@ -1,0 +1,13 @@
+Add B-field to the BNS system
+
+BNS-setup_bns.F90
+BNS-setup_emfield.F90
+make.code.defn
+bns_diagnostic_integrals.F90
+BNS-read_inputfiles.C
+R_to_rfish.F90
+../param.ccl
+../interface.ccl
+
+magnetar_diagnostic_integrals.F90
+bssn_corrector.F90

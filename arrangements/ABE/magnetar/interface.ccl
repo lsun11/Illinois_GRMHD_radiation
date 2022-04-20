@@ -1,0 +1,31 @@
+# Interface definition for thorn magnetar
+
+implements: magnetar
+inherits: grid
+# FOLLOWING LINE IS FOR MOVING REFINEMENT BOXES
+inherits: CarpetRegrid2 SphericalSurface
+
+
+#INCLUDES HEADER: binfile_output.h in binfile_output.h
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+friend: excision
+#friend: ahfinderdirect
+
+USES INCLUDE: Symmetry.h
+USES INCLUDE: Cartoon2D.h
+
+private:
+
+REAL scalar2 TYPE = SCALAR 
+{
+  RADEQUAT, magnetar_max_b2
+} "initial radius of star and max(b^2)"
+
+#CCTK_INT FUNCTION Output_binfile()
+#PROVIDES FUNCTION Output_binfile with output_binfile LANGUAGE C

@@ -1,0 +1,6 @@
+# Main make.code.defn file for thorn gw_extraction
+# $Header:$
+
+# Subdirectories containing source files
+##SUBDIRS = PsiKadelia ZerilliMoncrief
+SUBDIRS = PsiKadelia_cpp ZerilliMoncrief

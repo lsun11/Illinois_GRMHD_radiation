@@ -1,0 +1,5 @@
+# Configuration definitions for thorn CarpetIOScalar
+
+REQUIRES Carpet CarpetLib IOUtil
+
+REQUIRES THORNS: Carpet CarpetLib IOUtil

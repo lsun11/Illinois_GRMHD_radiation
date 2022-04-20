@@ -1,0 +1,66 @@
+# Interface definition for thorn scalarwave
+# $Header: /home/astro/CVS/Cactus/arrangements/ABE/scalarwave/interface.ccl,v 1.1.1.1 2006/02/17 21:31:26 zetienne Exp $
+
+implements: scalarwaveMoL
+inherits: grid CarpetRegrid2
+
+
+###########################################################################
+# Following needed for MoL (timestepping):
+CCTK_INT FUNCTION MoLRegisterEvolvedGroup(CCTK_INT IN EvolvedIndex, \
+                                          CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrained(CCTK_INT IN ConstrainedIndex)
+
+REQUIRES FUNCTION MoLRegisterEvolvedGroup
+REQUIRES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION Boundary_SelectGroupForBC(CCTK_POINTER_TO_CONST IN GH, \
+  CCTK_INT IN faces, CCTK_INT IN boundary_width, CCTK_INT IN table_handle, \
+  CCTK_STRING IN var_name, CCTK_STRING IN bc_name)
+REQUIRES FUNCTION Boundary_SelectGroupForBC
+###########################################################################
+
+USES INCLUDE: Symmetry.h
+ 
+protected:
+
+# Stores phi_p, phi, phidot_p, & phidot
+cctk_real scalarMoLevolve type = GF Timelevels=3 tags='tensortypealias="Scalar"'
+{
+  phi
+  phidot
+} "phi & phidot = [time derivative of phi]"
+
+# RHS gridfunction
+cctk_real scalarMoLrhs type = GF Timelevels=1
+{
+  phi_rhs
+  phidot_rhs
+} "RHS's of phi, phidot equations"
+
+### TEST ###
+#cctk_real scalarMoLstagger type = GF Timelevels=3 tags='tensortypealias="Scalar" Prolongation="STAGGER011"'
+#cctk_real scalarMoLstagger type = GF Timelevels=3 tags='tensortypealias="Scalar" Prolongation="STAGGER101"'
+cctk_real scalarMoLstagger type = GF Timelevels=3 tags='tensortypealias="Scalar" Prolongation="STAGGER110"'
+{
+  phi_stagger
+  phidot_stagger
+} "phi & phidot stored in staggered grid"
+
+cctk_real scalarMoLstaggerrhs type = GF Timelevels=1
+{
+  phi_stagger_rhs
+  phidot_stagger_rhs
+} "RHS's of phi_stagger, phidot_stagger equations"
+###############
+
+# analytic gridfunction
+cctk_real scalarMoLanalytic type = GF Timelevels=1
+{
+  phi_analytic,phi_analytic_minus_numeric, phi_stagger_analytic_minus_numeric
+} "phi_analytic - phi_numerical"
+
+cctk_int scawave_have_global_boundary TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=16384,3
+{
+  scawave_have_bdry_min,scawave_have_bdry_max
+} "For index i of these arrays, if this processor touches the lower/upper (non-symmetry) boundary in the i direction, have_bdry_min[i]=1.  Otherwise ...=0.  Used for update_boundary"

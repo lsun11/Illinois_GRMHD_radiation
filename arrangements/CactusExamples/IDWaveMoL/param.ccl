@@ -1,0 +1,101 @@
+# Parameter definitions for thorn IDScalarWaveMoLC
+# $Header: /cactusdevcvs/CactusExamples/IDWaveMoL/param.ccl,v 1.2 2004/08/19 09:26:35 schnetter Exp $
+
+restricted:
+
+KEYWORD initial_data "Type of initial data"
+{
+  "gaussian"   :: "Gaussian wave"
+  "plane"      :: "plane wave"
+} "gaussian"
+
+private:
+
+REAL amplitude "The amplitude of the waves"
+{
+  *:* :: "No restriction"
+} 1.0
+
+
+
+REAL radius "The radius of the gaussian wave"
+{
+ 0:* :: "Positive"
+} 0.0
+
+REAL sigma "The sigma for the gaussian wave"
+{
+ 0:* :: "Positive"
+} 0.1
+
+REAL centrex "The centre of the gaussian wave, x-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL centrey "The centre of the gaussian wave, y-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL centrez "The centre of the gaussian wave, z-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+
+
+REAL kx "Wave number in the x-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL ky "Wave number in the y-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL kz "Wave number in the z-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL offsett "Wave offset in the time-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL offsetx "Wave offset in the x-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL offsety "Wave offset in the y-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL offsetz "Wave offset in the z-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL slopet "Wave slope in the time-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL slopex "Wave slope in the x-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL slopey "Wave slope in the y-direction"
+{
+  *:* :: "Anything"
+} 0.0
+
+REAL slopez "Wave slope in the z-direction"
+{
+  *:* :: "Anything"
+} 0.0

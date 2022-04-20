@@ -1,0 +1,136 @@
+!|----------------------------------------------------+
+!| Function to compute fluxes of EM fields 
+!!   across a spherical surface of radius surf_radius.
+!!   and centered at the origin
+!|----------------------------------------------------+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine em_radiative_luminosity(cctkGH,L_em_out,L_em_in,L_em_out_nosqrtmg,L_em_in_nosqrtmp, L_em_out_Poynting)
+  implicit none
+  
+  DECLARE_CCTK_FUNCTIONS
+  DECLARE_CCTK_PARAMETERS
+
+  ! Variables in the function call
+  CCTK_POINTER                             :: cctkGH
+  real*8                                   :: F_em_out, F_em_in, L_em_out, L_em_in, L_em_out_nosqrtmg,L_em_in_nosqrtmp, F_em_out_nosqrtmg,F_em_in_nosqrtmp, L_em_out_Poynting, F_em_out_Poynting
+  ! Variables needed for interpolation
+  real*8, dimension(N_theta*N_phi,3)       :: pointcoords
+  integer                                  :: vindex
+  ! Output arrays, dummy indices, parameters
+!  real*8, dimension(N_theta*N_phi)         :: phi2re, phi2Im,phi0re, phi0Im
+  real*8, dimension(N_theta*N_phi)         :: Psi6int, lapm1int, phi2reint, phi2imint, phi0reint, phi0imint, stxint, styint, stzint
+  integer                                  :: i,j,n
+  integer                                  :: NO_SYMM, EQUATORIAL, OCTANT, PI_SYMM, AXISYM
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+  real*8 PI, costheta, sintheta, phiangle, nx, ny, nz, F_em_x, F_em_y, F_em_z, stx, sty, stz
+
+  PI = 3.14159265358979323846D0
+
+  !| Psi6int <~~~ exp(6.D0*phi)
+  !| lapm1int   <~~~ lapm1,
+  !| phi2reint <~~~ phi2re
+  !| phi2imint <~~~ phi2im
+  !| phi0reint <~~~ phi0re
+  !| phi0imint <~~~ phi0im
+ 
+  n = 1
+  do i=1,N_theta
+     costheta = 1.0 - (i - 0.5)*dcostheta
+     sintheta = sqrt(1.0 - costheta*costheta)
+     do j=1,N_phi
+        phiangle = (j - 0.5)*dphi
+        if(N_phi==1) phiangle = 0.D0
+        pointcoords(n,1) = surf_radius*sintheta*cos(phiangle)
+        pointcoords(n,2) = surf_radius*sintheta*sin(phiangle)
+        pointcoords(n,3) = surf_radius*costheta
+        n = n + 1
+     end do
+  end do
+
+
+  call CCTK_VarIndex(vindex,"mhd_evolve::mhd_st_x")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,stxint)
+
+  call CCTK_VarIndex(vindex,"mhd_evolve::mhd_st_y")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,styint)
+
+  call CCTK_VarIndex(vindex,"mhd_evolve::mhd_st_z")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,stzint)
+
+
+  call CCTK_VarIndex(vindex,"bssn::phi")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,Psi6int)
+
+  call CCTK_VarIndex(vindex,"lapse::lapm1")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,lapm1int)
+
+  do i=1,N_theta*N_phi
+     if (set_up_spherical_EM_wave_in_flat_spacetime==1) then
+        Psi6int(i) = 1.d0
+        lapm1int(i) = 1.D0
+     else
+        Psi6int(i) = exp(6.D0*Psi6int(i))
+        lapm1int(i) = lapm1int(i) + 1.D0
+     end if
+  end do
+
+  call CCTK_VarIndex(vindex,"em_extraction::NPphi2re")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,phi2reint)
+
+  call CCTK_VarIndex(vindex,"em_extraction::NPphi2im")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,phi2imint)
+
+  call CCTK_VarIndex(vindex,"em_extraction::NPphi0re")
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,phi0reint)
+
+  call CCTK_VarIndex(vindex,"em_extraction::NPphi0im")                            
+  call interp_driver_carp(cctkGH,N_theta*N_phi,pointcoords,vindex,phi0imint)
+
+
+
+
+  if(CCTK_MyProc(CCTKGH)==0) call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+
+
+  !Zero out our flux sum first.
+  F_em_out    = 0.D0 
+  F_em_in    = 0.D0 
+  F_em_out_nosqrtmg = 0.d0
+  F_em_in_nosqrtmp = 0.d0
+
+  F_em_out_poynting = 0.d0
+
+  ! Now do the surface integration
+  do i=1,N_theta*N_phi
+    F_em_out = F_em_out + (phi2reint(i)*phi2reint(i) + phi2imint(i)*phi2imint(i))*lapm1int(i)*Psi6int(i) 
+
+    F_em_in = F_em_in + (phi0reint(i)*phi0reint(i) + phi0imint(i)*phi0imint(i))*lapm1int(i)*Psi6int(i) 
+
+    F_em_out_nosqrtmg = F_em_out_nosqrtmg + (phi2reint(i)*phi2reint(i) + phi2imint(i)*phi2imint(i))
+    F_em_in_nosqrtmp = F_em_in_nosqrtmp + (phi0reint(i)*phi0reint(i) + phi0imint(i)*phi0imint(i))
+
+    ! All the above uses the Newman Penrose phi2 scalar to compute fluxes. Below we use the Poynting vector
+    ! This Poynting vector diagnostic is valid only the asymptotically flat region (far from the sources)
+    ! Note that the vector is not unit here, because below in Luminosity calculation we multiply by r instead of r^2.
+    nx = pointcoords(i,1)
+    ny = pointcoords(i,2)
+    nz = pointcoords(i,3)
+
+    F_em_out_Poynting = F_em_out_Poynting + ( nx*stxint(i) + ny*styint(i) + nz*stzint(i) ) 
+    
+  end do
+
+  ! L_em is the Poynting luminosity through the surface at surf_radius !
+  L_em_out    = F_em_out *  surf_radius * surf_radius * dphi * dcostheta*sym_factor/(4.d0*PI)
+  L_em_in    = F_em_in *  surf_radius * surf_radius * dphi * dcostheta*sym_factor/(4.d0*PI)
+  L_em_out_nosqrtmg = F_em_out_nosqrtmg *  surf_radius * surf_radius * dphi * dcostheta*sym_factor/(4.d0*PI)
+  L_em_in_nosqrtmp = F_em_in_nosqrtmp *  surf_radius * surf_radius * dphi * dcostheta*sym_factor/(4.d0*PI)
+
+  ! And now the Poynting luminosity
+  L_em_out_Poynting = F_em_out_Poynting * surf_radius * dphi * dcostheta*sym_factor
+
+end subroutine em_radiative_luminosity

@@ -1,0 +1,4 @@
+Known issues
+============
+
+* Some of the tests fails with the Intel compiler using full optimisation...

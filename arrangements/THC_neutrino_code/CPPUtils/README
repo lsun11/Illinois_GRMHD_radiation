@@ -1,0 +1,9 @@
+Cactus Code Thorn CPPUtils
+Author(s)    : David Radice <david.radice@aei.mpg.de>
+Maintainer(s): David Radice <david.radice@aei.mpg.de>
+Licence      : GPLv3
+--------------------------------------------------------------------------
+
+1. Purpose
+
+Miscellaneous C++ template functions

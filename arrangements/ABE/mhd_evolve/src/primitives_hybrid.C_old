@@ -1,0 +1,1945 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <iostream>
+#include <sys/time.h>
+#include "cctk.h"
+
+#include "primitives_solver_header.h"
+#include "compute_T_fluid.C"
+
+
+#define SQR(x) ((x) * (x))
+#define AXISYM 4
+#define MAX_GAMMA 100.0
+
+
+
+struct auxarray {
+  double rho_s,tau,gamma_th,BxL_f1o4pa,ByL_f1o4pa,BzL_f1o4pa;
+  double mhd_st_x,mhd_st_y,mhd_st_z,alpn1,B2;
+  double B_xl_f1o4pa,B_yl_f1o4pa,B_zl_f1o4pa;
+  double gupxx_phys,gupxy_phys,gupxz_phys,gupyy_phys,gupyz_phys,gupzz_phys;
+  double Psi6,Psi2;
+  double u_scal_Psi2,eps_scal,sti_scal_inv,tau_scal_inv;
+};
+
+
+
+
+void newt2_cpp(double x[],struct auxarray &aux,
+	       void (*function_hybrd)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse),
+	       void (*jacobian_hybrd)
+	       (int &n,double *x,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5], int &enable_OS_collapse),
+	       int &n,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,bool &check,
+	       int *indx,double *g,double *p,double *xold,double *fvec,int &MAXITS,double &STPMX,int &enable_OS_collapse);
+/*void compute_pcold_epscold_cpp(double &rhob, double &P_cold, double &eps_cold, 
+			       int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab);
+*/
+void function_hybrd(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse);
+void function_hybrd_font_fix(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse);
+void jacobian_hybrd
+(int &n,double *x,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5], int &enable_OS_collapse);
+void jacobian_hybrd_font_fix
+(int &n,double *x,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5], int &enable_OS_collapse);
+double max_val(double val1,double val2);
+double **dmatrix_newt(long nrl, long nrh, long ncl, long nch);
+void free_dmatrix_newt(double **m, long nrl, long nrh, long ncl, long nch);
+void ludcmp_newt(double a[][5], int n, int *indx, double *d);
+void lubksb_newt(double a[][5], int n, int *indx, double b[]);
+void lnsrch_newt(int n, double xold[], double fold, double g[], double p[], double x[],
+		 double *f, double stpmax, bool &check, 
+		 double (*fmin)
+		 (double *x,struct auxarray &aux,double *fvec,
+		  void (*nrfuncv)(int &n,double *x,double *fvec, struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse),
+		  int &n,int &neos,int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse),
+		  void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse),
+		 struct auxarray &aux,double *fvec,
+		 int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse);
+double fmin_newt(double *x,struct auxarray &aux,double *fvec,
+		 void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse),
+		 int &n,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse);
+
+//double fasterpow_prim(double inputvar,double inputpow);
+
+extern "C" void CCTK_FCALL CCTK_FNAME(primitive_vars_hybrid2_cpp)
+  (int *ext,int *nghostzones, double *X, double *Y, double *Z, double *rho_star, double *tau,
+   double *st_x, double *st_y, double *st_z, double *mhd_st_x, double *mhd_st_y, double *mhd_st_z,
+   double *tau_rad, double *S_rad_x, double *S_rad_y, double *S_rad_z,
+   int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab, double *P_tab, double *eps_tab, double *k_tab, double *gamma_tab, double &gamma_th,
+   double *w, double *w_old, double *rho_b, double *rho, double *P, double *h, double *Sx, double *Sy, double *Sz,
+   double *Sxx, double *Sxy, double *Sxz, double *Syy, double *Syz, double *Szz,
+   double *E_rad, double *F_radx, double *F_rady, double *F_radz, double *F_rad0,
+   double *phi, double *alpha, double *shiftx, double *shifty, double *shiftz, double *gxx, double *gxy, double *gxz, double *gyy, double *gyz, double *gzz,
+   double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz,
+   double *h_old, double *u0, double &rho_max, double &rho_b_atm, double &rho_fail_max_step, double &M_fail_step, double &rhos_max,
+   double *Bx, double *By, double *Bz, double *Ex, double *Ey, double *Ez, double *vx, double *vy, double *vz, double *sbt, double *sbx, double *sby, double *sbz,
+   double &xNS1,double &yNS1, double &xNS2,double &yNS2, int &num_CO, double &M_B, double &rad_T_fac, double &rad_T_cutoff, double &rad_T_pow,  double &rad_T_floor, double *T_fluid,
+   int &proc_imin, int &proc_jmin, int &proc_kmin, int &proc_imax, int &proc_jmax, int &proc_kmax,
+   int &glob_imax, int &glob_jmax, int &glob_kmax, int &Symmetry,double &pfloor,int &excision_enable,int *excision_zone_gf,
+   int &tau_stildefix_enable,double &tau_atm,double *failure_tracker,const cGH **cctkGH,int &ignore_ghostzones, int &enable_shocktest_primitive_mode, int &repairs_needed , int &rad_closure_scheme, 
+   double &rad_const, int &enable_OS_collapse);
+
+
+//-----------------------------------------------------------------------------
+//
+// reconstruct primitive variables, compute sources for "hybrid" EOS
+//
+//-----------------------------------------------------------------------------
+void primitive_vars_hybrid2_cpp
+(int *ext,int *nghostzones, double *X, double *Y, double *Z, double *rho_star, double *tau,
+ double *st_x, double *st_y, double *st_z, double *mhd_st_x, double *mhd_st_y, double *mhd_st_z,
+ double *tau_rad, double *S_rad_x, double *S_rad_y, double *S_rad_z,
+ int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab, double *P_tab, double *eps_tab, double *k_tab, double *gamma_tab, double &gamma_th,
+ double *w, double *w_old, double *rho_b, double *rho, double *P, double *h, double *Sx, double *Sy, double *Sz,
+ double *Sxx, double *Sxy, double *Sxz, double *Syy, double *Syz, double *Szz,
+ double *E_rad, double *F_radx, double *F_rady, double *F_radz, double *F_rad0,
+ double *phi, double *alpha, double *shiftx, double *shifty, double *shiftz, double *gxx, double *gxy, double *gxz, double *gyy, double *gyz, double *gzz,
+ double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz,
+ double *h_old, double *u0, double &rho_max, double &rho_b_atm, double &rho_fail_max_step, double &M_fail_step, double &rhos_max,
+ double *Bx, double *By, double *Bz, double *Ex, double *Ey, double *Ez, double *vx, double *vy, double *vz, double *sbt, double *sbx, double *sby, double *sbz,
+ double &xNS1,double &yNS1, double &xNS2,double &yNS2, int &num_CO, double &M_B, double &rad_T_fac, double &rad_T_cutoff, double &rad_T_pow,  double &rad_T_floor, double *T_fluid,
+ int &proc_imin, int &proc_jmin, int &proc_kmin, int &proc_imax, int &proc_jmax, int &proc_kmax,
+ int &glob_imax, int &glob_jmax, int &glob_kmax, int &Symmetry,double &pfloor,int &excision_enable,int *excision_zone_gf,
+ int &tau_stildefix_enable,double &tau_atm,double *failure_tracker,const cGH *cctkGH,int &ignore_ghostzones, int &enable_shocktest_primitive_mode, int &repairs_needed, int &rad_closure_scheme,
+ double &rad_const, int &enable_OS_collapse) {
+
+  printf("Inside!!!! start primitive_vars_hybrid2_cpp \n");
+  printf("rad_const = %e \n", rad_const);
+  //int count = 0;
+  double f1o4p = 1.0/(4.0*M_PI);
+  double f1o8p = f1o4p*0.5;
+
+  // Timer:
+  // reset the clock
+  struct timeval start, end;
+  long mtime, seconds, useconds;    
+  gettimeofday(&start, NULL);
+
+  //
+  // Input translation
+  //
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart = 0;
+  int jstart = 0;
+  int kstart = 0;
+  int iend = ext[0];
+  int jend = ext[1];
+  int kend = ext[2];
+
+  if(ignore_ghostzones==1) {
+    istart = nghostzones[0];
+    jstart = nghostzones[1];
+    kstart = nghostzones[2];
+    iend   = ext[0]-nghostzones[0];
+    jend   = ext[1]-nghostzones[1];
+    kend   = ext[2]-nghostzones[2];
+  } else if(ignore_ghostzones==0 || ignore_ghostzones==-1) {
+    //do nothing
+  } else if(ignore_ghostzones==2) {
+    istart = nghostzones[0]-1;
+    jstart = nghostzones[1]-1;
+    kstart = nghostzones[2]-1;
+    iend   = ext[0]-nghostzones[0]+1;
+    jend   = ext[1]-nghostzones[1]+1;
+    kend   = ext[2]-nghostzones[2]+1;
+  } else {
+    printf("YOU MUST SET ignore_ghostzones (last variable in primitives solver function call) to zero (compute everywhere on grid) or one (ignore ghostzones) or two (ignore all but one ghostzone, so that averaging works when fontfix fails.) or -1 (only compute inside the ghostzones)\n");
+    exit(1);
+  }
+
+  double dX = X[CCTK_GFINDEX3D(cctkGH,1,0,0)]-X[CCTK_GFINDEX3D(cctkGH,0,0,0)];
+  double dY = Y[CCTK_GFINDEX3D(cctkGH,0,1,0)]-Y[CCTK_GFINDEX3D(cctkGH,0,0,0)];
+  double dZ = Z[CCTK_GFINDEX3D(cctkGH,0,0,1)]-Z[CCTK_GFINDEX3D(cctkGH,0,0,0)];
+
+  double dV = dX * dY * dZ;
+
+  if (Symmetry==AXISYM) {
+    dV = 4.0*M_PI*dX*dZ;
+    // only compute primitives and sources on y=0 plane
+    for(int i=0;i<iend;i++) for(int k=0;k<kend;k++) {
+      int j = 1;
+      int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+      rho[index] = 0.0;
+      Sx[index]  = 0.0;
+      Sy[index]  = 0.0;
+      Sz[index]  = 0.0;
+      Sxx[index] = 0.0;
+      Sxy[index] = 0.0;
+      Sxz[index] = 0.0;
+      Syy[index] = 0.0;
+      Syz[index] = 0.0;
+      Szz[index] = 0.0;
+    }
+    //Zach says: I'm not sure why we want the following lines, but axisymmetry is a mess right now.
+    if(X[CCTK_GFINDEX3D(cctkGH,0,0,0)] < 0.0) istart++;
+    if(Z[CCTK_GFINDEX3D(cctkGH,0,0,0)] < 0.0) kstart++;
+  }
+
+  rho_fail_max_step = 0.0;
+  M_fail_step =0.0;
+
+  //-----------------------------------------------------------------------------
+  // Funny parameters...  (See Shibata, Oohara & Nakamura...)
+  //-----------------------------------------------------------------------------
+  double f = 4e-5;
+  double rho_cutoff = 1e-4;
+  //  Tiny = 1.D-10*rho_max
+  double Tiny = 0.0;
+
+  // Initialize the failure_tracker array
+    #pragma omp parallel for
+    for(int i=0;i<ext[0];i++) for(int j=0;j<ext[1];j++) for(int k=0;k<ext[2];k++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    failure_tracker[index] = 0.0;
+    }
+  repairs_needed = 0;
+
+  // Set eps_scal
+  double eps_scal,P_cold_dummy;
+  compute_pcold_epscold_cpp(rho_max, P_cold_dummy, eps_scal,neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+
+  //Why set eps_scal based on the value of rho_b at one point on the grid?  Atmosphere (i.e., 99% of points) is many orders of magnitude below rho_max!
+  eps_scal=1.0;
+
+  //
+  // Now go to each gridpoint
+  //
+#pragma omp parallel for
+  for(int k=kstart;k<kend;k++)
+    for(int j=jstart;j<jend;j++)
+      for(int i=istart;i<iend;i++) {
+        int compute_primitives = 1;
+
+        // Exclude regions not in the ghostzones when ignore_ghostzones==-1
+        if ( ignore_ghostzones==-1) {
+             if ( (k>nghostzones[2]-1 && k<kend-nghostzones[2]) &&
+                  (j>nghostzones[1]-1 && j<jend-nghostzones[1]) &&
+                  (i>nghostzones[0]-1 && i<iend-nghostzones[0]) )
+                compute_primitives = 0;
+        }
+
+	double UUguess[5];
+
+        if (compute_primitives==1) { 
+	   int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+
+
+	   if (i==8&&j==79&&k==44){
+	     printf("Checkpiont1.25: i==9.and.j==80.and.k==45 \n ");
+	     printf("Sxx, E_rad, F_radx, rho_b, P, vx, vy, vz= \n");
+	     printf("%e,%e,%e,%e,%e, %e, %e,%e \n ",Sxx[index], E_rad[index], F_radx[index], rho_b[index], P[index], vx[index], vy[index], vz[index]);
+	   }
+
+	   if(isnan(tau[index])){
+	     printf ("Label 1, tau is NAN. tau[index]=%e i,j,k= %d,%d, %d \n",  tau[index], i,j,k);
+	   }
+
+
+	   double rhobatm=rho_b_atm;
+	   if(rho_b_atm<0) {
+	     double xL=X[index];
+	     double yL=Y[index];
+	     double zL=Z[index];
+	     double rL=sqrt(xL*xL+yL*yL+zL*zL);
+	     
+	     double r_falloff_radius = 12.0;
+	     double r_falloff_dr     = 5.0;
+
+	     //BAD: affects M0 too much: double rhobatm_initial_value = 1.0e-7;
+	     //BAD: double rhobatm_final_value = 1.0e-10;
+	     double rhobatm_initial_value = 1.0e-8;
+	     double rhobatm_final_value = 1.0e-11;
+
+	     rhobatm=-erf((rL-r_falloff_radius-r_falloff_dr*2.0)/r_falloff_dr)*(rhobatm_initial_value-rhobatm_final_value)*0.5 + (rhobatm_initial_value-rhobatm_final_value)*0.5 + rhobatm_final_value;
+	   }
+
+	   // Set eps_tiny and P_tiny
+	   double P_tiny,eps_tiny;
+	   if(rho_b_atm<0) {
+	     compute_pcold_epscold_cpp(rhobatm, P_tiny, eps_tiny,neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+	   } else {
+	     compute_pcold_epscold_cpp(rhobatm, P_tiny, eps_tiny,neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+	   }
+
+
+	   int MAXITS_beforefontfix=50;
+	   double STPMX_beforefontfix=20.0; // <== faster than 100.0, when maxits set to 50
+	   //double STPMX_beforefontfix=100.0;
+
+	   double P_l,h_l,rho_bl,eps;
+	   double T_fluidl;
+	   double au0m1;
+	   double B2;
+	   double P_cold,eps_cold;
+	   double u_xl,u_yl,u_zl;
+	   double ux_l,uy_l,uz_l;
+
+	   //Structure that holds auxilliary data for Newton-Raphson solver
+	   struct auxarray AUX;
+	   
+	   double Psi2 = exp(2.0*phi[index]);
+	   double Psim2= 1.0/Psi2;
+	   double Psi4 = Psi2*Psi2;
+	   double Psim4= 1.0/(Psi2*Psi2);
+	   double Psi6 = Psi2*Psi4;
+	   double Psim6= 1.0/(Psi2*Psi4);
+	   double gxxL = gxx[index];
+	   double gxyL = gxy[index];
+	   double gxzL = gxz[index];
+	   double gyyL = gyy[index];
+	   double gyzL = gyz[index];
+	   double gzzL = gzz[index];
+
+	   double shiftxL = shiftx[index];
+	   double shiftyL = shifty[index];
+	   double shiftzL = shiftz[index];
+
+	   double BxL = Bx[index];
+	   double ByL = By[index];
+	   double BzL = Bz[index];
+
+	   double u0l = u0[index];
+	   double u_xll = (gxxL*(shiftxL+vx[index]) + 
+	   		gxyL*(shiftyL+vy[index]) + 
+	   		gxzL*(shiftzL+vz[index]))*Psi4*u0l;
+	   double u_yll = (gxyL*(shiftxL+vx[index]) + 
+	   		gyyL*(shiftyL+vy[index]) + 
+	   		gyzL*(shiftzL+vz[index]))*Psi4*u0l;
+	   double u_zll = (gxzL*(shiftxL+vx[index]) + 
+	   		gyzL*(shiftyL+vy[index]) + 
+	   		gzzL*(shiftzL+vz[index]))*Psi4*u0l;
+	   double B_xl  = Psi4 * (gxxL * BxL + gxyL * ByL + 
+	   		       gxzL * BzL );
+	   double B_yl  = Psi4 * (gxyL * BxL + gyyL * ByL + 
+	   		       gyzL * BzL);
+	   double B_zl  = Psi4 * (gxzL * BxL + gyzL * ByL + 
+	   		       gzzL * BzL);
+	   
+	   if (Symmetry == AXISYM) u0[index] = 1.0;
+	   if (rho_b[index] < rhobatm) rho_b[index] = rhobatm;
+
+	   double alpn1 = alpha[index] + 1.0;
+	   double alpn1_inv = 1.0/(alpha[index] + 1.0);
+	   
+	   double rho_s = rho_star[index];
+	   if (rhobatm*Psi6*0.99 >= rho_star[index]) rho_s = -1.0;
+
+	   double f1o4pa = sqrt(f1o4p)*alpn1_inv;
+
+	   
+	   bool tau_stilde_fix_applied = false;
+	   //if (rho_s > Tiny && Psi6<50.0) {
+           if (rho_s > Tiny) {
+	     //if(tau_stildefix_enable != 0) {
+	     if(tau_stildefix_enable==1 || (tau_stildefix_enable==2 && BxL==0 && ByL==0 && BzL==0)) {
+	       if(tau[index] < 0.0) {
+	         //if(k.gt.1)write(6,*)'fix3:',
+	         //     i,j,k,X[index],Y[index],Z[index],tau[index]
+	         tau[index] = tau_atm;
+	         tau_stilde_fix_applied = true;
+	         //tau[index]=1.0D-3
+	       }
+
+	       double stxi=mhd_st_x[index];
+	       double styi=mhd_st_y[index];
+	       double stzi=mhd_st_z[index];
+	       double gxxi=gupxx[index]*Psim4;
+	       double gyyi=gupyy[index]*Psim4;
+	       double gzzi=gupzz[index]*Psim4;
+	       double gxyi=gupxy[index]*Psim4;
+	       double gxzi=gupxz[index]*Psim4;
+	       double gyzi=gupyz[index]*Psim4;
+	       double sdots=gxxi*SQR(stxi)+gyyi*SQR(styi)+gzzi*SQR(stzi)+2.0*
+	         (gxyi*stxi*styi+gxzi*stxi*stzi+gyzi*styi*stzi);
+	       double rhot=tau[index]*(tau[index]+2.0*rho_s);
+	       if(sdots > 0.98*rhot) {
+	         // the stuff after the && is so that we don't get 
+	         //       inundated with fix2 statements when we're updating the atmosphere
+	         //if(k.gt.1 && tau[index].gt.1.D-10)write(6,*)'fix2:',
+	         //     i,j,k,X[index],Y[index],Z[index],
+	         //     sdots,rhot,tau[index],rho_s
+
+	         //double rfact=sqrt(sdots/(0.98*rhot));
+	         double rfactm1 = sqrt((0.98*rhot)/sdots);
+	         mhd_st_x[index]=mhd_st_x[index]*rfactm1;
+	         mhd_st_y[index]=mhd_st_y[index]*rfactm1;
+	         mhd_st_z[index]=mhd_st_z[index]*rfactm1;
+	       }
+	     }
+	     rho_bl = rho_b[index];
+	     eps = h_old[index]-1.0-P[index]/rho_bl;
+
+	     int nn = 4;
+	     double UU[5];
+	     UU[1] = u_xll*Psim2;
+	     UU[2] = u_yll*Psim2;
+	     UU[3] = u_zll*Psim2;
+	     UU[4] = max_val(eps,eps_tiny);
+	     if (UU[4] < 0.0)
+	       {
+		 printf("In primitives_hybrid, checkpoint 1, UU[4] is negative!!!!!! \n");
+	       }
+	     //int m = 26;
+
+	     AUX.rho_s = rho_s;
+	     AUX.tau = tau[index];
+	     AUX.gamma_th = gamma_th;
+	     AUX.BxL_f1o4pa = BxL*f1o4pa;
+	     AUX.ByL_f1o4pa = ByL*f1o4pa;
+	     AUX.BzL_f1o4pa = BzL*f1o4pa;
+	     B2 = Psi4*( gxxL*SQR(AUX.BxL_f1o4pa) +
+	   	      2.0*gxyL*AUX.BxL_f1o4pa*AUX.ByL_f1o4pa + 2.0*gxzL*AUX.BxL_f1o4pa*AUX.BzL_f1o4pa +
+	   	      gyyL*SQR(AUX.ByL_f1o4pa) + 2.0*gyzL*AUX.ByL_f1o4pa*AUX.BzL_f1o4pa +
+	   	      gzzL*SQR(AUX.BzL_f1o4pa) );
+
+	     /*
+	       printf("hi1 %e\n",Psi6);
+	       printf("hi2 %e\n",rho_bl);
+	       printf("hi3 %e\n",eps_scal);
+	       printf("hi4 %e\n",B2);
+	       printf("%d %d %d hi5 %e\n",i,j,k,tau[index]);
+	     */
+
+	     AUX.mhd_st_x = mhd_st_x[index];
+	     AUX.mhd_st_y = mhd_st_y[index];
+	     AUX.mhd_st_z = mhd_st_z[index];
+	     AUX.alpn1 = alpn1;
+	     AUX.B2    = B2;
+	     AUX.B_xl_f1o4pa = B_xl*f1o4pa;
+	     AUX.B_yl_f1o4pa = B_yl*f1o4pa;
+	     AUX.B_zl_f1o4pa = B_zl*f1o4pa;
+	     AUX.gupxx_phys = gupxx[index]*Psim4;
+	     AUX.gupxy_phys = gupxy[index]*Psim4;
+	     AUX.gupxz_phys = gupxz[index]*Psim4;
+	     AUX.gupyy_phys = gupyy[index]*Psim4;
+	     AUX.gupyz_phys = gupyz[index]*Psim4;
+	     AUX.gupzz_phys = gupzz[index]*Psim4;
+	     AUX.Psi2 = Psi2;
+	     //Note: Psi6 = sqrtg !
+	     AUX.Psi6 = Psi6;
+
+	     P_l = max_val(P[index],P_tiny);
+	     h_l = max_val(h_old[index],1.0);
+
+	     double u_scal  = sqrt( (P_l + B2)/(rho_bl*h_l+B2) );
+	     double beta2 = Psi4*( gxxL*SQR(shiftxL) + 
+	   			2.0*gxyL*shiftxL*shiftyL +
+	   			2.0*gxzL*shiftxL*shiftzL +
+	   			gyyL*SQR(shiftyL) +
+	   			2.0*gyzL*shiftyL*shiftzL +
+	   			gzzL*SQR(shiftzL) );
+	     u_scal = u_scal + sqrt(beta2);
+
+	     u_scal = 1.0;
+
+	     double sti_scal = max_val(0.001*u_scal*Psi2*Psi6*(rho_bl*h_l+B2),
+	   			    max_val(fabs(mhd_st_x[index]),
+	   				    max_val(fabs(mhd_st_y[index]),fabs(mhd_st_z[index]))));
+	     
+	     double tau_scal = max_val(0.01*Psi6*(rho_bl*eps_scal+0.5*B2),fabs(tau[index]));
+	     
+
+	     UU[1] = UU[1]/u_scal;
+	     UU[2] = UU[2]/u_scal;
+	     UU[3] = UU[3]/u_scal;
+	     UU[4] = UU[4]/eps_scal;
+
+	     UUguess[1] = UU[1];
+	     UUguess[2] = UU[2];
+	     UUguess[3] = UU[3];
+	     UUguess[4] = UU[4];
+
+	     if (UU[4] < 0.0)
+               {
+                 printf("In primitives_hybrid, checkpoint 1, UU[4] is negative!!!!!! \n");
+               }
+
+
+	     AUX.u_scal_Psi2 = u_scal*Psi2;
+	     AUX.eps_scal = eps_scal;
+	     AUX.sti_scal_inv = 1.0/sti_scal;
+	     AUX.tau_scal_inv = 1.0/tau_scal;
+
+	     if(isnan(AUX.tau_scal_inv)){
+	       printf ("AUX.tau_scal_inv is NAN, Psi6=%e, rho_bl=%e, eps_scal=%e, B2=%e, tau[index]=%e, tau_atm=%e \n", Psi6, rho_bl, eps_scal, B2, tau[index], tau_atm);
+		 }
+	     
+	     if(i==0 && j==0 && k==0) 
+	       {
+	       printf("inside primitivesijk\t %d %d %d\n",i,j,k);
+
+	       printf("BEFORE at i,j,k= 0,0,0: UU = %e %e %e %e\n",UU[1],UU[2],UU[3],UU[4]);
+	       printf("check: gxxL=%e, shiftxL=%e, vx[index]=%e, gxyL=%e, shiftyL=%e, vy[index]=%e,u0l=%e \n", gxxL, shiftxL, vx[index], gxyL, shiftyL, vy[index], u0l);
+	       printf("rho_star = %e\n",rho_star[index]);
+	       printf("tau = %e\n",tau[index]);
+	       printf("mhd_st_x = %e\n",mhd_st_x[index]);
+	       printf("mhd_st_y = %e\n",mhd_st_y[index]);
+	       printf("mhd_st_z = %e\n",mhd_st_z[index]);
+	     }
+	     
+	     bool check;
+	     int newt_indx[5];
+	     double newt_g[5],newt_p[5],newt_xold[5],newt_fvec[5];
+
+	     newt2_cpp(UU,AUX,function_hybrd,jacobian_hybrd,nn,neos,ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,check, 
+		       newt_indx,newt_g,newt_p,newt_xold,newt_fvec,MAXITS_beforefontfix,STPMX_beforefontfix, enable_OS_collapse);
+	     /*
+	     if(UU[4] < 0.0){
+	       printf("after FIRST newt2_cpp, (i,j,k) = %d, %d, %d, newt_fvec[1]=%.16g,  newt_fvec[2]=%.16g, newt_fvec[3]=%.16g, newt_fvec[4]=%.16g UU[4]=%.16g\n", i,j,k, newt_fvec[1],  newt_fvec[2], newt_fvec[3], newt_fvec[4], UU[4]);
+	     }
+	     */
+	     int MAXITS_taustildefix=MAXITS_beforefontfix*10; //  <-- Try harder when doing a Font fix; we don't want to fail here!!!
+	     double STPMX_taustildefix=STPMX_beforefontfix*10; //  <-- Try harder when doing a Font fix; we don't want to fail here!!!
+	     if(tau_stildefix_enable == 1 || (tau_stildefix_enable == 2 && BxL==0 && ByL==0 && BzL==0)) {
+	       //while(tau_stilde_fix_applied==true && (check || UU[4] < 0.0)) {
+	       while(check || UU[4] < 0.0) {
+		 check = false;
+		 newt2_cpp(UU,AUX,function_hybrd,jacobian_hybrd,nn,neos,ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,check,
+			   newt_indx,newt_g,newt_p,newt_xold,newt_fvec,MAXITS_taustildefix,STPMX_taustildefix,enable_OS_collapse);
+		 MAXITS_taustildefix*=10;  // <-- Try even harder!  Don't give up!
+		 //if(MAXITS_taustildefix>=MAXITS_beforefontfix*1e6) break;
+		 if(MAXITS_taustildefix>=MAXITS_beforefontfix*1e4) break;
+	       }
+	     }
+	     /*
+	     // Try again to avoid font failure!
+	     if(check || UU[4] < 0.0) {
+	       UU[1] = UUguess[1];
+	       UU[2] = UUguess[2];
+	       UU[3] = UUguess[3];
+	       UU[4] = UUguess[4];
+	       int newmaxits=MAXITS_beforefontfix*1;
+	       double newstpmx=STPMX_beforefontfix*10;
+	       newt2_cpp(UU,AUX,function_hybrd,jacobian_hybrd,nn,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,check,
+			 newt_indx,newt_g,newt_p,newt_xold,newt_fvec,newmaxits,newstpmx);
+	     }
+	     */
+
+	     if(i==0 && j==0 && k==0) {
+	       for(int gg=1;gg<=4;gg++) printf("UU %d = %.15e\n",gg,UU[gg]);
+	       printf("AFTER: AUX= %e %e %e %e %e\n",u_scal,AUX.rho_s,gxxL,gxyL,gxzL);
+	       printf("AFTER: UU = %e %e %e %e\n",UU[1],UU[2],UU[3],UU[4]);
+	     }
+	     
+	     bool recom = false;
+
+	     //****************************************************************
+	     //                          FONT FIX
+	     // Impose Font fix when Newt-Raph fails (check = true) or when it
+	     //  gives negative eps [UU[4] < 0]
+	     //****************************************************************
+	     if(check || UU[4] < 0.0) {
+	       //printf("START FONT FIX!!!!!!!!!!!, check = %d, UU[4] = %e, eps = %e, eps_tiny = %e, rho_b_atm = %e, rhobatm = %e \n", check, UU[4] , eps, eps_tiny, rho_b_atm, rhobatm);
+               if (enable_shocktest_primitive_mode==1) {
+                   printf("Shock test mode enable.\n");
+                   printf("Primitive solver fails at (i,j,k): %d %d %d\n",i,j,k);
+                   printf("(x,y,z): %e %e %e\n",X[index],Y[index],Z[index]);
+                   printf("rho_star: %e\n",rho_star[index]);
+                   printf("tau: %e\n",tau[index]);
+                   printf("mhd_st_x: %e\n",mhd_st_x[index]);
+                   printf("mhd_st_y: %e\n",mhd_st_y[index]);
+                   printf("mhd_st_z: %e\n",mhd_st_z[index]);
+                   printf("Bx: %e\n",Bx[index]);
+                   printf("By: %e\n",By[index]);
+                   printf("Bz: %e\n",Bz[index]);
+                   printf("B2: %e\n",AUX.B2);
+                   printf("gamma^xx: %e\n",AUX.gupxx_phys);
+                   printf("gamma^xy: %e\n",AUX.gupxy_phys);
+                   printf("gamma^xz: %e\n",AUX.gupxz_phys);
+                   printf("gamma^yy: %e\n",AUX.gupyy_phys);
+                   printf("gamma^yz: %e\n",AUX.gupyz_phys);
+                   printf("gamma^zz: %e\n",AUX.gupzz_phys);
+                   printf("exp(6 phi): %e\n",AUX.Psi6);
+                   exit(0);
+               }
+
+	       double UU_font_fix[4];
+	     
+	       if(tau_stildefix_enable == 1 || (tau_stildefix_enable == 2 && BxL==0 && ByL==0 && BzL==0)) {
+		 //for(int ww=0;ww<10000;ww++) {
+	         printf("ERROR. TAU STILDE FIX GUARANTEES A SOLUTION (analytically, at least).  THERE WAS NO SOLUTION FOUND.\n");
+	         printf("To read more about the tau stilde fix, check out: arXiv:0708.2436v3, or Phys.Rev.D76:104021,2007 (published version)\n");
+	         printf("Remember that you can use the tau stilde fix only if B=0.\n");
+	         printf("SOLUTION: USE THE QUARTIC PRIMITIVES SOLVER INSTEAD! (set mhd_evolve::primitives_solver=1 in your .par file)!\n\n");
+	         printf("coords of bad point: %d %d %d\n",i,j,k);
+	         printf("AFTER: UU = %e %e %e %e\n",UU[1],UU[2],UU[3],UU[4]);
+		 
+		 if(check==1) printf("\n\n\nNote: the reason the primitives solver failed is because it hit the max count on iterations\n\n\n");
+
+
+	         printf("OUTPUT UU[1] %.16e, check %d\n",UU[1],check);
+	         printf("OUTPUT UU[2] %.16e, check %d\n",UU[2],check);
+	         printf("OUTPUT UU[3] %.16e, check %d\n",UU[3],check);
+	         printf("OUTPUT UU[4] %.16e, check %d\n",UU[4],check);
+
+		 printf("UUguess[1]: %.16e\n",UUguess[1]);
+		 printf("UUguess[2]: %.16e\n",UUguess[2]);
+		 printf("UUguess[3]: %.16e\n",UUguess[3]);
+		 printf("UUguess[4]: %.16e\n",UUguess[4]);
+
+		 printf("rhobatm: %.16e\n",rhobatm);
+		 printf("tau_atm: %.16e\n",tau_atm);
+
+		 printf("lapse: %.16e\n",alpn1);
+		 printf("shiftx: %.16e\n",shiftxL);
+		 printf("shifty: %.16e\n",shiftyL);
+		 printf("shiftz: %.16e\n",shiftzL);
+		 printf("tau: %.16e\n",tau[index]);
+		 printf("rho_star: %.16e\n",rho_star[index]);
+		 printf("mhd_st_x: %.16e\n",mhd_st_x[index]);
+		 printf("mhd_st_y: %.16e\n",mhd_st_y[index]);
+		 printf("mhd_st_z: %.16e\n",mhd_st_z[index]);
+		 printf("gamma^xx_phys: %.16e\n",AUX.gupxx_phys);
+		 printf("gamma^xy_phys: %.16e\n",AUX.gupxy_phys);
+		 printf("gamma^xz_phys: %.16e\n",AUX.gupxz_phys);
+		 printf("gamma^yy_phys: %.16e\n",AUX.gupyy_phys);
+		 printf("gamma^yz_phys: %.16e\n",AUX.gupyz_phys);
+		 printf("gamma^zz_phys: %.16e\n",AUX.gupzz_phys);
+
+		 printf("gamma^xx: %.16e\n",gupxx[index]);
+		 printf("gamma^xy: %.16e\n",gupxy[index]);
+		 printf("gamma^xz: %.16e\n",gupxz[index]);
+		 printf("gamma^yy: %.16e\n",gupyy[index]);
+		 printf("gamma^yz: %.16e\n",gupyz[index]);
+		 printf("gamma^zz: %.16e\n",gupzz[index]);
+
+		 printf("exp(6 phi): %.16e\n",AUX.Psi6);
+		 printf("phi: %.16e\n",phi[index]);
+
+		 printf("u_scal: %.16e\n",u_scal);
+		 printf("eps_scal: %.16e\n",eps_scal);
+		 printf("sti_scal: %.16e\n",sti_scal);
+		 printf("tau_scal: %.16e\n",tau_scal);
+
+		 printf("gxx: %.16e\n",gxxL);
+		 printf("gxy: %.16e\n",gxyL);
+		 printf("gxz: %.16e\n",gxzL);
+		 printf("gyy: %.16e\n",gyyL);
+		 printf("gyz: %.16e\n",gyzL);
+		 printf("gzz: %.16e\n",gzzL);
+		 printf("P_l: %.16e\n",h_l);
+		 printf("h_l: %.16e\n",P_l);
+
+		 printf("\n\n VARIABLES THAT SHOULD BE ZERO:\n");
+		 printf("Bx: %e\n",Bx[index]);
+		 printf("By: %e\n",By[index]);
+		 printf("Bz: %e\n",Bz[index]);
+		 printf("B2: %e\n",AUX.B2);
+		 
+		 //}
+	         //exit(0);
+	       }
+
+	       UU_font_fix[1] = 1.0;
+	       UU_font_fix[2] = 1.0;
+	       UU_font_fix[3] = 1.0;
+	       // Following if statement will make the Fixed: line compatible with DAGH version in axisymmetry
+	       //                 if(i > 1 && k > 1) then
+	       //count = count + 1;
+	       //                 }
+	       nn = 3;
+	         
+	       check = false;
+	       int MAXITS_fontfix=MAXITS_beforefontfix*10; //  <-- Try harder when doing a Font fix; we don't want to fail here!!!
+	       double STPMX_fontfix=STPMX_beforefontfix*10; //  <-- Try harder when doing a Font fix; we don't want to fail here!!!
+	       newt2_cpp(UU_font_fix,AUX,function_hybrd_font_fix,jacobian_hybrd_font_fix,nn,neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,check,
+			 newt_indx,newt_g,newt_p,newt_xold,newt_fvec,MAXITS_fontfix,STPMX_fontfix, enable_OS_collapse);
+	       while(check) {
+		 check = false;
+		 newt2_cpp(UU_font_fix,AUX,function_hybrd_font_fix,jacobian_hybrd_font_fix,nn,neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,check,
+			   newt_indx,newt_g,newt_p,newt_xold,newt_fvec,MAXITS_fontfix,STPMX_fontfix,enable_OS_collapse);
+		 MAXITS_fontfix*=10;  // <-- Try even harder!  Don't give up!
+		 if(MAXITS_fontfix>=MAXITS_beforefontfix*1e6) break;
+		 //if(MAXITS_fontfix>=MAXITS_beforefontfix*1e4) break;
+	       }
+	       if(check) {
+	         printf("ERROR: FONT FIX (secondary solver) JUST FAILED\n");
+	         printf("Problem at (x,y,z) = %e %e %e, %d %d %d\n", X[index],Y[index],Z[index],i,j,k);
+	         printf("rho_star = %e\n",rho_star[index]);
+	         printf("tau = %e\n",tau[index]);
+	         printf("mhd_st_x = %e\n",mhd_st_x[index]);
+	         printf("mhd_st_y = %e\n",mhd_st_y[index]);
+	         printf("mhd_st_z = %e\n",mhd_st_z[index]);
+	         printf("Bx = %e\n",BxL);
+	         printf("By = %e\n",ByL);
+	         printf("Bz = %e\n",BzL);
+	         printf("B2 = %e\n",AUX.B2);
+	         printf("gamma^xx = %e\n",AUX.gupxx_phys);
+	         printf("gamma^xy = %e\n",AUX.gupxy_phys);
+	         printf("gamma^xz = %e\n",AUX.gupxz_phys);
+	         printf("gamma^yy = %e\n",AUX.gupyy_phys);
+	         printf("gamma^yz = %e\n",AUX.gupyz_phys);
+	         printf("gamma^zz = %e\n",AUX.gupzz_phys);
+	         printf("exp(6 phi) = %e\n",AUX.Psi6);
+                       
+	         //FIXME: FAILURE_TRACKER ARRAY NOT SET:
+	         failure_tracker[index] = 1.0;
+	         //repairs_needed = true;
+   	         repairs_needed = 1;
+	         // Set everything to 0.0 before calculating 
+	         // these quantities from averages.
+	         u_xl         = 0.0;
+	         u_yl         = 0.0;
+	         u_zl         = 0.0;
+	         rho_bl       = 0.0;
+	         P_l          = 0.0;
+	         eps          = 0.0;
+	         u0[index]    = 1.0*alpn1_inv;
+	         recom        = true;
+	       } else {
+	         //if the Font fix worked, do the following:                 
+	         u_xl = UU_font_fix[1]*(SQR(UU_font_fix[1]) + 1.0)*Psi2;
+	         u_yl = UU_font_fix[2]*(SQR(UU_font_fix[2]) + 1.0)*Psi2;
+	         u_zl = UU_font_fix[3]*(SQR(UU_font_fix[3]) + 1.0)*Psi2;
+	         recom = true;
+	         double gijuiuj = AUX.gupxx_phys*SQR(u_xl) + 
+	   	2.0*AUX.gupxy_phys*u_xl*u_yl + 2.0*AUX.gupxz_phys*u_xl*u_zl +
+	   	AUX.gupyy_phys*SQR(u_yl) + 2.0*AUX.gupyz_phys*u_yl*u_zl +
+	   	AUX.gupzz_phys*SQR(u_zl);
+	        au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+	         // *** Limit velocity 
+	         if (au0m1 > MAX_GAMMA-1.0) {
+	   	double fac = sqrt((SQR(MAX_GAMMA) - 1.0)/(SQR(1.0+au0m1)-1.0));
+	   	u_xl = fac*u_xl;
+	   	u_yl = fac*u_yl;
+	   	u_zl = fac*u_zl;
+	   	gijuiuj = gijuiuj * SQR(fac);
+	   	au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+	         }
+	         u0[index] = (au0m1+1.0)*alpn1_inv;
+	         if (rho_s < 0.0) u0[index] = -u0[index];
+
+	         //Dead line of code:
+	         //rho_bl = rhobatm;
+	         //rho_bl = rho_s*alpn1_inv/u0[index]/AUX.Psi6;
+	         rho_bl = rho_s/(alpn1*u0[index]*AUX.Psi6);
+	         compute_pcold_epscold_cpp(rho_bl, P_cold, eps_cold,neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+	   	    
+	         P_l = P_cold;
+	         eps = eps_cold;
+
+	       }
+	       //************************************************************************************************************** 
+	     } else {
+	       // Inversion worked without the Font fix!  Now set the primitives:
+	       u_xl = UU[1]*Psi2*u_scal;
+	       u_yl = UU[2]*Psi2*u_scal;
+	       u_zl = UU[3]*Psi2*u_scal;
+	       eps  = UU[4]*eps_scal;
+	       double gijuiuj = AUX.gupxx_phys*SQR(u_xl) + 
+	         2.0*AUX.gupxy_phys*u_xl*u_yl + 2.0*AUX.gupxz_phys*u_xl*u_zl +
+	         AUX.gupyy_phys*SQR(u_yl) + 2.0*AUX.gupyz_phys*u_yl*u_zl +
+	         AUX.gupzz_phys*SQR(u_zl);
+	       au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+	       // *** Limit velocity
+	       if (au0m1 > MAX_GAMMA-1.0 && enable_shocktest_primitive_mode==0) {
+	         recom = true;
+	         double fac = sqrt((SQR(MAX_GAMMA)-1.0)/(SQR(1.0+au0m1) - 1.0));
+	         u_xl = fac*u_xl;
+	         u_yl = fac*u_yl;
+	         u_zl = fac*u_zl;
+	         gijuiuj = gijuiuj * SQR(fac);
+	         au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+	       }
+	       u0[index] = (au0m1+1.0)*alpn1_inv;
+	       if (rho_s < 0.0) u0[index] = -u0[index];
+	       //rho_bl = rho_s*alpn1_inv/u0[index]/AUX.Psi6;
+	       rho_bl = rho_s/(alpn1*u0[index]*AUX.Psi6);
+	       compute_pcold_epscold_cpp(rho_bl, P_cold, eps_cold,neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+	       P_l = P_cold + rho_bl*(gamma_th-1.0)*(eps-eps_cold);
+	     }
+	     
+	     u_xll = u_xl;
+	     u_yll = u_yl;
+	     u_zll = u_zl;
+	     h_l = 1.0 + P_l/rho_bl + eps;
+
+	     //Every FP operation introduces error, but the 
+	     //subtraction of nearly equal numbers is the worst 
+	     //and should be avoided whenever possible
+	     //  -- http://www.cse.ttu.edu.tw/~jmchen/NM/slides/float.ppt, slide 41.
+	     //ORIGINAL code, loses lotsa precision at some points:
+	     ux_l = -shiftxL*u0[index] + AUX.gupxx_phys*u_xl +
+	       AUX.gupxy_phys*u_yl + AUX.gupxz_phys*u_zl;
+	     uy_l = -shiftyL*u0[index] + AUX.gupxy_phys*u_xl +
+	       AUX.gupyy_phys*u_yl + AUX.gupyz_phys*u_zl;
+             uz_l = -shiftzL*u0[index] + AUX.gupxz_phys*u_xl +
+               AUX.gupyz_phys*u_yl + AUX.gupzz_phys*u_zl;
+	     
+	     if (isnan(abs(ux_l))){printf("ux is nan (=%e), shiftxL=%e, AUX.gupxx_phys=%e, AUX.gupxy_phys=%e, AUX.gupxz_phys=%e, u_xl=%e, u_yl=%e, u_zl=%e \n", ux_l, shiftxL, AUX.gupxx_phys, AUX.gupxy_phys, AUX.gupxz_phys, u_xl, u_yl, u_zl);}
+
+	     vx[index] = ux_l/u0[index];
+	     vy[index] = uy_l/u0[index];
+	     vz[index] = uz_l/u0[index];
+	     // Limit P, and impose density floor 
+	     if (rho_bl < rhobatm && enable_shocktest_primitive_mode==0) {
+	       recom = true;
+	       rho_bl = rhobatm;
+	       compute_pcold_epscold_cpp(rho_bl, P_cold, eps_cold,
+					 neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+	       P_l = P_cold ;
+	       eps = eps_cold;
+	       h_l = 1.0 + P_l/rho_bl + eps;
+	     }
+
+	     if (isnan(abs(ux_l))){printf("check 0, ux_l is NAN. \n");}
+
+	     //if ((rho_bl < 100.0*rhobatm && enable_shocktest_primitive_mode==0) || (Psi6>10.0)) {
+	     //	     if ((rho_bl < 100.0*rhobatm && enable_shocktest_primitive_mode==0) || (Psi6>15.0)) {
+             if ((enable_shocktest_primitive_mode==0)) {     // Milton: use to put a cap on K. I don't  include BH evolutions    
+	       double Pmax = 100.0*P_cold;
+	       double Pmin = 0.9*P_cold;
+	       if (P_l > Pmax) {
+	         recom = true;
+	         P_l = Pmax;
+	         eps = eps_cold + (Pmax-P_cold)/(gamma_th-1.0)/rho_bl;
+	         h_l = 1.0 + eps + Pmax/rho_bl;
+	       }
+	       if (P_l < Pmin) {
+	         recom = true;
+	         P_l = Pmin;
+	         eps = eps_cold + (Pmin-P_cold)/(gamma_th-1.0)/rho_bl;
+	         h_l = 1.0 + eps + Pmin/rho_bl;
+	       }
+	     }
+	     
+	     // Re-compute rho_star, mhd_st_i and tau if necessary
+	     if (recom) {
+	       double sb0 = u_xl*AUX.BxL_f1o4pa + u_yl*AUX.ByL_f1o4pa + u_zl*AUX.BzL_f1o4pa;
+	       double sb2 = (AUX.B2 + SQR(sb0))/SQR(u0[index]);
+	       double sb_x = (AUX.B_xl_f1o4pa + u_xl*sb0)/u0[index];
+	       double sb_y = (AUX.B_yl_f1o4pa + u_yl*sb0)/u0[index];
+	       double sb_z = (AUX.B_zl_f1o4pa + u_zl*sb0)/u0[index];
+	       rho_s = alpn1*u0[index]*rho_bl*AUX.Psi6;
+	       rho_star[index] = rho_s;
+	       mhd_st_x[index] = rho_s*h_l*u_xl + 
+	         alpn1*AUX.Psi6*u0[index]*sb2*u_xl - alpn1*AUX.Psi6*sb0*sb_x;
+	       mhd_st_y[index] = rho_s*h_l*u_yl +
+	         alpn1*AUX.Psi6*u0[index]*sb2*u_yl - alpn1*AUX.Psi6*sb0*sb_y;
+	       mhd_st_z[index] = rho_s*h_l*u_zl + 
+	         alpn1*AUX.Psi6*u0[index]*sb2*u_zl - alpn1*AUX.Psi6*sb0*sb_z;
+	       tau[index] = (au0m1+(P_l/rho_bl+eps)*alpn1*u0[index])*rho_s +
+	         AUX.Psi6*sb2*SQR(alpn1*u0[index])
+	         - AUX.Psi6*(P_l+sb2*0.5)-AUX.Psi6*SQR(alpn1*sb0);
+
+	     }
+
+	     
+	     double xL = X[index];
+	     double yL = Y[index];
+	     double zL = Z[index];
+	     
+	  
+
+	     if (isnan(abs(ux_l))){printf("check 1, ux_l is NAN. \n");}
+	     //
+	     // hydro sources
+	     h[index] = h_l;
+	     w[index] = alpn1*u0[index]*rho_s;
+	     double st_x_l = rho_s*h_l*u_xl;
+	     double st_y_l = rho_s*h_l*u_yl;
+	     double st_z_l = rho_s*h_l*u_zl;
+	     st_x[index] = st_x_l;
+	     st_y[index] = st_y_l;
+	     st_z[index] = st_z_l;
+
+	     double fac   = 1.0 / ( Psi6 * w[index]* h[index] ) ;
+	     rho_b[index] = rho_bl;
+	     P[index]   = P_l;
+	     rho[index] = h[index] * w[index] * Psim6 - P_l;
+	     Sx[index]  = st_x_l * Psim6;
+	     Sy[index]  = st_y_l * Psim6; 
+	     Sz[index]  = st_z_l * Psim6;
+	     Sxx[index] = fac * st_x_l*st_x_l + Psi4 * gxxL * P_l;
+	     Sxy[index] = fac * st_x_l*st_y_l + Psi4 * gxyL * P_l;
+	     Sxz[index] = fac * st_x_l*st_z_l + Psi4 * gxzL * P_l;
+	     Syy[index] = fac * st_y_l*st_y_l + Psi4 * gyyL * P_l;
+	     Syz[index] = fac * st_y_l*st_z_l + Psi4 * gyzL * P_l;
+	     Szz[index] = fac * st_z_l*st_z_l + Psi4 * gzzL * P_l;
+	   } else {
+	     // Set rho_b to the atmosphere density and u_i=0
+               if (enable_shocktest_primitive_mode==1) {
+                   printf("Shock test mode enable.\n");
+                   printf("Primitive solver fails at (i,j,k): %d %d %d\n",i,j,k);
+                   printf("(x,y,z): %e %e %e\n",X[index],Y[index],Z[index]);
+                   printf("rho_star: %e\n",rho_star[index]);
+                   printf("tau: %e\n",tau[index]);
+                   printf("mhd_st_x: %e\n",mhd_st_x[index]);
+                   printf("mhd_st_y: %e\n",mhd_st_y[index]);
+                   printf("mhd_st_z: %e\n",mhd_st_z[index]);
+                   printf("Bx: %e\n",Bx[index]);
+                   printf("By: %e\n",By[index]);
+                   printf("Bz: %e\n",Bz[index]);
+                   printf("B2: %e\n",AUX.B2);
+                   printf("gamma^xx: %e\n",Psim6*gupxx[index]);
+                   printf("gamma^xy: %e\n",Psim6*gupxy[index]);
+                   printf("gamma^xz: %e\n",Psim6*gupxz[index]);
+                   printf("gamma^yy: %e\n",Psim6*gupyy[index]);
+                   printf("gamma^yz: %e\n",Psim6*gupyz[index]);
+                   printf("gamma^zz: %e\n",Psim6*gupzz[index]);
+                   printf("exp(6 phi): %e\n",Psi6);
+                   //exit(0);
+               }
+	     rho_bl = rhobatm;
+	     compute_pcold_epscold_cpp(rho_bl, P_cold, eps_cold,
+				       neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+	     P_l = P_cold;
+	     eps = eps_cold;
+	     h_l = 1.0 + P_l/rho_bl + eps;
+	     u0[index] = 1.0*alpn1_inv;
+	     vx[index] = -shiftxL;
+	     vy[index] = -shiftyL;
+	     vz[index] = -shiftzL;
+	     B2 = Psi4*( gxxL*SQR(BxL) +
+	   	      2.0*gxyL*BxL*ByL +
+	   	      2.0*gxzL*BxL*BzL +
+	   	      gyyL*SQR(ByL) +
+	   	      2.0*gyzL*ByL*BzL +
+	   	      gzzL*SQR(BzL) );
+	     double sb2 = B2*f1o4p;
+	     rho_star[index] = Psi6*rho_bl;
+	     tau[index]   = Psi6*(rho_bl*eps + sb2*0.5);
+	     st_x[index]  = 0.0;
+	     st_y[index]  = 0.0;
+	     st_z[index]  = 0.0;
+	     mhd_st_x[index] = 0.0;
+	     mhd_st_y[index] = 0.0;
+	     mhd_st_z[index] = 0.0;
+	     u_xll   = 0.0;
+	     u_yll   = 0.0;
+	     u_zll   = 0.0;
+	     h[index]     = h_l;
+	     w[index]     = rho_star[index];
+	     rho_b[index] = rho_bl;
+	     P[index]     = P_l;
+	     rho[index]   = rho_bl*(1.0+eps);
+	     Sx[index]    = 0.0;
+	     Sy[index]    = 0.0;
+	     Sz[index]    = 0.0;
+	     Sxx[index]   = Psi4 * gxxL * P_l;
+	     Sxy[index]   = Psi4 * gxyL * P_l;
+	     Sxz[index]   = Psi4 * gxzL * P_l;
+	     Syy[index]   = Psi4 * gyyL * P_l;
+	     Syz[index]   = Psi4 * gyzL * P_l;
+	     Szz[index]   = Psi4 * gzzL * P_l;
+	   }
+	   if(i==200000 && j==2 && k==3) 
+	     {
+	     printf("rho_star = %e %e %e %e %e %e %e %e %e %e %e %e %e\n",rho_star[index],vx[index],ux_l,shiftxL,u0[index],u_xl,u_yl,u_zl,P_l,alpn1,rho_bl,h_l,B2);
+	     printf("tau = %e\n",tau[index]);
+	     printf("mhd_st_x = %e\n",mhd_st_x[index]);
+	     printf("mhd_st_y = %e\n",mhd_st_y[index]);
+	     printf("mhd_st_z = %e\n",mhd_st_z[index]);
+	     printf("Bx = %e\n",BxL);
+	     printf("By = %e\n",ByL);
+	     printf("Bz = %e\n",BzL);
+	     printf("%e %e %e %e %e %e %e %e\n",AUX.rho_s,Psi2,h_old[index],P[index],rho_b[index],eps_tiny,eps,eps_scal);
+	     }
+	   if (isnan(abs(ux_l))){printf("check 2, ux_l is NAN. \n");}
+	   //
+	   // MHD metric sources
+	   double E_xl = Psi6 * ( ByL*(vz[index]+shiftzL) 
+	   		       - BzL*(vy[index]+shiftyL) )*alpn1_inv;
+	   double E_yl = Psi6 * ( BzL*(vx[index]+shiftxL) 
+	   		       - BxL*(vz[index]+shiftzL) )*alpn1_inv;
+	   double E_zl = Psi6 * ( BxL*(vy[index]+shiftyL) 
+	   		       - ByL*(vx[index]+shiftxL) )*alpn1_inv;
+	   Ex[index] = (gupxx[index]*E_xl + gupxy[index]*E_yl + 
+	   	     gupxz[index]*E_zl)*Psim4;
+	   Ey[index] = (gupxy[index]*E_xl + gupyy[index]*E_yl + 
+	   	     gupyz[index]*E_zl)*Psim4;
+	   Ez[index] = (gupxz[index]*E_xl + gupyz[index]*E_yl + 
+	   	     gupzz[index]*E_zl)*Psim4;
+	   B_xl  = Psi4 * (gxxL * BxL + gxyL * ByL 
+	   		+ gxzL * BzL);
+	   B_yl  = Psi4 * (gxyL * BxL + gyyL * ByL 
+	   		+ gyzL * BzL);
+	   B_zl  = Psi4 * (gxzL * BxL + gyzL * ByL 
+	   		+ gzzL * BzL);
+	   double temp = f1o8p*(Ex[index]*E_xl + Ey[index]*E_yl + Ez[index]*E_zl 
+	   		     + BxL*B_xl + ByL*B_yl + BzL*B_zl);
+	   rho[index]   = rho[index] + temp;
+
+	   Sxx[index]   = Sxx[index] + temp*Psi4*gxxL
+	     - f1o4p*(E_xl*E_xl + B_xl*B_xl);
+           Sxy[index]   = Sxy[index] +temp*Psi4*gxyL
+             - f1o4p*(E_xl*E_yl + B_xl*B_yl);
+           Sxz[index]   = Sxz[index] + temp*Psi4*gxzL
+             - f1o4p*(E_xl*E_zl + B_xl*B_zl);
+           Syy[index]   = Syy[index] + temp*Psi4*gyyL
+             - f1o4p*(E_yl*E_yl + B_yl*B_yl);
+           Syz[index]   = Syz[index] + temp*Psi4*gyzL
+             - f1o4p*(E_yl*E_zl + B_yl*B_zl);
+           Szz[index]   = Szz[index] + temp*Psi4*gzzL
+             - f1o4p*(E_zl*E_zl + B_zl*B_zl);
+
+           Sx[index]    = Sx[index] + f1o4p*Psi6*(Ey[index]*BzL - Ez[index]*ByL);
+           Sy[index]    = Sy[index] + f1o4p*Psi6*(Ez[index]*BxL - Ex[index]*BzL);
+           Sz[index]    = Sz[index] + f1o4p*Psi6*(Ex[index]*ByL - Ey[index]*BxL);
+           sbt[index] = u_xll*BxL + u_yll*ByL + u_zll*BzL;
+           sbx[index] = BxL/u0[index] + vx[index]*sbt[index];
+           sby[index] = ByL/ u0[index] + vy[index]*sbt[index];
+           sbz[index] = BzL/u0[index] + vz[index]*sbt[index];
+
+	   //	   printf("BEFORE: rho, Sx, Sxx, and Szz are %e, %e, %e, %e, \n", rho, Sx, Sxx, Szz);   
+	   //Add radiation terms to the source IF rad_closure_scheme == 0, otherwise call primitives_rad_cpp.
+	  
+	   if (rad_closure_scheme==0)
+	   {
+	   double tau_radl = tau_rad[index];
+	   double S_rad_xl = S_rad_x[index];
+	   double S_rad_yl = S_rad_y[index];
+	   double S_rad_zl = S_rad_z[index];
+
+	   /*	 
+	   double E_rad_denom = -Psi6*((au0m1+1.0)/3.0 + 1.0/(6.0*(au0m1+1.0)) );
+	   //      double E_rad_denom = - Psi6/3.0*(2.0*SQR(au0m1+1.0)+1.0);                                                                                 
+	   double E_rad_num = (1.0/(2.0*(au0m1+1.0)) - (au0m1+1.0) ) * tau_radl + (
+		            (shiftxL*u0[index]+ux_l)*S_rad_xl
+			    +(shiftyL*u0[index]+uy_l)*S_rad_yl
+			    +(shiftzL*u0[index]+uz_l)*S_rad_zl);
+	
+ 
+	   double E_radl = E_rad_num/E_rad_denom;
+	   double P_radl = E_radl/3.0;
+
+	   double F_rad0l = (tau_radl/Psi6- (4.0*SQR(au0m1+1.0) - 1.0)/3.0 * E_radl)/(2.0*(au0m1+1.0)*alpn1);
+	   */ 
+	   double au0 = au0m1 + 1.0;
+	   double F_rad0_denom = alpn1 * Psi6 *(2.0*au0*au0 + 1.0)/(4.0*au0*au0 - 1.0);
+	   double F_rad0_num = 4.0*au0*(1.0 - au0*au0)/(4.0*au0*au0 - 1.0)*tau_radl
+	                  +( (shiftxL*u0[index]+ux_l)*S_rad_xl                                                                         
+                            +(shiftyL*u0[index]+uy_l)*S_rad_yl                                                                         
+			    +(shiftzL*u0[index]+uz_l)*S_rad_zl);
+	   double F_rad0l = F_rad0_num/F_rad0_denom;
+	   double E_radl = 3.0*(tau_radl/Psi6 - 2.0*alpn1*au0*F_rad0l)/(4.0*au0*au0 - 1.0);
+	   double P_radl = E_radl/3.0;
+	   
+	   double F_radxl = ((AUX.gupxx_phys*S_rad_xl + 
+		       AUX.gupxy_phys*S_rad_yl + 
+		       AUX.gupxz_phys*S_rad_zl))/(alpn1*Psi6*u0[index])-
+	              (E_radl+P_radl)*u0[index]*(vx[index]+shiftx[index]) - 
+	               2.0*(F_rad0l * shiftx[index]) - F_rad0l*vx[index];
+
+	   double F_radyl = ((AUX.gupxy_phys*S_rad_xl +
+                       AUX.gupyy_phys*S_rad_yl +
+                       AUX.gupyz_phys*S_rad_zl))/(alpn1*Psi6*u0[index])-
+	              (E_radl+P_radl)*u0[index]*(vy[index]+shifty[index]) -
+	               2.0*(F_rad0l * shifty[index]) - F_rad0l*vy[index];
+
+	   double F_radzl = ((AUX.gupxz_phys*S_rad_xl +
+                       AUX.gupyz_phys*S_rad_yl +
+                       AUX.gupzz_phys*S_rad_zl))/(alpn1*Psi6*u0[index])-
+	              (E_radl+P_radl)*u0[index]*(vz[index]+shiftz[index]) -
+	               2.0*(F_rad0l * shiftz[index]) - F_rad0l*vz[index];
+
+
+	  //impose flux-less BC for OS_stars (maybe good for other models as well)
+	   
+	   if (enable_OS_collapse==1 && rho_b[index] < rhobatm * 1.0e7) {
+             F_rad0l = 0.0;
+             F_radxl = 0.0;
+             F_radyl = 0.0;
+             F_radzl = 0.0;
+           }
+	   
+             if (enable_shocktest_primitive_mode==1) {
+               compute_T_fluid_shock_cpp2(P_l, rho_bl,  T_fluidl);                                     
+               //compute_T_fluid_shock_cpp2(E_radl, rad_const, T_fluidl);
+             }
+             else{
+               compute_T_fluid_shock_cpp2(P_l, rho_bl,  T_fluidl);
+               // M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, rho_b_atm, T_fluidl);    
+             }
+	     T_fluid[index] = T_fluidl;
+
+	   E_rad[index] = E_radl;
+	   F_radx[index] = F_radxl;
+	   F_rady[index] = F_radyl;
+	   F_radz[index] = F_radzl;	   
+	   F_rad0[index] = F_rad0l;
+	   
+	   double temp_rad = alpn1*u0[index];
+           double temp_rad1 = temp_rad*temp_rad*(E_radl+P_radl) - P_radl + 2*SQR(alpn1)*u0[index]*F_rad0l;
+
+	   //F_rad_\alpha = g_{0\alpha} F_rad0 + g_{z\alpha} F_radz + g_{y\alpha} F_rady + g_{z\alpha} F_radz                                                                     
+	   double shift_xl = Psi4 * (shiftx[index]*gxxL + shifty[index]*gxyL +shiftz[index]*gxzL);
+           double shift_yl = Psi4 * (shiftx[index]*gxyL + shifty[index]*gyyL +shiftz[index]*gyzL);
+	   double shift_zl = Psi4 * (shiftx[index]*gxzL + shifty[index]*gyzL +shiftz[index]*gzzL);
+
+	   double F_rad_xl = Psi4 * (gxxL * F_radxl + gxyL * F_radyl + gxzL * F_radzl) + shift_xl*F_rad0l;
+	   double F_rad_yl = Psi4 * (gxyL * F_radxl + gyyL * F_radyl + gyzL * F_radzl) + shift_yl*F_rad0l;
+	   double F_rad_zl = Psi4 * (gxzL * F_radxl + gyzL * F_radyl + gzzL * F_radzl) + shift_zl*F_rad0l;
+
+	   
+	   rho[index]   = rho[index] + temp_rad1;
+	   
+	   Sx[index] = Sx[index] + temp_rad*(E_radl + P_radl) * u_xll + alpn1*(F_rad0l*u_xll + u0l*F_rad_xl);
+	   Sy[index] = Sy[index] + temp_rad*(E_radl + P_radl) * u_yll + alpn1*(F_rad0l*u_yll + u0l*F_rad_yl);
+	   Sz[index] = Sz[index] + temp_rad*(E_radl + P_radl) * u_zll + alpn1*(F_rad0l*u_zll + u0l*F_rad_zl);
+	  
+	   Sxx[index] = Sxx[index] + (E_radl+P_radl)*u_xll*u_xll + Psi4 * P_radl * gxxL + 2*F_rad_xl*u_xll;
+	   Syy[index] = Syy[index] + (E_radl+P_radl)*u_yll*u_yll + Psi4 * P_radl * gyyL + 2*F_rad_yl*u_yll;
+	   Szz[index] = Szz[index] + (E_radl+P_radl)*u_zll*u_zll + Psi4 * P_radl * gzzL + 2*F_rad_zl*u_zll;
+	   Sxy[index] = Sxy[index] + (E_radl+P_radl)*u_xll*u_yll + Psi4 * P_radl * gxyL + F_rad_xl*u_yll + F_rad_yl*u_xll;
+	   Sxz[index] = Sxz[index] + (E_radl+P_radl)*u_xll*u_zll + Psi4 * P_radl * gxzL + F_rad_xl*u_zll + F_rad_zl*u_xll;
+	   Syz[index] = Syz[index] + (E_radl+P_radl)*u_yll*u_zll + Psi4 * P_radl * gyzL + F_rad_yl*u_zll + F_rad_zl*u_yll;	   
+	    
+		  
+	
+
+	if (i==8&&j==79&&k==44){
+	  printf("Checkpiont1.5: i==9.and.j==80.and.k==45 \n ");
+	  printf("Sxx, E_rad, F_radx, rho_b, P, vx, vy, vz= \n");
+	  printf("%e,%e,%e,%e,%e, %e, %e,%e \n ",Sxx[index], E_rad[index], F_radx[index], rho_b[index], P[index], vx[index], vy[index], vz[index]);
+	  printf("F_rad0l,F_rad0_num, F_rad0_denom =%e,%e,%e \n", F_rad0l,F_rad0_num, F_rad0_denom);
+	  printf("tau_radl,S_rad_xl, S_rad_yl =%e,%e,%e \n", tau_radl,S_rad_xl, S_rad_yl);
+	}
+	
+
+	   }
+
+
+
+	}
+      }
+	  
+  if (Symmetry==AXISYM) {
+    //In axisymmetry, fill in y = +Delta and y = -Delta.
+    for(int i=0;i<iend;i++) for(int j=0;j<=2;j+=2) for(int k=0;k<kend;k++) {
+      int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+      sbt[index] = 0.0;
+      sbx[index] = 0.0;
+      sby[index] = 0.0;
+      sbz[index] = 0.0;
+      Ex[index] = 0.0;
+      Ey[index] = 0.0;
+      Ez[index] = 0.0;
+      rho_b[index] = 0.0;
+      P[index] = 0.0;
+      vx[index] = 0.0;
+      vy[index] = 0.0;
+      vz[index] = 0.0;
+      h[index] = 1.0;
+      u0[index] = 1.0;
+      E_rad[index] = 0.0;
+      F_radx[index] = 0.0;
+      F_rady[index] = 0.0;
+      F_radz[index] = 0.0;
+      rho_star[index] = 0.0;
+      st_x[index] = 0.0;
+      st_y[index] = 0.0;
+      st_z[index] = 0.0;
+      mhd_st_x[index] = 0.0;
+      mhd_st_y[index] = 0.0;
+      mhd_st_z[index] = 0.0;
+      tau[index] = 0.0;   
+      tau_rad[index] = 0.0;
+      S_rad_x[index] = 0.0;
+      S_rad_y[index] = 0.0;
+      S_rad_z[index] = 0.0;
+      Bx[index] = 0.0;
+      By[index] = 0.0;
+      Bz[index] = 0.0;
+	}
+
+  }
+
+
+  gettimeofday(&end, NULL);
+
+  seconds  = end.tv_sec  - start.tv_sec;
+  useconds = end.tv_usec - start.tv_usec;
+
+  mtime = ((seconds) * 1000 + useconds/1000.0) + 0.5;  // We add 0.5 since mtime is a long int; this rounds up the result before setting the value.  Here, rounding down is incorrect.
+
+
+  printf("Primitives solver: %f solutions/second\n",(iend-istart)*(jend-jstart)*(kend-kstart) / ((double)mtime/1000.0));
+
+}
+
+
+
+
+
+
+
+void compute_pcold_epscold_cpp(double &rhob, double &P_cold, double &eps_cold, 
+			       int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse) {
+
+  bool exit_do;
+  int i = 0;
+
+  if (enable_OS_collapse == 1){
+    P_cold = k_tab[0]*fasterpow_prim(rhob,gamma_tab[0]);
+    //P_cold = 1.0e-9;
+    eps_cold = 0.0;
+  }
+  else {
+
+  exit_do = 0;
+  while(exit_do==0) {
+    if (rhob <= rho_tab[i]) {
+      exit_do = 1;
+      P_cold = k_tab[i]*fasterpow_prim(rhob,gamma_tab[i]);
+     
+      if (i==0) {
+	if (rhob != 0.0) {
+	  eps_cold = P_cold/rhob/(gamma_tab[i]-1.0);
+	} else {
+	  eps_cold = 0.0;
+	}
+      } else {
+	eps_cold = eps_tab[i-1] + (P_cold/rhob - P_tab[i-1]/rho_tab[i-1])/(gamma_tab[i]-1.0);
+      }
+    }
+    if (i==neos-1) exit_do=1;
+    i++;
+  }
+  if (rhob > rho_tab[neos-1]) {
+    if (ergo_star==0){
+    P_cold = k_tab[neos]*fasterpow_prim(rhob,gamma_tab[neos]);
+    eps_cold = eps_tab[neos-1] + (P_cold/rhob - P_tab[neos-1]/rho_tab[neos-1])/(gamma_tab[neos]-1.0);
+    }
+    else { 
+      P_cold = ((ergo_sigma* (1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)) * fasterpow_prim(rhob, ergo_sigma+1) + P_tab[neos-1] - ergo_sigma*((1+eps_tab[neos-1])*rho_tab[neos-1]))/(ergo_sigma+1);
+      eps_cold = ((1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma) * fasterpow_prim(rhob, ergo_sigma+1) - P_tab[neos-1] + ergo_sigma*((1+eps_tab[neos-1])*rho_tab[neos-1]) )/((ergo_sigma+1.0)*rhob)-1.0;
+    }
+  }
+  }
+
+
+}
+
+
+
+
+double max_val(double val1, double val2) {
+  if(val1>val2) return val1;
+  return val2;
+}
+
+#define NP 5
+//#define MAXITS 50
+#define TOLF 1.0e-8
+#define TOLMIN 1.0e-12
+#define TOLX 3.0e-16
+/*
+#define TOLF 1.0e-13
+#define TOLMIN 1.0e-15
+#define TOLX 1.0e-13
+*/
+//#define STPMX 10000.0
+//#define STPMX 100.0
+#define FREERETURN {return;}
+//#define FREERETURN {free_dmatrix_newt(fjac,1,NP,1,NP);return;}
+
+void newt2_cpp(double x[],struct auxarray &aux,
+	       void (*funcv1)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse),
+	       void (*fdjac1)
+	       (int &n,double *x,struct auxarray &aux,int &neos,int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5], int &enable_OS_collapse),
+	       int &n,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,bool &check,
+	       int *indx,double *g,double *p,double *xold,double *fvec,int &MAXITS,double &STPMX, int &enable_OS_collapse)
+{
+  void lubksb_newt(double a[][5], int n, int *indx, double b[]);
+  void ludcmp_newt(double a[][5], int n, int *indx, double *d);
+  int i,its,j;
+  double d,den,f,fold,stpmax,sum,temp,test,fjac[5][5];
+  //fjac=dmatrix_newt(1,NP,1,NP);
+
+
+  //printf ("INSIDE newt2_cpp, before fmin_newt, fvec[1]=%e, fvec[2]=%e,fvec[3]=%e, fvec[4]=%e, ux=x[1]=%e \n", fvec[1], fvec[2],fvec[3], fvec[4], x[1]);
+ 
+
+  f=fmin_newt(x,aux,fvec,funcv1,n,neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+
+
+  // printf ("INSIDE newt2_cpp, after fmin_newt, fvec[1]=%e, fvec[2]=%e,fvec[3]=%e, fvec[4]=%e, ux=x[1]=%e \n", fvec[1], fvec[2],fvec[3], fvec[4], x[1]);
+
+  test=0.0;
+  for (i=1;i<=n;i++)
+    if (fabs(fvec[i]) > test) test=fabs(fvec[i]);
+ 
+  //printf("test=%.16g, 0.01*TOLF=%.16g !!!!!!\n", test, 0.01*TOLF);
+  if (test < 0.01*TOLF) {
+    check=0;
+    FREERETURN
+      }
+
+  //printf("test > 0.01*TOLF JACOBIAN!!!!!!\n");
+  for (sum=0.0,i=1;i<=n;i++) sum += SQR(x[i]);
+  stpmax=STPMX*max_val(sqrt(sum),(double)n);
+  for (its=1;its<=MAXITS;its++) {
+    int np=NP;
+    fdjac1(n,x,aux,neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,fvec,np,fjac, enable_OS_collapse);
+
+    /*
+    if (x[4] < 0.0)
+      {
+           printf("In newt2, checkpoint 2, UU[4] is negative!!!!!!, which is %e \n", x[4]);
+      }
+    */
+
+    for (i=1;i<=n;i++) {
+      for (sum=0.0,j=1;j<=n;j++) sum += fjac[j][i]*fvec[j];
+      g[i]=sum;
+    }
+    /*
+    if (x[4] < 0.0)
+      {
+	printf("In newt2, checkpoint 3, UU[4] is negative!!!!!!, which is %e \n", x[4]);
+      }
+    */
+
+    for (i=1;i<=n;i++) xold[i]=x[i];
+    fold=f;
+    for (i=1;i<=n;i++) p[i] = -fvec[i];
+
+    ludcmp_newt(fjac,n,indx,&d);
+    lubksb_newt(fjac,n,indx,p);
+    
+
+    lnsrch_newt(n,xold,fold,g,p,x,&f,stpmax,check,fmin_newt,funcv1,aux,fvec,neos,ergo_star, ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+
+    /*
+    if (x[4] < 0.0)
+      {
+        printf("In newt2, checkpoint 4, UU[4] is negative!!!!!!, which is %e \n", x[4]);
+      }
+    */
+
+    test=0.0;
+    for (i=1;i<=n;i++)
+      if (fabs(fvec[i]) > test) test=fabs(fvec[i]);
+    if (test < TOLF) {
+      check=0;
+      FREERETURN
+	}
+    if (check) {
+      test=0.0;
+      den=max_val(f,0.5*n);
+      for (i=1;i<=n;i++) {
+	temp=fabs(g[i])*max_val(fabs(x[i]),1.0)/den;
+	if (temp > test) test=temp;
+      }
+      check=(test < TOLMIN ? 1 : 0);
+      if(check!=0) printf("BAD CHECK %d: %e\t%e\n",check,test,TOLMIN);
+      FREERETURN
+	}
+    test=0.0;
+    for (i=1;i<=n;i++) {
+      temp=(fabs(x[i]-xold[i]))/max_val(fabs(x[i]),1.0);
+      if (temp > test) test=temp;
+    }
+    if (test < TOLX) FREERETURN
+		       }
+  check=1;
+  //if(check!=0) printf("BAD STUFF %d: %e\t%e.  ITS=%d\n",check,test,TOLMIN,its);
+  //printf("MAXITS exceeded in newt\n");
+  //exit(0);
+}
+
+double fmin_newt(double *x,struct auxarray &aux,double *fvec,
+		 void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse),
+		 int &n,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse)
+{
+  int i;
+  double sum;
+
+  (*nrfuncv)(n,x,fvec,aux,neos,ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+  for (sum=0.0,i=1;i<=n;i++) sum += SQR(fvec[i]);
+  return 0.5*sum;
+}
+#define ALF 1.0e-4
+//#define TOLX 1.0e-7
+#define TOLX 3.0e-16
+//#define TOLX 1.0e-15
+
+void lnsrch_newt(int n, double xold[], double fold, double g[], double p[], double x[],
+		 double *f, double stpmax, bool &check, 
+		 double (*fmin)
+		 (double *x,struct auxarray &aux,double *fvec,
+		  void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse),
+		  int &n,int &neos,int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse),
+		 void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse),
+		 struct auxarray &aux,double *fvec,
+		 int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,int &enable_OS_collapse)	    
+{
+  int i;
+  double a,alam,alam2,alamin,b,disc,f2,rhs1,rhs2,slope,sum,temp,
+    test,tmplam;
+
+  //  printf("START lnsrch_newt!!!!!\n");
+
+  check=0;
+  for (sum=0.0,i=1;i<=n;i++) sum += p[i]*p[i];
+  sum=sqrt(sum);
+  if (sum > stpmax)
+    for (i=1;i<=n;i++) p[i] *= stpmax/sum;
+  for (slope=0.0,i=1;i<=n;i++)
+    slope += g[i]*p[i];
+  if (slope >= 0.0) printf("OUCH!  Roundoff problem in lnsrch.  Note that this function has been updated to correct a bug in Numerical Recipes 2.06.  This is version 2.08, with the 2.06->2.08 diff obtained from http://www.numerical-recipes.com/upgrade/upgrade-208.html\n");
+  test=0.0;
+  for (i=1;i<=n;i++) {
+    temp=fabs(p[i])/max_val(fabs(xold[i]),1.0);
+    if (temp > test) test=temp;
+  }
+  alamin=TOLX/test;
+  alam=1.0;
+  for (;;) {
+    for (i=1;i<=n;i++) x[i]=xold[i]+alam*p[i];
+    
+    /*
+    if (x[4] < 0.0)
+      {
+	printf("In lnsrch_newt, checkpoint 1, UU[4] is negative!!!!!!, UU[4], xold[4], p[4], stpmax, sum, are %e, %e, %e, %e, %e, i=%d \n", x[4], xold[4], p[4], stpmax, sum, i);
+      }
+    */
+    *f=(*fmin)(x,aux,fvec,nrfuncv,n,neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+    /*
+    if (x[4] < 0.0)
+      {
+        printf("In lnsrch_newt, checkpoint 2, UU[4] is negative!!!!!!, which is %e \n", x[4]);
+      }
+    */
+    if (alam < alamin) {
+      for (i=1;i<=n;i++) x[i]=xold[i];
+      check=1;
+      return;
+    } else if (*f <= fold+ALF*alam*slope) return;
+    else {
+      if (alam == 1.0)
+        tmplam = -slope/(2.0*(*f-fold-slope));
+      else {
+        rhs1 = *f-fold-alam*slope;
+        rhs2=f2-fold-alam2*slope;
+        a=(rhs1/(alam*alam)-rhs2/(alam2*alam2))/(alam-alam2);
+        b=(-alam2*rhs1/(alam*alam)+alam*rhs2/(alam2*alam2))/(alam-alam2);
+        if (a == 0.0) tmplam = -slope/(2.0*b);
+        else {
+          disc=b*b-3.0*a*slope;
+          if (disc < 0.0) tmplam=0.5*alam;
+          else if (b <= 0.0) tmplam=(-b+sqrt(disc))/(3.0*a);
+          else tmplam=-slope/(b+sqrt(disc));
+	}
+        if (tmplam > 0.5*alam)
+          tmplam=0.5*alam;
+      }
+    }
+    alam2=alam;
+    f2 = *f;
+    alam=max_val(tmplam,0.1*alam);
+    //    alam=FMAX(tmplam,0.1*alam);
+  }
+
+}
+#undef ALF
+#undef TOLX
+
+void lubksb_newt(double a[][5], int n, int *indx, double b[])
+{
+  int i,ii=0,ip,j;
+  double sum;
+
+  for (i=1;i<=n;i++) {
+    ip=indx[i];
+    sum=b[ip];
+    b[ip]=b[i];
+    //printf("at the beginning of lubksb, ip=%d, sum=%e, b[ip]=%e \n", ip, sum, b[ip]);
+    if (ii)
+      for (j=ii;j<=i-1;j++) sum -= a[i][j]*b[j];
+    else if (sum) ii=i;
+    b[i]=sum;
+  }
+  //printf("In the middle of lubksb, b[1]=%e, b[2]=%e, b[3]=%e, b[4]=%e \n", b[1], b[2], b[3], b[4]);
+  for (i=n;i>=1;i--) {
+    //printf ("inside lubksb_newt n=%d", n);
+    sum=b[i];
+    for (j=i+1;j<=n;j++) sum -= a[i][j]*b[j];
+    b[i]=sum/a[i][i];
+    /*
+    if (b[i] <0.0)
+      {
+	printf ("inside lubksb_newt p[i] is negative. i=%d, p[i]=%e, sum=%e, a[i][i]=%e \n", i, b[i],sum,a[i][i]);
+      }
+    */  
+  }
+  
+}
+
+#define TINY 1.0e-20;
+//#define TINY 1.0e-20;
+void ludcmp_newt(double a[][5], int n, int *indx, double *d)
+{
+  int i,imax,j,k;
+  double big,dum,sum,temp;
+  double vv[5];
+
+  *d=1.0;
+  for (i=1;i<=n;i++) {
+    big=0.0;
+    for (j=1;j<=n;j++)
+      if ((temp=fabs(a[i][j])) > big) big=temp;
+    if (big == 0.0) {
+	for(int www=0;www<10000;www++) {
+        printf("Singular matrix in routine ludcmp_newt\n"); 
+        for (j=1;j<=n;j++) printf("i, j, a[i][j]: %d %d %e\n",i,j,a[i][j]);
+	}
+        exit(1);
+    }
+    vv[i]=1.0/big;
+  }
+  for (j=1;j<=n;j++) {
+    for (i=1;i<j;i++) {
+      sum=a[i][j];
+      for (k=1;k<i;k++) sum -= a[i][k]*a[k][j];
+      a[i][j]=sum;
+    }
+    big=0.0;
+    for (i=j;i<=n;i++) {
+      sum=a[i][j];
+      for (k=1;k<j;k++)
+	sum -= a[i][k]*a[k][j];
+      a[i][j]=sum;
+      if ( (dum=vv[i]*fabs(sum)) >= big) {
+	big=dum;
+	imax=i;
+      }
+    }
+    if (j != imax) {
+      for (k=1;k<=n;k++) {
+	dum=a[imax][k];
+	a[imax][k]=a[j][k];
+	a[j][k]=dum;
+      }
+      *d = -(*d);
+      vv[imax]=vv[j];
+    }
+    indx[j]=imax;
+    if (a[j][j] == 0.0) a[j][j]=TINY;
+    if (j != n) {
+      dum=1.0/(a[j][j]);
+      for (i=j+1;i<=n;i++) a[i][j] *= dum;
+    }
+  }
+}
+#undef TINY
+
+void function_hybrd(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse) {
+  double u_x    = x[1]*aux.u_scal_Psi2;
+  double u_y    = x[2]*aux.u_scal_Psi2;
+  double u_z    = x[3]*aux.u_scal_Psi2;
+  double eps    = x[4]*aux.eps_scal;
+
+  double gijuiuj = aux.gupxx_phys*SQR(u_x) + 2.0*aux.gupxy_phys*u_x*u_y + 
+    2.0*aux.gupxz_phys*u_x*u_z + aux.gupyy_phys*SQR(u_y) + 2.0*aux.gupyz_phys*u_y*u_z + 
+    aux.gupzz_phys*SQR(u_z);
+  double au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+  if (aux.rho_s < 0.0) au0m1 = gijuiuj/( 1.0-sqrt(1.0+gijuiuj) );
+  double u0 = (au0m1+1.0)/aux.alpn1;
+  double rhob = fabs(aux.rho_s/(aux.alpn1*aux.Psi6*u0));
+
+  double P_cold,eps_cold;
+  compute_pcold_epscold_cpp(rhob, P_cold, eps_cold,neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+  double P = P_cold + (aux.gamma_th - 1.0)*rhob*(eps - eps_cold);
+
+  //printf("INITIAL: inside function_hybrd. u_x = %.16g, aux.mhd_st_x = %.16g, eps = %.16g, u0 = %.16g, rhob = %.16g, rho_s = %.16g, P = %.16g \n", u_x, aux.mhd_st_x, eps, u0, rhob, aux.rho_s, P);
+
+  double h;
+  h   = 1.0 + P/rhob + eps;
+  if (rhob == 0.0) h = 1.0;
+
+  double sb0 = u_x*aux.BxL_f1o4pa + u_y*aux.ByL_f1o4pa + u_z*aux.BzL_f1o4pa;
+  double sb2 = (aux.B2 + SQR(sb0))/SQR(u0);
+  double sb_x = (aux.B_xl_f1o4pa + u_x*sb0)/u0;
+  double sb_y = (aux.B_yl_f1o4pa + u_y*sb0)/u0;
+  double sb_z = (aux.B_zl_f1o4pa + u_z*sb0)/u0;
+  //
+  // fvec(1): Eq. for mhd_st_x; fvec[2]: Eq. for mhd_st_y; fvec[3]: Eq. for mhd_st_z; 
+  // fvec[4]: Eq. for tau.
+  //
+
+  //printf ("CHECK inside function_hybrd, h=%e, u_x=%e, u0=%e, sb0=%e, aux.sti_scal_inv=%e, aux.tau_scal_inv= %e, fvec[2]=%e, fvec[4]=%e \n", h, u_x, u0, sb0, aux.sti_scal_inv, aux.tau_scal_inv, fvec[2], fvec[4]);
+  //printf ("aux.rho_s = %e, aux.Psi6 = %e, aux.tau = %e \n", aux.rho_s, aux.Psi6, aux.tau);
+  fvec[1] = (aux.rho_s*h*u_x + aux.alpn1*aux.Psi6*u0*sb2*u_x - aux.alpn1*aux.Psi6*sb0*sb_x - aux.mhd_st_x)*aux.sti_scal_inv;
+  fvec[2] = (aux.rho_s*h*u_y + aux.alpn1*aux.Psi6*u0*sb2*u_y - aux.alpn1*aux.Psi6*sb0*sb_y - aux.mhd_st_y)*aux.sti_scal_inv;
+  fvec[3] = (aux.rho_s*h*u_z + aux.alpn1*aux.Psi6*u0*sb2*u_z - aux.alpn1*aux.Psi6*sb0*sb_z - aux.mhd_st_z)*aux.sti_scal_inv;
+  //The following if() statement avoids dividing by zero:
+  if(rhob != 0.0) fvec[4] = (au0m1+aux.alpn1*u0*(P/rhob+eps))*aux.rho_s 
+    + aux.Psi6*sb2*SQR(aux.alpn1*u0) 
+    - aux.Psi6*(P+sb2*0.50)-aux.Psi6*SQR(aux.alpn1*sb0) - aux.tau;
+  else fvec[4] = 
+    + aux.Psi6*sb2*SQR(aux.alpn1*u0)
+    - aux.Psi6*(P+sb2*0.50)-aux.Psi6*SQR(aux.alpn1*sb0) - aux.tau;
+  fvec[4] = fvec[4]*aux.tau_scal_inv;
+
+  /*
+  if (fabs(fvec[1]) > 1.0e-4 || fabs(fvec[4]) > 1.0e-4){
+    printf("at the end of function_hybrid, u_x = %.16g, aux.mhd_st_x = %.16g, aux.sti_scal_inv = %.16g, eps = %.16g, u0 = %.16g,rhob = %.16g, rho_s = %.16g, h = %.16g, P = %.16g, fvec[1] = %.16g, fvec[2] = %.16g, fvec[3] = %.16g, fvec[4] = %.16g \n ", u_x, aux.mhd_st_x, aux.sti_scal_inv, eps, u0, rhob, aux.rho_s, h, P, fvec[1], fvec[2],fvec[3], fvec[4]);
+    printf("aux.Psi6=%.16g, aux.alpn1=%.16g, aux.tau=%.16g, sb2=%.16g \n", aux.Psi6, aux.alpn1, aux.tau, sb2);
+    }
+  */
+}
+  
+
+
+void jacobian_hybrd
+(int &n,double *x,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5], int &enable_OS_collapse) {
+  double u_x    = x[1]*aux.u_scal_Psi2;
+  double u_y    = x[2]*aux.u_scal_Psi2;
+  double u_z    = x[3]*aux.u_scal_Psi2;
+  double eps    = x[4]*aux.eps_scal;
+
+  double gijuiuj = aux.gupxx_phys*SQR(u_x) + 2.0*aux.gupxy_phys*u_x*u_y + 
+    2.0*aux.gupxz_phys*u_x*u_z + aux.gupyy_phys*SQR(u_y) + 2.0*aux.gupyz_phys*u_y*u_z + 
+    aux.gupzz_phys*SQR(u_z);
+  double au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+  if (aux.rho_s < 0.0) au0m1 = gijuiuj/( 1.0-sqrt(1.0+gijuiuj) );
+  double u0 = (au0m1+1.0)/aux.alpn1;
+  double u0_inv = aux.alpn1/(au0m1+1.0);
+  //Yuk Tung & Zach say: we shouldn't don't need fabs() here, since aux.rho_s must be > Tiny.
+  //  The only problem is if aux.alpn1<0, which shouldn't happen anyway. :P
+  //  Also, the above if(aux.rho_s<0) statement should be unnecessary.
+  //double rhob = fabs(a ux.rho_s/(aux.alpn1*aux.Psi6)*u0_inv);
+  double rhob = aux.rho_s/(aux.alpn1*aux.Psi6*u0);
+  double rhob_inv = (aux.alpn1*aux.Psi6*u0)/aux.rho_s;
+
+  int i = 0;
+  bool exit_do = false;
+  double P_cold,dPcold_drho,depscold_drho,eps_cold;
+
+  if (enable_OS_collapse == 1)
+    {
+      P_cold = k_tab[i]*fasterpow_prim(rhob,gamma_tab[i]);
+      dPcold_drho = gamma_tab[i]*P_cold*rhob_inv;
+      depscold_drho = 0.0;
+      eps_cold = 0.0;
+    }
+  else{
+
+  while(i<neos) {
+    if (rhob <= rho_tab[i])  {
+      exit_do = true;
+      P_cold = k_tab[i]*fasterpow_prim(rhob,gamma_tab[i]);
+      dPcold_drho = gamma_tab[i]*P_cold*rhob_inv;
+      depscold_drho = P_cold*SQR(rhob_inv);
+      if (i==0)  {
+	eps_cold = P_cold*rhob_inv/(gamma_tab[i]-1.0);
+      } else {
+	eps_cold = eps_tab[i-1] +  
+	  (P_cold*rhob_inv - P_tab[i-1]/rho_tab[i-1])/(gamma_tab[i]-1.0);
+      } 
+    }
+    i++;
+    if(exit_do==true) i=neos+10;
+  }
+  if (rhob > rho_tab[neos-1])  {
+    if (ergo_star==0){
+    P_cold = k_tab[neos]*fasterpow_prim(rhob,gamma_tab[neos]);
+    eps_cold = eps_tab[neos-1] + (P_cold*rhob_inv - P_tab[neos-1]/rho_tab[neos-1])/(gamma_tab[neos]-1.0);
+    //Bug in the following line: 
+    //(gives incorrect values of the jacobian during the primitive inversion at density higher than rho_tab[neos-1], causinga spurious Font fix and even spurious Font fix failure)
+    //eps_cold = eps_tab[neos-1] + (P_cold*rhob_inv - P_tab[neos-1]/rho_tab[neos-1]);
+    dPcold_drho = gamma_tab[neos]*P_cold*rhob_inv;
+    depscold_drho = P_cold*SQR(rhob_inv);
+    }
+    else
+    {
+      P_cold = (ergo_sigma* (1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)* fasterpow_prim(rhob, ergo_sigma+1) + P_tab[neos-1] - ergo_sigma*((1+eps_tab[neos-1])*rho_tab[neos-1]) )/(ergo_sigma+1);
+      eps_cold = ((1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma) * fasterpow_prim(rhob, ergo_sigma+1) - P_tab[neos-1] + ergo_sigma*((1+eps_tab[neos-1])*rho_tab[neos-1]) )/((ergo_sigma+1)*rhob)-1;
+
+      dPcold_drho = ergo_sigma*(1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)*rhob; 
+      depscold_drho = ( ergo_sigma*(1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)*fasterpow_prim(rhob,ergo_sigma-1) + (P_tab[neos-1] - ergo_sigma*(1+eps_tab[neos-1])*rho_tab[neos-1])/fasterpow_prim(rhob,2))/(ergo_sigma+1);
+    }    
+    }
+  }
+
+  double P = P_cold + (aux.gamma_th - 1.0)*(eps - eps_cold)*rhob;
+  double dP_drho = dPcold_drho + (aux.gamma_th-1.0)*(eps-eps_cold-rhob*depscold_drho);
+
+  double h;
+  if (rhob != 0.0)  {
+    h   = 1.0 + P*rhob_inv + eps;
+  } else {
+    h   = 1.0;
+  }
+  double sb0 = u_x*aux.BxL_f1o4pa + u_y*aux.ByL_f1o4pa + u_z*aux.BzL_f1o4pa;
+  double sb2 = (aux.B2 + SQR(sb0))*SQR(u0_inv);
+  double sb_x = (aux.B_xl_f1o4pa + u_x*sb0)*u0_inv;
+  double sb_y = (aux.B_yl_f1o4pa + u_y*sb0)*u0_inv;
+  double sb_z = (aux.B_zl_f1o4pa + u_z*sb0)*u0_inv;
+  
+  double du0dux = (aux.gupxx_phys*u_x + aux.gupxy_phys*u_y + aux.gupxz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double du0duy = (aux.gupxy_phys*u_x + aux.gupyy_phys*u_y + aux.gupyz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double du0duz = (aux.gupxz_phys*u_x + aux.gupyz_phys*u_y + aux.gupzz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double db2dux = 2.0*sb0*aux.BxL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0dux;
+  double db2duy = 2.0*sb0*aux.ByL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0duy;
+  double db2duz = 2.0*sb0*aux.BzL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0duz;
+  double drho_dux = -rhob*u0_inv*du0dux;
+  double drho_duy = -rhob*u0_inv*du0duy;
+  double drho_duz = -rhob*u0_inv*du0duz;
+  double dpdux = dP_drho*drho_dux;
+  double dpduy = dP_drho*drho_duy;
+  double dpduz = dP_drho*drho_duz;
+  double dhdux = dpdux*rhob_inv - drho_dux*P*SQR(rhob_inv);
+  double dhduy = dpduy*rhob_inv - drho_duy*P*SQR(rhob_inv);
+  double dhduz = dpduz*rhob_inv - drho_duz*P*SQR(rhob_inv);
+  double dbxdux = (sb0+u_x*aux.BxL_f1o4pa)*u0_inv - sb_x*u0_inv*du0dux;
+  double dbxduy = u_x*aux.ByL_f1o4pa*u0_inv - sb_x*u0_inv*du0duy;
+  double dbxduz = u_x*aux.BzL_f1o4pa*u0_inv - sb_x*u0_inv*du0duz;
+  double dbydux = u_y*aux.BxL_f1o4pa*u0_inv - sb_y*u0_inv*du0dux;
+  double dbyduy = (sb0+u_y*aux.ByL_f1o4pa)*u0_inv - sb_y*u0_inv*du0duy;
+  double dbyduz = u_y*aux.BzL_f1o4pa*u0_inv - sb_y*u0_inv*du0duz;
+  double dbzdux = u_z*aux.BxL_f1o4pa*u0_inv - sb_z*u0_inv*du0dux;
+  double dbzduy = u_z*aux.ByL_f1o4pa*u0_inv - sb_z*u0_inv*du0duy;
+  double dbzduz = (sb0+u_z*aux.BzL_f1o4pa)*u0_inv - sb_z*u0_inv*du0duz;
+  
+  // f(1) = mhd_st_x; f(2) = mhd_st_y; f(3) = mhd_st_z; f(4) = tau;
+  // x[1] = u_x/Psi^2; x[2] = u_y/Psi^2; x[3] = u_z/Psi^2; x[4] = eps;
+  // fjac(i,j) = partial f(i) / partial x(j) 
+  //
+  double c = aux.rho_s*h + aux.alpn1*aux.Psi6*u0*sb2;
+
+  fjac[1][1] = ( c + aux.alpn1*aux.Psi6*( u_x*(u0*db2dux + sb2*du0dux) 
+					  - (aux.BxL_f1o4pa*sb_x + sb0*dbxdux) ) + aux.rho_s*u_x*dhdux ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[1][2] = ( aux.alpn1*aux.Psi6*( u_x*(u0*db2duy+sb2*du0duy)  
+				      - (aux.ByL_f1o4pa*sb_x + sb0*dbxduy) ) + aux.rho_s*u_x*dhduy ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[1][3] = ( aux.alpn1*aux.Psi6*( u_x*(u0*db2duz+sb2*du0duz)  
+				      - (aux.BzL_f1o4pa*sb_x + sb0*dbxduz) ) + aux.rho_s*u_x*dhduz ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[1][4] = aux.gamma_th*aux.rho_s*u_x * aux.eps_scal*aux.sti_scal_inv;
+
+  fjac[2][1] = ( aux.alpn1*aux.Psi6*( u_y*(u0*db2dux+sb2*du0dux)  
+				      - (aux.BxL_f1o4pa*sb_y + sb0*dbydux) ) + aux.rho_s*u_y*dhdux ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[2][2] = ( c + aux.alpn1*aux.Psi6*( u_y*(u0*db2duy+sb2*du0duy)  
+					  - (aux.ByL_f1o4pa*sb_y + sb0*dbyduy) ) + aux.rho_s*u_y*dhduy ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[2][3] = ( aux.alpn1*aux.Psi6*( u_y*(u0*db2duz+sb2*du0duz)  
+				      - (aux.BzL_f1o4pa*sb_y + sb0*dbyduz) ) + aux.rho_s*u_y*dhduz ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[2][4] = aux.gamma_th*aux.rho_s*u_y * aux.eps_scal*aux.sti_scal_inv;
+
+  fjac[3][1] = ( aux.alpn1*aux.Psi6*( u_z*(u0*db2dux+sb2*du0dux)  
+				      - (aux.BxL_f1o4pa*sb_z + sb0*dbzdux) ) + aux.rho_s*u_z*dhdux ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[3][2] = ( aux.alpn1*aux.Psi6*( u_z*(u0*db2duy+sb2*du0duy)  
+				      - (aux.ByL_f1o4pa*sb_z + sb0*dbzduy) ) + aux.rho_s*u_z*dhduy ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[3][3] = ( c + aux.alpn1*aux.Psi6*( u_z*(u0*db2duz+sb2*du0duz)  
+					  - (aux.BzL_f1o4pa*sb_z + sb0*dbzduz) ) + aux.rho_s*u_z*dhduz ) * aux.u_scal_Psi2*aux.sti_scal_inv;
+  fjac[3][4] = aux.gamma_th*aux.rho_s*u_z * aux.eps_scal*aux.sti_scal_inv;
+
+  fjac[4][1] = ( aux.alpn1*aux.rho_s*h*du0dux + aux.alpn1*aux.alpn1*aux.Psi6*(2.0*u0*sb2*du0dux + 
+									      db2dux*SQR(u0) - 2.0*sb0*aux.BxL_f1o4pa) - aux.Psi6*(dpdux + 0.50*db2dux) + 
+		 aux.alpn1*aux.rho_s*u0*dhdux ) * aux.u_scal_Psi2*aux.tau_scal_inv;
+  fjac[4][2] = ( aux.alpn1*aux.rho_s*h*du0duy + aux.alpn1*aux.alpn1*aux.Psi6*(2.0*u0*sb2*du0duy + 
+									      db2duy*SQR(u0) - 2.0*sb0*aux.ByL_f1o4pa) - aux.Psi6*(dpduy + 0.50*db2duy) + 
+		 aux.alpn1*aux.rho_s*u0*dhduy ) * aux.u_scal_Psi2*aux.tau_scal_inv;
+  fjac[4][3] = ( aux.alpn1*aux.rho_s*h*du0duz + aux.alpn1*aux.alpn1*aux.Psi6*(2.0*u0*sb2*du0duz + 
+									      db2duz*SQR(u0) - 2.0*sb0*aux.BzL_f1o4pa) - aux.Psi6*(dpduz + 0.50*db2duz) + 
+		 aux.alpn1*aux.rho_s*u0*dhduz ) * aux.u_scal_Psi2*aux.tau_scal_inv;
+  fjac[4][4] = ( aux.alpn1*u0*aux.gamma_th*aux.rho_s - (aux.gamma_th-1.0)*aux.rho_s/(aux.alpn1*u0) ) * 
+    aux.eps_scal*aux.tau_scal_inv;
+
+
+}
+
+void function_hybrd_font_fix(int &n,double *x,double *fvec,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse) {
+  //
+  double u_x    = x[1]*(SQR(x[1]) + 1.0)*aux.Psi2;
+  double u_y    = x[2]*(SQR(x[2]) + 1.0)*aux.Psi2;
+  double u_z    = x[3]*(SQR(x[3]) + 1.0)*aux.Psi2;
+
+  double gijuiuj = aux.gupxx_phys*SQR(u_x) + 2.0*aux.gupxy_phys*u_x*u_y + 
+    2.0*aux.gupxz_phys*u_x*u_z + aux.gupyy_phys*SQR(u_y) + 2.0*aux.gupyz_phys*u_y*u_z + 
+    aux.gupzz_phys*SQR(u_z);
+  double au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+  if (aux.rho_s < 0.0) au0m1 = gijuiuj/( 1.0-sqrt(1.0+gijuiuj) );
+  double u0 = (au0m1+1.0)/aux.alpn1;
+  double u0_inv = aux.alpn1/(au0m1+1.0);
+  double rhob = aux.rho_s/(aux.alpn1*aux.Psi6*u0);
+  double P_cold,eps_cold; //Below we set P=P_cold
+  compute_pcold_epscold_cpp(rhob, P_cold, eps_cold, neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab,enable_OS_collapse);
+  
+  double h     = 1.0 + P_cold/rhob + eps_cold;
+  double sb0 = u_x*aux.BxL_f1o4pa + u_y*aux.ByL_f1o4pa + u_z*aux.BzL_f1o4pa;
+  double sb2 = (aux.B2 + SQR(sb0))*SQR(u0_inv);
+  double sb_x = (aux.B_xl_f1o4pa + u_x*sb0)*u0_inv;
+  double sb_y = (aux.B_yl_f1o4pa + u_y*sb0)*u0_inv;
+  double sb_z = (aux.B_zl_f1o4pa + u_z*sb0)*u0_inv;
+  //
+  // fvec[1]: Eq. for mhd_st_x; fvec[2]: Eq. for mhd_st_y; fvec[3]: Eq. for mhd_st_z; 
+  //
+  fvec[1] = (aux.rho_s*h*u_x + aux.alpn1*aux.Psi6*u0*sb2*u_x - aux.alpn1*aux.Psi6*sb0*sb_x - aux.mhd_st_x)*aux.sti_scal_inv;
+  fvec[2] = (aux.rho_s*h*u_y + aux.alpn1*aux.Psi6*u0*sb2*u_y - aux.alpn1*aux.Psi6*sb0*sb_y - aux.mhd_st_y)*aux.sti_scal_inv;
+  fvec[3] = (aux.rho_s*h*u_z + aux.alpn1*aux.Psi6*u0*sb2*u_z - aux.alpn1*aux.Psi6*sb0*sb_z - aux.mhd_st_z)*aux.sti_scal_inv;
+}
+
+void jacobian_hybrd_font_fix
+(int &n,double *x,struct auxarray &aux,int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5], int &enable_OS_collapse) {
+  //
+  double u_x    = x[1]*(SQR(x[1]) + 1.0)*aux.Psi2;
+  double u_y    = x[2]*(SQR(x[2]) + 1.0)*aux.Psi2;
+  double u_z    = x[3]*(SQR(x[3]) + 1.0)*aux.Psi2;
+  double fac[4];
+  fac[1] = (3.0*SQR(x[1]) + 1.0)*aux.Psi2*aux.sti_scal_inv;
+  fac[2] = (3.0*SQR(x[2]) + 1.0)*aux.Psi2*aux.sti_scal_inv;
+  fac[3] = (3.0*SQR(x[3]) + 1.0)*aux.Psi2*aux.sti_scal_inv;
+
+  double gijuiuj = aux.gupxx_phys*SQR(u_x) + 2.0*aux.gupxy_phys*u_x*u_y + 
+    2.0*aux.gupxz_phys*u_x*u_z + aux.gupyy_phys*SQR(u_y) + 2.0*aux.gupyz_phys*u_y*u_z + 
+    aux.gupzz_phys*SQR(u_z);
+  double au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+  if (aux.rho_s < 0.0) au0m1 = gijuiuj/( 1.0-sqrt(1.0+gijuiuj) );
+  double u0 = (au0m1+1.0)/aux.alpn1;
+  double u0_inv = aux.alpn1/(au0m1+1.0);
+  double rhob = aux.rho_s/(aux.alpn1*aux.Psi6*u0);
+  double rhob_inv = (aux.alpn1*aux.Psi6*u0)/aux.rho_s;
+
+  int i = 0;
+  bool exit_do = false;
+  double P_cold,dPcold_drho,depscold_drho,eps_cold;
+
+  if (enable_OS_collapse == 1)
+    {
+      P_cold = k_tab[i]*fasterpow_prim(rhob,gamma_tab[i]);
+      dPcold_drho = gamma_tab[i]*P_cold*rhob_inv;
+      depscold_drho = 0.0;
+      eps_cold = 0.0;
+    }
+  else{
+
+  while(i<neos) {
+    if (rhob <= rho_tab[i])  {
+      exit_do = true;
+      P_cold = k_tab[i]*fasterpow_prim(rhob,gamma_tab[i]);
+      dPcold_drho = gamma_tab[i]*P_cold*rhob_inv;
+      depscold_drho = P_cold*SQR(rhob_inv);
+      if (i==0)  {
+	eps_cold = P_cold*rhob_inv/(gamma_tab[i]-1.0);
+      } else {
+	eps_cold = eps_tab[i-1] +  
+	  (P_cold*rhob_inv - P_tab[i-1]/rho_tab[i-1])/(gamma_tab[i]-1.0);
+      }
+    }
+    i++;
+    if(exit_do==true) i=neos+10;
+  }
+  if (rhob > rho_tab[neos-1])  {
+    if (ergo_star==0){
+      P_cold = k_tab[neos]*fasterpow_prim(rhob,gamma_tab[neos]);
+      eps_cold = eps_tab[neos-1] + (P_cold*rhob_inv - P_tab[neos-1]/rho_tab[neos-1])/(gamma_tab[neos]-1.0);
+      //Bug in the following line:                                                                                                                                          //(gives incorrect values of the jacobian during the primitive inversion at density higher than rho_tab[neos-1], causinga spurious Font fix and even spurious Font fix failure) 
+      //eps_cold = eps_tab[neos-1] + (P_cold*rhob_inv - P_tab[neos-1]/rho_tab[neos-1]);                                        
+      dPcold_drho = gamma_tab[neos]*P_cold*rhob_inv;
+      depscold_drho = P_cold*SQR(rhob_inv);
+  }
+  else
+    {
+      P_cold = (ergo_sigma* (1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)* fasterpow_prim(rhob, ergo_sigma+1) + P_tab[neos-1] - ergo_sigma*((1+eps_tab[neos-1])*rho_tab[neos-1]) )/(ergo_sigma+1);
+      eps_cold = ((1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma) * fasterpow_prim(rhob, ergo_sigma+1) - P_tab[neos-1] + ergo_sigma*((1+eps_tab[neos-1])*rho_tab[neos-1]) )/((ergo_sigma+1)*rhob)-1;
+
+      dPcold_drho = ergo_sigma*(1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)*rhob;
+      depscold_drho = ( ergo_sigma*(1+eps_tab[neos-1]+P_tab[neos-1]/rho_tab[neos-1])/fasterpow_prim(rho_tab[neos-1],ergo_sigma)*fasterpow_prim(rhob,ergo_sigma-1) + (P_tab[neos-1] - ergo_sigma*(1+eps_tab[neos-1])*rho_tab[neos-1])/fasterpow_prim(rhob,2))/(ergo_sigma+1);
+
+      }
+
+  }
+
+  }
+
+  double h = 1.0 + P_cold*rhob_inv + eps_cold;
+  double sb0 = u_x*aux.BxL_f1o4pa + u_y*aux.ByL_f1o4pa + u_z*aux.BzL_f1o4pa;
+  double sb2 = (aux.B2 + SQR(sb0))*SQR(u0_inv);
+  double sb_x = (aux.B_xl_f1o4pa + u_x*sb0)*u0_inv;
+  double sb_y = (aux.B_yl_f1o4pa + u_y*sb0)*u0_inv;
+  double sb_z = (aux.B_zl_f1o4pa + u_z*sb0)*u0_inv;
+
+  double du0dux = (aux.gupxx_phys*u_x + aux.gupxy_phys*u_y + aux.gupxz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double du0duy = (aux.gupxy_phys*u_x + aux.gupyy_phys*u_y + aux.gupyz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double du0duz = (aux.gupxz_phys*u_x + aux.gupyz_phys*u_y + aux.gupzz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double db2dux = 2.0*sb0*aux.BxL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0dux;
+  double db2duy = 2.0*sb0*aux.ByL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0duy;
+  double db2duz = 2.0*sb0*aux.BzL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0duz;
+  double temp = -rhob*u0_inv*dPcold_drho;
+  double dpdux = temp*du0dux;
+  double dpduy = temp*du0duy;
+  double dpduz = temp*du0duz;
+  temp = P_cold*rhob_inv*u0_inv - depscold_drho*rhob*u0_inv;
+  double dhdux = temp*du0dux + dpdux*rhob_inv;
+  double dhduy = temp*du0duy + dpduy*rhob_inv;
+  double dhduz = temp*du0duz + dpduz*rhob_inv;
+  double dbxdux = (sb0+u_x*aux.BxL_f1o4pa)*u0_inv - sb_x*u0_inv*du0dux;
+  double dbxduy = u_x*aux.ByL_f1o4pa*u0_inv - sb_x*u0_inv*du0duy;
+  double dbxduz = u_x*aux.BzL_f1o4pa*u0_inv - sb_x*u0_inv*du0duz;
+  double dbydux = u_y*aux.BxL_f1o4pa*u0_inv - sb_y*u0_inv*du0dux;
+  double dbyduy = (sb0+u_y*aux.ByL_f1o4pa)*u0_inv - sb_y*u0_inv*du0duy;
+  double dbyduz = u_y*aux.BzL_f1o4pa*u0_inv - sb_y*u0_inv*du0duz;
+  double dbzdux = u_z*aux.BxL_f1o4pa*u0_inv - sb_z*u0_inv*du0dux;
+  double dbzduy = u_z*aux.ByL_f1o4pa*u0_inv - sb_z*u0_inv*du0duy;
+  double dbzduz = (sb0+u_z*aux.BzL_f1o4pa)*u0_inv - sb_z*u0_inv*du0duz;
+  //
+  // f(1) = mhd_st_x; f(2) = mhd_st_y; f(3) = mhd_st_z; 
+  // u_i= Psi^2 [ x(i)^3 + x(i) ]
+  // fjac[i,j) = partial f(i) / partial x(j) 
+  //
+  double c = aux.rho_s*h + aux.alpn1*aux.Psi6*u0*sb2;
+    
+  fjac[1][1] = ( c + aux.alpn1*aux.Psi6*( u_x*(u0*db2dux + sb2*du0dux) 
+					  - (aux.BxL_f1o4pa*sb_x + sb0*dbxdux) ) + aux.rho_s*u_x*dhdux ) * fac[1];
+  fjac[1][2] = ( aux.alpn1*aux.Psi6*( u_x*(u0*db2duy+sb2*du0duy)  
+				      - (aux.ByL_f1o4pa*sb_x + sb0*dbxduy) ) + aux.rho_s*u_x*dhduy ) * fac[2];
+  fjac[1][3] = ( aux.alpn1*aux.Psi6*( u_x*(u0*db2duz+sb2*du0duz)  
+				      - (aux.BzL_f1o4pa*sb_x + sb0*dbxduz) ) + aux.rho_s*u_x*dhduz ) * fac[3];
+
+  fjac[2][1] = ( aux.alpn1*aux.Psi6*( u_y*(u0*db2dux+sb2*du0dux)  
+				      - (aux.BxL_f1o4pa*sb_y + sb0*dbydux) ) + aux.rho_s*u_y*dhdux ) * fac[1];
+  fjac[2][2] = ( c + aux.alpn1*aux.Psi6*( u_y*(u0*db2duy+sb2*du0duy)  
+					  - (aux.ByL_f1o4pa*sb_y + sb0*dbyduy) ) + aux.rho_s*u_y*dhduy ) * fac[2];
+  fjac[2][3] = ( aux.alpn1*aux.Psi6*( u_y*(u0*db2duz+sb2*du0duz)  
+				      - (aux.BzL_f1o4pa*sb_y + sb0*dbyduz) ) + aux.rho_s*u_y*dhduz ) * fac[3];
+
+  fjac[3][1] = ( aux.alpn1*aux.Psi6*( u_z*(u0*db2dux+sb2*du0dux)  
+				      - (aux.BxL_f1o4pa*sb_z + sb0*dbzdux) ) + aux.rho_s*u_z*dhdux ) * fac[1];
+  fjac[3][2] = ( aux.alpn1*aux.Psi6*( u_z*(u0*db2duy+sb2*du0duy)  
+				      - (aux.ByL_f1o4pa*sb_z + sb0*dbzduy) ) + aux.rho_s*u_z*dhduy ) * fac[2];
+  fjac[3][3] = ( c + aux.alpn1*aux.Psi6*( u_z*(u0*db2duz+sb2*du0duz)  
+					  - (aux.BzL_f1o4pa*sb_z + sb0*dbzduz) ) + aux.rho_s*u_z*dhduz ) * fac[3];
+
+}
+
+double fasterpow_prim(double inputvar,double inputpow) {
+  if(inputpow==2.0) return SQR(inputvar);
+  return pow(inputvar,inputpow);
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(primitive_vars_hybrid2_cpp)
+  (int *ext,int *nghostzones, double *X, double *Y, double *Z, double *rho_star, double *tau,
+   double *st_x, double *st_y, double *st_z, double *mhd_st_x, double *mhd_st_y, double *mhd_st_z,
+   double *tau_rad, double *S_rad_x, double *S_rad_y, double *S_rad_z,
+   int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab, double *P_tab, double *eps_tab, double *k_tab, double *gamma_tab, double &gamma_th,
+   double *w, double *w_old, double *rho_b, double *rho, double *P, double *h, double *Sx, double *Sy, double *Sz,
+   double *Sxx, double *Sxy, double *Sxz, double *Syy, double *Syz, double *Szz,
+   double *E_rad, double *F_radx, double *F_rady, double *F_radz, double *F_rad0,
+   double *phi, double *alpha, double *shiftx, double *shifty, double *shiftz, double *gxx, double *gxy, double *gxz, double *gyy, double *gyz, double *gzz,
+   double *gupxx, double *gupxy, double *gupxz, double *gupyy, double *gupyz, double *gupzz,
+   double *h_old, double *u0, double &rho_max, double &rho_b_atm, double &rho_fail_max_step, double &M_fail_step, double &rhos_max,
+   double *Bx, double *By, double *Bz, double *Ex, double *Ey, double *Ez, double *vx, double *vy, double *vz, double *sbt, double *sbx, double *sby, double *sbz,
+   double &xNS1,double &yNS1, double &xNS2,double &yNS2, int &num_CO, double &M_B, double &rad_T_fac, double &rad_T_cutoff, double &rad_T_pow,  double &rad_T_floor, double *T_fluid,
+   int &proc_imin, int &proc_jmin, int &proc_kmin, int &proc_imax, int &proc_jmax, int &proc_kmax,
+   int &glob_imax, int &glob_jmax, int &glob_kmax, int &Symmetry,double &pfloor,int &excision_enable,int *excision_zone_gf,
+   int &tau_stildefix_enable,double &tau_atm,double *failure_tracker,const cGH **cctkGH,int &ignore_ghostzones, int &enable_shocktest_primitive_mode, int &repairs_needed, int &rad_closure_scheme,
+   double &rad_const, int &enable_OS_collapse) {
+  primitive_vars_hybrid2_cpp(ext,nghostzones, X, Y, Z, rho_star, tau,
+			     st_x, st_y, st_z, mhd_st_x, mhd_st_y, mhd_st_z,
+			     tau_rad,S_rad_x,S_rad_y,S_rad_z,
+			     neos, ergo_star, ergo_sigma, rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th,
+			     w, w_old, rho_b, rho, P, h, Sx, Sy, Sz,
+			     Sxx, Sxy, Sxz, Syy, Syz, Szz,
+			     E_rad,F_radx,F_rady,F_radz,F_rad0,
+			     phi, alpha, shiftx, shifty, shiftz, gxx, gxy, gxz, gyy, gyz, gzz,
+			     gupxx, gupxy, gupxz, gupyy, gupyz, gupzz,
+			     h_old, u0, rho_max, rho_b_atm, rho_fail_max_step, M_fail_step, rhos_max,
+			     Bx, By, Bz, Ex, Ey, Ez, vx, vy, vz, sbt, sbx, sby, sbz,
+			     xNS1,yNS1, xNS2, yNS2, num_CO, M_B, rad_T_fac, rad_T_cutoff, rad_T_pow, rad_T_floor, T_fluid,
+			     proc_imin, proc_jmin, proc_kmin, proc_imax, proc_jmax, proc_kmax,
+			     glob_imax, glob_jmax, glob_kmax, Symmetry,pfloor,excision_enable,excision_zone_gf,
+			     tau_stildefix_enable,tau_atm,failure_tracker,*cctkGH,ignore_ghostzones, enable_shocktest_primitive_mode, repairs_needed, rad_closure_scheme,
+			     rad_const,enable_OS_collapse);
+}

@@ -1,0 +1,250 @@
+!-----------------------------------------------------------------------------
+!
+! Set up matter field variables for hybrid EOS
+!
+!-----------------------------------------------------------------------------
+subroutine  compute_magnetar_hybrid_bhnsII(ex, DEPLETION, X, Y, Z, &
+     neos,ergo_qc, ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,gamma_th, &
+     lapse, phi, shiftx, shifty, &
+     gxx, gxy, gxz, gyy, gyz, gzz, &
+     rho, S, Sx, Sy, Sz, Sxx, Sxy, Sxz, Syy, Syz, Szz, &
+     rho_star, tau, st_x, st_y, st_z, P, w, vx, vy, vz, &
+     P_cld, eps_cld, &
+     initial_ns_coord_x, initial_ns_coord_y,&
+     rho_b, u0, h, rho_b_atm, &
+     Omega_Frame,PhysR,eps_flag,K_poly,n,RESET_RHO_B_ATM,rhob_fac2, eps_thermal_bhns)
+  implicit none
+!
+! Input parameters:
+!
+  integer, dimension(3)                    :: ex
+  integer				   :: neos, RESET_RHO_B_ATM,ergo_qc
+  real*8, dimension(neos)                  :: rho_tab,P_tab,eps_tab
+  real*8, dimension(neos+1)                :: k_tab, gamma_tab
+  real*8                                   :: rho_b_atm, gamma_th, rhob_fac2, rho_b_atm2, ergo_sigma, eps_thermal_bhns
+  real*8                                   :: DEPLETION,Omega_Frame
+  real*8, dimension(ex(1),ex(2),ex(3))     :: X,Y,Z
+  real*8, dimension(ex(1),ex(2),ex(3))     :: lapse,phi,shiftx,shifty
+  real*8, dimension(ex(1),ex(2),ex(3))     :: gxx,gxy,gxz,gyy,gyz,gzz
+  real*8, dimension(ex(1),ex(2),ex(3))     :: rho,S,Sx,Sy,Sz,PhysR
+  real*8, dimension(ex(1),ex(2),ex(3))     :: Sxx,Sxy,Sxz,Syy,Syz,Szz
+  real*8, dimension(ex(1),ex(2),ex(3))     :: rho_star,tau,st_x,st_y,st_z
+  real*8, dimension(ex(1),ex(2),ex(3))     :: P,w,vx,vy,vz,rho_b,u0,h
+  real*8, dimension(ex(1),ex(2),ex(3))     :: P_cld, eps_cld 
+!
+! Other variables:
+!
+  real*8                     :: rho0,Omega_R,Press,U,eps
+  real*8                     :: u_x,u_y,u_z,alpha,mfac,psi6
+  real*8                     :: pgxx,pgxy,pgxz,pgyy,pgyz,pgzz
+  real*8                     :: fac2,w_scalar,p_met,betax,betay,betaz
+  real*8                     :: gamma,v2,gamma2,v,ut,ux,uy
+  integer                    :: i,j,k,l,ia,m,MAT,eps_flag
+  real*8                     :: R,cost,sint,R1,R2,phi1,phi2,u_r,t
+  integer                    :: imin, jmin, kmin, imax, jmax, kmax
+  real*8                     :: theta,enth,alpi,gami,K_poly,n,f1on
+  real*8                     :: r_Cook,mu_Cook,v_Cook
+  real*8                     :: HALF, ONE, PI
+  real*8                     :: x1,x2,y1,y2
+  real*8                     :: riso,A,B,lower,upper
+  real*8                     :: hm1,au0m1,h2,ted2,cbar,M_B
+  real*8		     :: rad,initial_ns_coord_x,initial_ns_coord_y, xc,yc,zc
+
+  parameter(HALF = 0.5D0, ONE = 1.D0)
+  PI = acos(-ONE)
+
+  print *,"compute_magnetar_bhnsII.F90, neos = ", neos
+  do i = 1,neos+1
+     print *, "rho_tab =", rho_tab(i)
+     print *, "P_tab =",   P_tab(i)
+     print *, "eps_tab",   eps_tab(i)
+     print *, "k_tab",     k_tab(i)
+     print *, "gamma_tab", gamma_tab(i)
+  end do
+
+!
+! compute
+!
+  imin = lbound(rho,1)
+  jmin = lbound(rho,2)
+  kmin = lbound(rho,3)
+  imax = ubound(rho,1)
+  jmax = ubound(rho,2)
+  kmax = ubound(rho,3)
+  f1on = 1.d0/n
+  do i = imin, imax 
+     do j = jmin, jmax
+        do k = kmin, kmax
+           alpha = lapse(i,j,k) + ONE
+           psi6  = exp(6.D0*phi(i,j,k))
+           
+           ! Full inverse metric
+           mfac  = exp(4.D0*phi(i,j,k))
+           pgxx  = mfac*gxx(i,j,k)
+           pgxy  = mfac*gxy(i,j,k)
+           pgxz  = mfac*gxz(i,j,k)
+           pgyy  = mfac*gyy(i,j,k)
+           pgyz  = mfac*gyz(i,j,k)
+           pgzz  = mfac*gzz(i,j,k)
+           
+           R    = sqrt(X(i,1,1)**2 + Y(1,j,1)**2 + Z(1,1,k)**2)
+           riso = PhysR(i,j,k)
+           cost = Z(1,1,k)/R
+           sint = sqrt(1.D0 - cost**2)
+           theta = acos(cost)
+           
+           p_met = P(i,j,k)
+           if (RESET_RHO_B_ATM.eq.1) then
+              rho0 = max(rho_b(i,j,k),rho_b_atm*rhob_fac2)
+           else
+              rho0 = max(rho_b(i,j,k),rho_b_atm)
+           end if
+           
+           Omega_R = vy(i,j,k)
+           w_scalar = sqrt( (shiftx(i,j,k)**2 + shifty(i,j,k)**2) &
+                 / (X(i,1,1)**2 + Y(1,j,1)**2) )
+           
+           shiftx(i,j,k) = shiftx(i,j,k) - Omega_Frame*Y(1,j,1)
+           shifty(i,j,k) = shifty(i,j,k) + Omega_Frame*X(i,1,1)
+           
+           betax = shiftx(i,j,k)
+           betay = shifty(i,j,k)
+           betaz = 0.d0
+           
+           v     = (Omega_R - w_scalar)*riso*sint*exp(-p_met)
+           
+           rho_b_atm2=rho_b_atm
+           if (RESET_RHO_B_ATM.eq.1) rho_b_atm2 = rho_b_atm*rhob_fac2
+           
+           ! Define Lorentz factor
+           if (rho0>rho_b_atm2) then
+              gamma = 1.D0/sqrt(1.D0 - v*v)
+	      au0m1 = v*v/(1.d0-v*v+sqrt(1.d0-v*v))
+           else
+              Omega_R = 0.D0
+              v = 0.D0
+              gamma = 1.D0
+              au0m1 = 0.d0
+           end if
+
+           Omega_R = Omega_R - Omega_Frame
+
+           ut    = gamma/alpha
+           U     = gamma
+           ux    = -ut*Omega_R*Y(1,j,1)
+           uy    = ut*Omega_R*X(i,1,1)
+           u_x   = pgxx*(ux + ut*betax) + pgxy*(uy + ut*betay)
+           u_y   = pgxy*(ux + ut*betax) + pgyy*(uy + ut*betay)
+           u_z   = pgxz*(ux + ut*betax) + pgyz*(uy + ut*betay)
+           
+           
+           ! ******************************************
+           ! ***  build the pressure and enthalpy   ***
+           ! ******************************************
+           
+           if(ergo_qc.eq.0) then
+              ! standard star
+              if((rho0 - rho_tab(1))/rho_tab(1).le.1.0d-15)  then    
+                 Press  =  k_tab(1)*rho0**gamma_tab(1)
+                 enth   =  1.0d0 + Press/rho0*gamma_tab(1)/(gamma_tab(1) - 1.0d0)
+              else if((rho0 - rho_tab(neos))/rho_tab(neos).ge.1.0d-15) then 
+                 Press  =  k_tab(neos+1)*rho0**gamma_tab(neos+1)
+                 
+                 enth   = 1.0d0+ eps_tab(neos) + P_tab(neos)/rho_tab(neos) &
+                       + (Press/rho0 - P_tab(neos)/rho_tab(neos) )*gamma_tab(neos+1)/(gamma_tab(neos+1) - 1.0d0)
+              end if
+              
+              do ia=1,neos-1
+                 if (  ((rho0 - rho_tab(ia))/rho_tab(ia).gt. 1.d-15).and. &
+                       ((rho0 - rho_tab(ia+1))/rho_tab(ia+1).le.1.d-15)) then
+                    Press    =  k_tab(ia+1)*rho0**gamma_tab(ia+1)
+                    enth     =  1.0d0 + eps_tab(ia) + P_tab(ia)/rho_tab(ia) &
+                          + (Press/rho0 - P_tab(ia)/rho_tab(ia) )*gamma_tab(ia+1)/&
+                          (gamma_tab(ia+1) - 1.0d0)
+                 end if
+              end do
+           else 
+              ! quark star
+              if((rho0 - rho_tab(1))/rho_tab(1).le.1.0d-15) then
+                 Press  = k_tab(1)*rho0**gamma_tab(1)
+                 
+                 enth   = 1.0d0 + Press/rho0*gamma_tab(1)/(gamma_tab(1) - 1.0d0)
+              else if((rho0 - rho_tab(neos))/rho_tab(neos).ge.1.0d-15) then
+                 Press = (ergo_sigma*((1.0d0 + eps_tab(neos) + P_tab(neos)/rho_tab(neos))/rho_tab(neos)**ergo_sigma)*rho0**(ergo_sigma + 1.0d0) + &
+                       P_tab(neos) - ergo_sigma*(rho_tab(neos)*(eps_tab(neos) + 1.0d0)))/(ergo_sigma + 1.0d0)
+                 
+                 enth  = ((1.0d0 + eps_tab(neos) + P_tab(neos)/rho_tab(neos))/rho_tab(neos)**ergo_sigma)*rho0**ergo_sigma
+              end if
+              
+              do ia = 1, neos-1
+                 if (((rho0 - rho_tab(ia))/rho_tab(ia).gt. 1.0d-15).and.((rho0 - rho_tab(ia+1))/rho_tab(ia+1).le.1.0d-15)) then
+                    Press   =  k_tab(ia+1)*rho0**gamma_tab(ia+1)
+                    enth    = 1.0d0 + eps_tab(ia) + P_tab(ia)/rho_tab(ia) + &
+                          (Press/rho0 - P_tab(ia)/rho_tab(ia) )*gamma_tab(ia+1)/(gamma_tab(ia+1) - 1.0d0)
+                 end if
+              end do
+           end if
+           
+           ! especifyc internal energy
+           eps    =  enth - 1.0d0 - Press/rho0
+           
+	   Press = Press*DEPLETION
+           eps = eps*DEPLETION
+	   
+	   P_cld(i,j,k) = Press
+	   eps_cld(i,j,k) = eps	   
+
+
+
+!!!! Experiment: Add a little addiional eps (and pressure) as the thermal part  to make the temperature finite 
+           eps = eps_thermal_bhns * eps_cld(i,j,k)
+	   Press = Press + (gamma_th-1.d0)*rho0*(eps-eps_cld(i,j,k))
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+          
+           hm1 = eps + Press/rho0
+           ! enth = 1.D0 + hm1
+           
+           fac2       = rho0*enth*U*U
+           h(i,j,k)         = enth
+           rho(i,j,k)       = fac2 - Press
+           S(i,j,k)         = 3.D0*Press + enth*rho0*(U + 1.D0)*au0m1
+           Sx(i,j,k)        = rho0*enth*U*u_x
+           Sy(i,j,k)        = rho0*enth*U*u_y
+           Sz(i,j,k)        = rho0*enth*U*u_z
+           Sxx(i,j,k)       = Press*pgxx + rho0*enth*u_x*u_x
+           Sxy(i,j,k)       = Press*pgxy + rho0*enth*u_x*u_y
+           Sxz(i,j,k)       = Press*pgxz + rho0*enth*u_x*u_z
+           Syy(i,j,k)       = Press*pgyy + rho0*enth*u_y*u_y
+           Syz(i,j,k)       = Press*pgyz + rho0*enth*u_y*u_z
+           Szz(i,j,k)       = Press*pgzz + rho0*enth*u_z*u_z
+           rho_star(i,j,k)  = ut*alpha*psi6*rho0
+           st_x(i,j,k)      = rho_star(i,j,k)*enth*u_x
+           st_y(i,j,k)      = rho_star(i,j,k)*enth*u_y
+           st_z(i,j,k)      = rho_star(i,j,k)*enth*u_z
+           vx(i,j,k)        = ux/ut
+           vy(i,j,k)        = uy/ut
+           vz(i,j,k)        = 0.D0
+           P(i,j,k)         = Press
+           w(i,j,k)         = rho_star(i,j,k)*U
+           
+           ! Use this for Font's energy variable 
+           tau(i,j,k)       = (au0m1 + U*hm1)*rho_star(i,j,k) - psi6*Press
+           
+           u0(i,j,k)        = ut
+           rho_b(i,j,k)     = rho0
+
+
+
+        end do
+     end do
+  end do
+
+           !if (rho0 .gt. rho_b_atm) then
+           !write(*,*) "after compute_magnetar_bhnsII, rho_b, rho_star, P are", rho_b, rho_star, P
+           !end if
+ 
+
+  
+end subroutine compute_magnetar_hybrid_bhnsII
+

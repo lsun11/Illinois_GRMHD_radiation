@@ -1,0 +1,105 @@
+diagnostics_Trace_Particles_u_0_local.F90:              if(rho_star(i,j,k).lt.0.D0) rho_star(i,j,k)=psi6L*rho_b_atm
+diagnostics_Trace_Particles_u_0_local.F90:              if(rho_b(i,j,k).lt.1.D3*rho_b_atm) then
+diagnostics_Trace_Particles_u_0_local.F90:              !if(rho_b(i,j,k) .lt. 1.D0*rho_b_atm .or. sqrt( (X(i,j,k)-bh_posn_x(1))**2 + (Y(i,j,k)-bh_posn_y(1))**2 + (Z(i,j,k)-bh_posn_z(1))**2 ) .lt. max_horiz_radius) then
+diagnostics_Trace_Particles_u_0_local.F90:              !if(rho_b(i,j,k) .lt. 1.D3*rho_b_atm .or. sqrt( (X(i,j,k)-bh_posn_x(1))**2 + (Y(i,j,k)-bh_posn_y(1))**2 + (Z(i,j,k)-bh_posn_z(1))**2 ) .lt. max_horiz_radius) then
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,bhns_R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,bhns_R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,bhns_R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:      bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:   real*8                                   :: vx_CM,vy_CM,vz_CM,R_NS,rho_b_atm
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:   print *,"(vx_CM,vy_CM,vz_CM,R_NS)=", vx_CM, vy_CM,vz_CM,R_NS,rho_b_atm
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90:                                 rho_b_atm
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,bhns_R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,bhns_R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,bhns_R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:      bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2,R_NS,rho_b_atm)
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:   real*8                                   :: vx_CM,vy_CM,vz_CM,R_NS,rho_b_atm
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:   print *,"(vx_CM,vy_CM,vz_CM,R_NS)=", vx_CM, vy_CM,vz_CM,R_NS,rho_b_atm
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90~:                                 rho_b_atm
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh, atm_type, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,cctk_nghostzones, atm_type, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90_old:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,cctk_nghostzones, atm_type, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:             rho_b_atm,tau_atm, &
+driver_setup_emfields_part2-local-setBi_after_checkpoint.F90-ORIGGOOD:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+#driver_setup_emfields_part2-local-setBi.F90#:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+#driver_setup_emfields_part2-local-setBi.F90#:                    if (rho_b(i,j,k) .gt. rho_b_atm*1.d5) then
+#driver_setup_emfields_part2-local-setBi.F90#:     x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+#driver_setup_emfields_part2-local-setBi.F90#:  real*8                                   :: x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm
+driver_setup_emfields_part2-local-setBi.F90:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi.F90:                    if (rho_b(i,j,k) .gt. rho_b_atm*1.d5) then
+driver_setup_emfields_part2-local-setBi.F90:     x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi.F90:  real*8                                   :: x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm
+driver_setup_emfields_part2-local-setBi.F90~:          x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi.F90~:                    if (rho_b(i,j,k) .gt. rho_b_atm*1.d5) then
+driver_setup_emfields_part2-local-setBi.F90~:     x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm, &
+driver_setup_emfields_part2-local-setBi.F90~:  real*8                                   :: x_NS_CoM_coord,y_NS_CoM_coord,rho_b_atm
+fill_in_bh_Afields_part2_fill_interior.F90:        where(rho_b .lt. rho_b_atm) 
+fill_in_bh_Afields_part2_fill_interior.F90:           rho_b = rho_b_atm
+initialdata_global.F90:  if(rho_b_atm.gt.0.D0) rho_b_atm = rho_fact*rho_max
+initialdata_global.F90:  write(*,*) "RHO_MAX, rho_b_atm: ",rho_max,rho_b_atm
+initialdata_local2.F90:write(*,*) 'In bhns local2, rho_b_atm = ',rho_b_atm,dX
+initialdata_local2.F90:  rho_b= max(rho_b,rho_b_atm)
+initialdata_local2.F90~:write(*,*) 'In bhns local2, rho_b_atm = ',rho_b_atm,dX
+initialdata_local2.F90~:  rho_b= max(rho_b,rho_b_atm)
+make.code.defn:	interp_driver_carp.F90 reset_rho_b_atm.C driver_CoM_v.F90 check_for_nans.F90
+make.code.defn~:	interp_driver_carp.F90 reset_rho_b_atm.C driver_CoM_v.F90
+regridder_io_lowlevel.C:   double &rho_b_atm,double &tau_atm,int &myproc);
+regridder_io_lowlevel.C:					  double &rho_b_atm,double &tau_atm,int myproc) {
+regridder_io_lowlevel.C:  if(myproc==0) bhns_regridder_out_1gf(numpoints,&rho_b_atm,checksum);
+regridder_io_lowlevel.C:   double &rho_b_atm,double &tau_atm,int &myproc) {
+regridder_io_lowlevel.C:			    rho_b_atm,tau_atm,myproc);
+regridder_io_lowlevel.C:   double &rho_b_atm,double &tau_atm);
+regridder_io_lowlevel.C:					 double &rho_b_atm,double &tau_atm) {
+regridder_io_lowlevel.C:  infile.read ((char *)&numpoints, sizeof(int)); infile.read ((char *)&rho_b_atm, sizeof(double)*numpoints);
+regridder_io_lowlevel.C:  printf("hi. rho_b_atm = %e, tau_atm = %e\n",rho_b_atm,tau_atm);
+regridder_io_lowlevel.C:   double &rho_b_atm,double &tau_atm)
+regridder_io_lowlevel.C:			   rho_b_atm,tau_atm);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:   double &rho_b_atm,double &tau_atm,int &myproc);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:					  double &rho_b_atm,double &tau_atm,int myproc) {
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:    outfile.write ((char *)&one, sizeof(int));  outfile.write ((char *)&rho_b_atm, sizeof(double)*one);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:   double &rho_b_atm,double &tau_atm,int &myproc) {
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:			    rho_b_atm,tau_atm,myproc);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:   double &rho_b_atm,double &tau_atm);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:					 double &rho_b_atm,double &tau_atm) {
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:  infile.read ((char *)&numpoints, sizeof(int)); infile.read ((char *)&rho_b_atm, sizeof(double)*numpoints);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:  printf("hi. rho_b_atm = %e, tau_atm = %e\n",rho_b_atm,tau_atm);
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:   double &rho_b_atm,double &tau_atm)
+regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C:			   rho_b_atm,tau_atm);
+regridder_reader_driver.F90:       rho_b_atm,tau_atm)
+regridder_reader_driver-part2_primitives_etc.F90:          rho_b_atm,tau_atm, &
+regridder_writer_driver.F90:                rho_b_atm,tau_atm,CCTK_MyProc(CCTKGH))
+reset_rho_b_atm.C:extern "C" void CCTK_FCALL CCTK_FNAME(bhns_reset_rho_b_atm)
+reset_rho_b_atm.C:void bhns_reset_rho_b_atm(const cGH *cctkGH, int *cctk_lsh, 
+reset_rho_b_atm.C:extern "C" void CCTK_FCALL CCTK_FNAME(bhns_reset_rho_b_atm)
+reset_rho_b_atm.C:  bhns_reset_rho_b_atm(*cctkGH,cctk_lsh, X,Y,Z, b2,
+reset_rho_b_atm.C~:extern "C" void CCTK_FCALL CCTK_FNAME(bhns_reset_rho_b_atm)
+reset_rho_b_atm.C~:void bhns_reset_rho_b_atm(const cGH *cctkGH, int *cctk_lsh, 
+reset_rho_b_atm.C~:extern "C" void CCTK_FCALL CCTK_FNAME(bhns_reset_rho_b_atm)
+reset_rho_b_atm.C~:  bhns_reset_rho_b_atm(*cctkGH,cctk_lsh, X,Y,Z, b2,
+tmp:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+tmp:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+tmp~:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+tmp~:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+tmp_f90:!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&

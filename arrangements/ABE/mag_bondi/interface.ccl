@@ -1,0 +1,29 @@
+# Interface definition for thorn mag_bh_accrrtion
+
+implements: mag_bondi
+inherits: grid CarpetRegrid2
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: excision
+friend: mhd_evolve
+friend: fisheye
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+
+USES INCLUDE: Symmetry.h
+
+private: 
+
+REAL horizon_data_arrays TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=N_theta*N_phi
+{
+  xn_d, yn_d, zn_d, nx_d, ny_d, nz_d, nn_d
+} "horizon data arrays"
+
+###private:
+# Auxiliary variable for initial data setup
+cctk_real aux_var type = SCALAR
+{
+ xmax_bondi,zmax_bondi
+}

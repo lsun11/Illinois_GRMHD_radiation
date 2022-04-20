@@ -1,0 +1,9 @@
+# Main make.code.defn file for thorn SphericalSurface
+# $Header: /numrelcvs/AEIThorns/SphericalSurface/src/make.code.defn,v 1.4 2007/11/02 11:27:19 reisswig Exp $
+
+# Source files in this directory
+SRCS = check.c radius.c setup.cc
+
+# Subdirectories containing source files
+SUBDIRS = 
+

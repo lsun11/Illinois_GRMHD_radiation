@@ -1,0 +1,95 @@
+!-----------------------------------------------------------
+! Set up integrand for the EM field energy: (E^2 + B^2)/8pi
+!  *** ALTERNATIVE FORMULATION ***
+!-----------------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine em_energy2_integrand(CCTK_ARGUMENTS)
+  implicit none
+
+  !~~~~~> Input parameters:
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  !~~~~~> Other variables:
+  real*8                             :: dX, dY, dZ
+  real*8                             :: dV,pi,FOUR,ONE
+  integer                            :: i,j,k
+  integer                            :: AXISYM
+  real*8                             :: b2,u0L
+  real*8                             :: er, el, au0m1
+  real*8, parameter                  :: fac = 0.99d0
+
+  parameter(AXISYM = 4)
+  parameter(ONE = 1.D0, FOUR = 4.D0)
+
+  PI = 3.14159265358979323846D0
+
+  WhichIntegral = 104
+
+!  write(*,*) "Start vol_integrand-em_energy2.F90"
+  
+  if(MOD(cctk_iteration,Compute_VolIntegrands_Every)==0) then
+     !-----------------------------------------------------------------------------
+     ! Next, compute integrand
+     !-----------------------------------------------------------------------------
+     !Reset VolIntegrand quickly, using OpenMP
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              VolIntegrand(i,j,k) = 0.D0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+     !$omp parallel do
+     do k = cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+        do j = cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+           do i = cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+
+              ! First compute al*u0-1
+              er = exp(4.d0*phi(i,j,k))*(gxx(i,j,k)*(vx(i,j,k) + shiftx(i,j,k))**2 + &
+                   2.d0*gxy(i,j,k)*(vx(i,j,k) + shiftx(i,j,k))*(vy(i,j,k) + shifty(i,j,k)) +         &
+                   2.d0*gxz(i,j,k)*(vx(i,j,k) + shiftx(i,j,k))*(vz(i,j,k) + shiftz(i,j,k)) +         &
+                   gyy(i,j,k)*(vy(i,j,k) + shifty(i,j,k))**2 +                           &
+                   2.d0*gyz(i,j,k)*(vy(i,j,k) + shifty(i,j,k))*(vz(i,j,k) + shiftz(i,j,k)) +         &
+                   gzz(i,j,k)*(vz(i,j,k) + shiftz(i,j,k))**2 )/(lapm1(i,j,k)+1.d0)**2
+              ! *** Check for superluminal velocity ***
+              if (er .gt. 1.d0) then
+                 vx(i,j,k) = (vx(i,j,k) + shiftx(i,j,k))*sqrt(fac/er)-shiftx(i,j,k)
+                 vy(i,j,k) = (vy(i,j,k) + shifty(i,j,k))*sqrt(fac/er)-shifty(i,j,k)
+                 vz(i,j,k) = (vz(i,j,k) + shiftz(i,j,k))*sqrt(fac/er)-shiftz(i,j,k)
+                 er = fac
+              end if
+              ! ***************************************
+              el = sqrt(1.d0-er)
+              au0m1 = er/el/(1.d0+el)
+              u0L = (au0m1+1.d0)/(lapm1(i,j,k)+1.d0)
+
+              b2 = -(lapm1(i,j,k)+1.d0)**2*(sbt(i,j,k))**2 + &
+                   exp(4.d0*phi(i,j,k))*( &
+                   gxx(i,j,k)*(shiftx(i,j,k)*sbt(i,j,k)+sbx(i,j,k))**2 + &
+                   2.d0*gxy(i,j,k)*(shiftx(i,j,k)*sbt(i,j,k)+sbx(i,j,k))*(shifty(i,j,k)*sbt(i,j,k)+sby(i,j,k)) + &
+                   2.d0*gxz(i,j,k)*(shiftx(i,j,k)*sbt(i,j,k)+sbx(i,j,k))*(shiftz(i,j,k)*sbt(i,j,k)+sbz(i,j,k)) + &
+                   gyy(i,j,k)*(shifty(i,j,k)*sbt(i,j,k)+sby(i,j,k))**2 + &
+                   2.d0*gyz(i,j,k)*(shifty(i,j,k)*sbt(i,j,k)+sby(i,j,k))*(shiftz(i,j,k)*sbt(i,j,k)+sbz(i,j,k)) + &
+                   gzz(i,j,k)*(shiftz(i,j,k)*sbt(i,j,k)+sbz(i,j,k))**2)
+
+              b2 = b2/(lapm1(i,j,k)+1.d0)
+
+              if (Symmetry == AXISYM) then
+                 VolIntegrand(i,j,k) = u0L*exp(6.d0*phi(i,j,k))*b2*abs(X(i,1,1)) / (8.d0*PI)
+              else
+                 VolIntegrand(i,j,k) = u0L*exp(6.d0*phi(i,j,k))*b2 / (8.d0*PI)
+              end if
+           end do ! i-loop
+        end do ! j-loop
+     end do ! k-loop
+     !$omp end parallel do
+  end if
+end subroutine em_energy2_integrand

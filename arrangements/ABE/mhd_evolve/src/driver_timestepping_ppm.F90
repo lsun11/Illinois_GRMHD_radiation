@@ -1,0 +1,521 @@
+!-------------------------------------------------------
+!    :: Driver routine for MHD timestepping, 
+! (i.e., computing RHS's of all conservative variables)
+!-------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine mhd_timestepping_ppm_step1(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3) :: ext
+  real*8                :: dX,dY,dZ
+  integer               :: index,ierr,handle,dummy
+  CCTK_REAL             :: reduction_value
+  integer               :: AXISYM,i,j,k
+
+  parameter(AXISYM = 4)
+
+  ext = cctk_lsh
+
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+
+  write(*,*) "Start mhd_timestepping_ppm_step1!!!!"
+
+  !The following lines are needed at the beginning of each timestep:
+  if(iter_count==1) then
+     ! Note that h_p == [h from previous timeSTEP, not previous MoL step].  h_p MUST be set for primitive solver.
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              h_p(i,j,k) = h(i,j,k)
+           end do
+        end do
+     end do
+
+
+
+     !$omp end parallel do
+
+     ! In the MHD code, rho_b and P are NOT updated on the boundaries in Axisymmetry.  
+     !   As a result, the maximum value of these quantities may occur at the boundary and not change!
+     !   Here we correct for this problem by zeroing out the boundary values of rho_b and P.
+     !	 We do the same for E_rad, P_rad.
+     if(Symmetry==AXISYM) then
+        if(Z(1,1,1).lt.0.D0) then
+           rho_b(:,:,1) = rho_b(:,:,2)
+           P(:,:,1) = P(:,:,2)
+	   E_rad(:,:,1) = E_rad(:,:,2)
+        end if
+        if(X(1,1,1).lt.0.D0) then
+           rho_b(1,:,:) = rho_b(2,:,:)
+           P(1,:,:) = P(2,:,:)
+	   E_rad(1,:,:) = E_rad(2,:,:)
+        end if
+     end if
+
+     ! Also, rho_b_max, P_max, and rhos_max must also be set for primitive solver!
+     call CCTK_VarIndex(index,"mhd_evolve::rho_b")
+     call CCTK_ReductionHandle(handle,"maximum")
+     if (handle .gt. 0) then
+        call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+        if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+           !        print *,"1: Maximum value of rho_b is ",reduction_value
+        end if
+     else
+        call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+     end if
+     rho_b_max = reduction_value  
+     call CCTK_VarIndex(index,"mhd_evolve::P")
+     call CCTK_ReductionHandle(handle,"maximum")
+     if (handle .gt. 0) then
+        call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+        if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+           !        print *,"1: Maximum value of P is ",reduction_value
+        end if
+     else
+        call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+     end if
+     P_max = reduction_value  
+     call CCTK_VarIndex(index,"mhd_evolve::rho_star")
+     call CCTK_ReductionHandle(handle,"maximum")
+     if (handle .gt. 0) then
+        call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+        if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+           !        print *,"1: Maximum value of rho_star is ",reduction_value
+        end if
+     else
+        call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+     end if
+     rhos_max = reduction_value  
+  end if
+
+  ! Initialize right hand sides to zero.  You should probably not do this when debugging... 
+  !        I.e., you should add poisoning (Carpet::poison_new_timelevels,poison_new_memory = yes)
+  !        and make SURE that the unset values are appearing ONLY in ghostzones.
+  !$omp parallel do
+  do k=1,cctk_lsh(3)
+     do j=1,cctk_lsh(2)
+        do i=1,cctk_lsh(1)
+           rho_star_rhs(i,j,k) = 0.D0
+           tau_rhs(i,j,k) = 0.D0
+           mhd_st_x_rhs(i,j,k) = 0.D0
+           mhd_st_y_rhs(i,j,k) = 0.D0
+           mhd_st_z_rhs(i,j,k) = 0.D0
+           rhoYe_rhs (i,j,k)   = 0.D0
+           
+           Bxtilde_or_Ax_rhs(i,j,k) = 0.D0
+           Bytilde_or_Ay_rhs(i,j,k) = 0.D0
+           Bztilde_or_Az_rhs(i,j,k) = 0.D0
+
+	   tau_rad_rhs(i,j,k) = 0.D0
+	   S_rad_x_rhs(i,j,k) =	0.D0
+	   S_rad_y_rhs(i,j,k) = 0.D0
+	   S_rad_z_rhs(i,j,k) = 0.D0
+
+           tau_rad_nue_rhs(i,j,k) = 0.D0
+           S_rad_x_nue_rhs(i,j,k) = 0.D0
+           S_rad_y_nue_rhs(i,j,k) = 0.D0
+           S_rad_z_nue_rhs(i,j,k) = 0.D0
+
+           tau_rad_nux_rhs(i,j,k) = 0.D0
+           S_rad_x_nux_rhs(i,j,k) = 0.D0
+           S_rad_y_nux_rhs(i,j,k) = 0.D0
+           S_rad_z_nux_rhs(i,j,k) = 0.D0
+
+           ! Also initialize some diagnostics terms
+           tau_rad_scalar_diag(i,j,k) = 0.D0
+           tau_rad_advect_diag(i,j,k) = 0.D0
+        end do
+     end do
+  end do
+  !$omp end parallel do
+
+  m = 1
+
+  write(*,*) "End mhd_timestepping_ppm_step1!!!!"
+  end subroutine mhd_timestepping_ppm_step1
+
+
+
+subroutine mhd_timestepping_ppm_step2(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+!  write(*,*) "Start mhd_timestepping_ppm_step2!!!!"
+  m = 2
+!  write(*,*) "End mhd_timestepping_ppm_step2!!!!"
+  end subroutine mhd_timestepping_ppm_step2
+
+
+
+subroutine mhd_timestepping_ppm_step3(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+ ! write(*,*) "Start mhd_timestepping_ppm_step3!!!!"
+  m = 3
+ ! write(*,*) "End mhd_timestepping_ppm_step3!!!!"
+end subroutine mhd_timestepping_ppm_step3
+
+
+
+subroutine mhd_timestepping_tau_curvature(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8                :: dX,dY,dZ,fac,Afield_KO_value
+  integer :: i,j,k,i1,j1,k1
+  integer               :: which_nu
+  ! AH parameters:
+  real*8                :: horizdirn_x,horizdirn_y,horizdirn_z,AH_radius_minimum
+
+
+  !
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  ! At the beginning of this subroutine, we add the scalar 4-force terms to the tau_rhs.
+  write(*,*) "Start mhd_timestepping_tau_curvature!!!!!!!!!!!!!"
+
+
+  if(rad_fourforce_enable==1) then   !!! If rad_fourforce_enable==1, rad_evolve_enable has to be 1 as well!!!
+     !! This function controls microphysics_scheme, no need to call nue, nux separately. Here we only evolve tau, which intakes the sum of source terms from three species
+     call mhd_tau_scalar_rad_cpp(cctkGH, cctk_lsh,&
+          tau_rhs, rhoYe_rhs, rho_star, P,&
+          u0, vx, vy, vz,&
+          lapm1, shiftx, shifty, shiftz,&
+          phi, gxx, gxy, gxz, gyy, gyz, gzz,&
+          E_rad, F_radx, F_rady, F_radz, Y_e, optd, eta_nue,&
+          E_rad_nue,F_radx_nue,F_rady_nue,F_radz_nue, &
+          E_rad_nux,F_radx_nux,F_rady_nux,F_radz_nux, &
+          rad_closure_scheme, rad_opacity_abs, rad_opacity_sct, rad_const, &
+          chi_rad, chi_rad_nue,&
+          T_fluid, enable_OS_collapse, compute_microphysics, microphysics_scheme, T_fluid_cgs_atm,rad_fix)
+     
+     !! However, we need to call this function 3 times for full scheme because we evolve three DIFFERENT variables! (tau_rad, tau_rad_nue, tau_rad_nux)
+     if(rad_evolve_enable==1) then
+        which_nu = 1
+        call rad_tau_scalar_rad_cpp(cctkGH, cctk_lsh,&
+             tau_rad_rhs, rho_star, P,&
+             u0, vx, vy, vz, &
+             lapm1, shiftx, shifty, shiftz,&
+             phi, gxx, gxy, gxz, gyy, gyz, gzz,&
+             E_rad, F_radx, F_rady, F_radz, Y_e, &
+             rad_closure_scheme, rad_opacity_abs, rad_opacity_sct, rad_const, &
+             chi_rad, chi_rad_nue, optd, eta_nue, which_nu, &
+             T_fluid, tau_rad_scalar_diag, enable_OS_collapse, compute_microphysics, &
+             microphysics_scheme, T_fluid_cgs_atm, rad_fix)
+
+        
+        
+        if (microphysics_scheme==1) then
+           which_nu = 2
+           call rad_tau_scalar_rad_cpp(cctkGH, cctk_lsh,&
+                tau_rad_nue_rhs, rho_star, P,&
+                u0, vx, vy, vz, &
+                lapm1, shiftx, shifty, shiftz,&
+                phi, gxx, gxy, gxz, gyy, gyz, gzz,&
+                E_rad_nue, F_radx_nue, F_rady_nue, F_radz_nue, Y_e,&
+                rad_closure_scheme, rad_opacity_abs, rad_opacity_sct, rad_const, &
+                chi_rad, chi_rad_nue, optd, eta_nue, which_nu, &
+                T_fluid, tau_rad_scalar_diag, enable_OS_collapse, compute_microphysics, &
+                microphysics_scheme, T_fluid_cgs_atm, rad_fix)       
+           which_nu = 3
+           call rad_tau_scalar_rad_cpp(cctkGH, cctk_lsh,&
+                tau_rad_nux_rhs, rho_star, P,&
+                u0, vx, vy, vz, &
+                lapm1, shiftx, shifty, shiftz,&
+                phi, gxx, gxy, gxz, gyy, gyz, gzz,&
+                E_rad_nux, F_radx_nux, F_rady_nux, F_radz_nux, Y_e,&
+                rad_closure_scheme, rad_opacity_abs, rad_opacity_sct, rad_const, &
+                chi_rad, chi_rad_nue, optd, eta_nue, which_nu, &
+                T_fluid, tau_rad_scalar_diag, enable_OS_collapse, compute_microphysics, &
+                microphysics_scheme, T_fluid_cgs_atm, rad_fix)
+        end if
+     end if
+  end if
+   write(*,*) "Check1 mhd_timestepping_tau_curvature!!!!!!!!!!!!!"
+
+
+  
+  if(enable_HARM_energyvariable==0) then
+     if (artificial_cooling_enable==1) then
+        call mhd_tau_curvature_cpp_with_cooling(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+             tau_rhs,mhd_st_x_rhs, mhd_st_y_rhs, mhd_st_z_rhs,rho_star,h,P, rho_b, &  
+             neos, ergo_star, ergo_sigma,rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+             sbt,sbx,sby,sbz, &
+             u0,vx,vy,vz, &
+             lapm1,shiftx,shifty,shiftz, &
+             phi,trK, &
+             gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz, &
+             dX,dY,dZ,t_cool,cooling_in_St_eq,allow_negative_eps_th, enable_OS_collapse)
+     else
+        call mhd_tau_curvature_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+             tau_rhs,rho_star,h,P, &
+             sbt,sbx,sby,sbz, &
+             u0,vx,vy,vz, &
+             lapm1,shiftx,shifty,shiftz, &
+             phi,trK, &
+             gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz, &
+             dX,dY,dZ)
+     end if
+  else          ! TODO: Remove the cctk_lshrinsic curvature variables from the following two routines 
+     write(*,*) "Get the latest code from Vasilis, foo!"
+     stop
+  end if
+  
+   write(*,*) "Check2 mhd_timestepping_tau_curvature!!!!!!!!!!!!!"
+
+if (rad_evolve_enable==1) then
+   call tau_rad_curvature_cpp(cctkGH,cctk_lsh, cctk_nghostzones, Symmetry, &
+        tau_rad_rhs, E_rad, &
+        F_radx,F_rady,F_radz, &
+        u0,vx,vy,vz, &
+        lapm1,shiftx,shifty,shiftz, &
+        phi,trK, &
+        gxx,gxy,gxz,gyy,gyz,gzz, &
+        gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+        Axx,Axy,Axz,Ayy,Ayz,Azz, &
+        dX,dY,dZ,rad_closure_scheme, Erad_atm_cut)
+   if (microphysics_scheme==1) then
+      call tau_rad_curvature_cpp(cctkGH,cctk_lsh, cctk_nghostzones, Symmetry, &
+           tau_rad_nue_rhs, E_rad_nue, &
+           F_radx_nue,F_rady_nue,F_radz_nue, &
+           u0,vx,vy,vz, &
+           lapm1,shiftx,shifty,shiftz, &
+           phi,trK, &
+           gxx,gxy,gxz,gyy,gyz,gzz, &
+           gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+           Axx,Axy,Axz,Ayy,Ayz,Azz, &
+           dX,dY,dZ,rad_closure_scheme, Erad_atm_cut)
+      
+      call tau_rad_curvature_cpp(cctkGH,cctk_lsh, cctk_nghostzones, Symmetry, &
+           tau_rad_nux_rhs, E_rad_nux, &
+           F_radx_nux,F_rady_nux,F_radz_nux, &
+           u0,vx,vy,vz, &
+           lapm1,shiftx,shifty,shiftz, &
+           phi,trK, &
+           gxx,gxy,gxz,gyy,gyz,gzz, &
+           gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+           Axx,Axy,Axz,Ayy,Ayz,Azz, &
+           dX,dY,dZ,rad_closure_scheme, Erad_atm_cut)
+   end if
+end if
+
+
+write(*,*) "Check3 mhd_timestepping_tau_curvature!!!!!!!!!!!!!"
+
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              if (isnan(Ax(i,j,k))) then
+                 write(*,*) " 1. In mhd_timestepping_tau_curvature, Ax(i,j,k) is nan", i,j,k
+              end if
+           end do
+        end do
+     end do
+
+  ! Evolve the EM scalar field psi^6 Phi
+  if (em_evolve_enable==1 .and. constrained_transport_scheme==3 .and. em_gauge==1) then 
+     call mhd_A_psi6phi_rhs_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, & 
+             psi6phi_rhs,Bxtilde_or_Ax_rhs,Bytilde_or_Ay_rhs,Bztilde_or_Az_rhs, &
+             psi6phi,Ax,Ay,Az,lapm1,shiftx,shifty,shiftz,phi, & 
+	     gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, & 
+	     temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8, & 
+             temp9,temp10,temp11,dX,dY,dZ,0.D0,0.D0,0.D0,cctk_time,r,damp_lorenz)
+  else if (em_evolve_enable==1 .and. constrained_transport_scheme==3 .and. em_gauge==2) then 
+     call mhd_A_psi6phi_evolved_but_not_Lorenz_rhs_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, & 
+             psi6phi_rhs,Bxtilde_or_Ax_rhs,Bytilde_or_Ay_rhs,Bztilde_or_Az_rhs, &
+             psi6phi,Ax,Ay,Az,lapm1,shiftx,shifty,shiftz,phi, & 
+	     gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, & 
+	     temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8, & 
+             temp9,temp10,temp11,dX,dY,dZ)
+  else
+
+
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              if (isnan(Ax(i,j,k))) then
+                 write(*,*) " 2. In mhd_timestepping_tau_curvature, Ax(i,j,k) is nan", i,j,k
+              end if
+           end do
+        end do
+     end do
+     
+         
+     !$omp parallel do 
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+	   do i=1,cctk_lsh(1)
+	      psi6phi_rhs(i,j,k) = 0.d0
+	   end do
+        end do
+     end do
+     !$omp end parallel do
+  end if
+
+  ! Field line tracer
+  if (em_evolve_enable==1 .and. enable_trace_field_line==1) then
+     call field_line_tracer_cpp(cctkGH,cctk_lsh,cctk_nghostzones, &
+          lapm1, shiftx,shifty,shiftz,phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+          vx,vy,vz, Bxtilde,Bytilde,Bztilde, &
+          mhd_psi_line, mhd_u_psi, mhd_chi_line, mhd_u_chi, &
+          mhd_psi_line_rhs, mhd_u_psi_rhs, mhd_chi_line_rhs, mhd_u_chi_rhs, &
+          lambda_line,dX,dY,dZ,X,Y,Z,min_BH_radius,0.d0,0.d0,0.d0)
+  else
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              mhd_psi_line_rhs(i,j,k) = 0.d0
+              mhd_u_psi_rhs(i,j,k) = 0.d0
+              mhd_chi_line_rhs(i,j,k) = 0.d0
+              mhd_u_chi_rhs(i,j,k) = 0.d0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  end if
+
+
+  if(excision_enable==1) then
+     call remove_interior(cctk_lsh,X,Y,Z,rho_star_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(cctk_lsh,X,Y,Z,tau_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(cctk_lsh,X,Y,Z,mhd_st_x_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(cctk_lsh,X,Y,Z,mhd_st_y_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(cctk_lsh,X,Y,Z,mhd_st_z_rhs,excision_zone_gf,Symmetry)
+  end if
+
+  if(KO_inside_BH.gt.0.D0) then
+
+     !     Get horizon radius in direction where it is likely to be minimized:
+     horizdirn_x = 0.D0
+     horizdirn_y = 0.D0
+     horizdirn_z = 100000.D0
+     call mhd_evolve_get_ah_radius_in_dirn(cctkGH,horizdirn_x,horizdirn_y,horizdirn_z,AH_radius_minimum)
+
+     ! Hard-coded 0.8 safety factor here:
+     AH_radius_minimum = 0.8D0 * AH_radius_minimum
+
+     !$omp parallel do private (i,j,k,i1,j1,k1,fac)
+     do k = 3, cctk_lsh(3)-2
+        do j = 3, cctk_lsh(2)-2
+           do i = 3, cctk_lsh(1)-2
+              ! You'll need to edit the code above and below if there is more than one BH.
+              if(num_BHs.eq.1) then
+
+                 !if(sqrt((x(i,j,k)-bh_posn_x(1))**2 + (y(i,j,k)-bh_posn_y(1))**2 + (z(i,j,k)-bh_posn_z(1))**2) .lt. AH_radius_minimum) then
+                 if(sqrt((x(i,j,k)-bh_posn_x(1))**2 + (y(i,j,k)-bh_posn_y(1))**2 + (z(i,j,k)-bh_posn_z(1))**2) .lt. AH_radius_minimum) then
+                    !!if (exp(6.d0*phi(i,j,k)) .gt. 15.d0) then
+
+                    fac = 0.d0
+
+                    if(fac==0.D0) then
+                       mhd_st_x_rhs(i,j,k) = mhd_st_x_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+                            * (+ (mhd_st_x(i-2,j,k) - 4.D0*mhd_st_x(i-1,j,k) + 6.D0*mhd_st_x(i,j,k) - 4.D0*mhd_st_x(i+1,j,k) + mhd_st_x(i+2,j,k)) / dx &
+                            + (mhd_st_x(i,j-2,k) - 4.D0*mhd_st_x(i,j-1,k) + 6.D0*mhd_st_x(i,j,k) - 4.D0*mhd_st_x(i,j+1,k) + mhd_st_x(i,j+2,k)) / dy &
+                            + (mhd_st_x(i,j,k-2) - 4.D0*mhd_st_x(i,j,k-1) + 6.D0*mhd_st_x(i,j,k) - 4.D0*mhd_st_x(i,j,k+1) + mhd_st_x(i,j,k+2)) / dz)
+                       
+                       mhd_st_y_rhs(i,j,k) = mhd_st_y_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+                            * (+ (mhd_st_y(i-2,j,k) - 4.D0*mhd_st_y(i-1,j,k) + 6.D0*mhd_st_y(i,j,k) - 4.D0*mhd_st_y(i+1,j,k) + mhd_st_y(i+2,j,k)) / dx &
+                            + (mhd_st_y(i,j-2,k) - 4.D0*mhd_st_y(i,j-1,k) + 6.D0*mhd_st_y(i,j,k) - 4.D0*mhd_st_y(i,j+1,k) + mhd_st_y(i,j+2,k)) / dy &
+                            + (mhd_st_y(i,j,k-2) - 4.D0*mhd_st_y(i,j,k-1) + 6.D0*mhd_st_y(i,j,k) - 4.D0*mhd_st_y(i,j,k+1) + mhd_st_y(i,j,k+2)) / dz)
+                       
+                       mhd_st_z_rhs(i,j,k) = mhd_st_z_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+                            * (+ (mhd_st_z(i-2,j,k) - 4.D0*mhd_st_z(i-1,j,k) + 6.D0*mhd_st_z(i,j,k) - 4.D0*mhd_st_z(i+1,j,k) + mhd_st_z(i+2,j,k)) / dx &
+                            + (mhd_st_z(i,j-2,k) - 4.D0*mhd_st_z(i,j-1,k) + 6.D0*mhd_st_z(i,j,k) - 4.D0*mhd_st_z(i,j+1,k) + mhd_st_z(i,j+2,k)) / dy &
+                            + (mhd_st_z(i,j,k-2) - 4.D0*mhd_st_z(i,j,k-1) + 6.D0*mhd_st_z(i,j,k) - 4.D0*mhd_st_z(i,j,k+1) + mhd_st_z(i,j,k+2)) / dz)
+                       
+                       !! vv TESTING vv
+                       tau_rhs(i,j,k) = tau_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+                            * (+ (tau(i-2,j,k) - 4.D0*tau(i-1,j,k) + 6.D0*tau(i,j,k) - 4.D0*tau(i+1,j,k) + tau(i+2,j,k)) / dx &
+                            + (tau(i,j-2,k) - 4.D0*tau(i,j-1,k) + 6.D0*tau(i,j,k) - 4.D0*tau(i,j+1,k) + tau(i,j+2,k)) / dy &
+                            + (tau(i,j,k-2) - 4.D0*tau(i,j,k-1) + 6.D0*tau(i,j,k) - 4.D0*tau(i,j,k+1) + tau(i,j,k+2)) / dz)
+                       !! ^^ TESTING ^^                     
+                    end if
+                 end if
+                 
+                 if(num_BHs.gt.2) then
+                    write(*,*) "SORRY, the addition of K-O DOES NOT CURRENTLY SUPPORT num_BHs.gt.2"
+                    stop
+                 end if
+              end if
+           end do
+        end do
+
+     end do
+     !$omp end parallel do
+  end if
+  
+  ! *** TEST ***
+  if (A_BC_rad_mag_bondi_enable==1) then
+     write(*,*) "WARNING: THIS CODE IS HOT-WIRED. USE WITH CARE."
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              if (sqrt(x(i,j,k)**2 + y(i,j,k)**2 + z(i,j,k)**2) .lt.  &
+                   min_BH_radius*32.d0/cctk_levfac(1) ) then
+                 Bxtilde_or_Ax_rhs(i,j,k) = 0.d0
+                 Bytilde_or_Ay_rhs(i,j,k) = 0.d0
+                 Bztilde_or_Az_rhs(i,j,k) = 0.d0
+	         if (cctk_levfac(1) .lt. 31 ) then
+             rho_star_rhs(i,j,k) = 0.d0
+             mhd_st_x_rhs(i,j,k) = 0.d0
+             mhd_st_y_rhs(i,j,k) = 0.d0
+             mhd_st_z_rhs(i,j,k) = 0.d0
+             tau_rhs(i,j,k) = 0.d0
+          end if
+       end if
+    end do
+ end do
+end do
+!$omp end parallel do
+end if
+! *************
+
+
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              if (isnan(Ax(i,j,k))) then
+                 write(*,*) " 3. In mhd_timestepping_tau_curvature, Ax(i,j,k) is nan", i,j,k
+              end if
+           end do
+        end do
+     end do
+
+     write(*,*) "Done mhd_timestepping_tau_curvature!!!!"
+
+end subroutine mhd_timestepping_tau_curvature

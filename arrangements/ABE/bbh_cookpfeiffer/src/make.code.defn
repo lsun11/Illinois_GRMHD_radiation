@@ -1,0 +1,5 @@
+# Main make.code.defn file for thorn bbh_cookpfeiffer
+
+# Source files in this directory
+SRCS =  diagnostics.F90 read_inputfile_lowlevel.C \
+	read_inputfile_driver.F90  initialdata.F90

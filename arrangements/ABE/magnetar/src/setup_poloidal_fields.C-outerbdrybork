@@ -1,0 +1,205 @@
+#include <stdio.h>
+#include "cctk.h"
+#include <math.h>
+
+#define F1o3 0.333333333333333333333333333333
+
+#define SQR(x) ((x) * (x))
+
+#define KRANC_C
+#include "GenericFD.h"
+
+extern "C" void CCTK_FCALL CCTK_FNAME(initial_emfields_cpp)
+  (const cGH **cctkGH,int *cctk_lsh,int *nghostzones, int *Symmetry,double *Sym_Bz,
+   double *Riso,double *P_max,double *p_c,double *betam1,
+   double *dx,double *dy,double *dz,
+   double *X,double *Y,double *Z,double *PhysR,
+   double *lapm1,double *shiftx,double *shifty,double *shiftz,  
+   double *phi, 
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *rho_b,double * P,
+   double *Bx,double *By,double *Bz, 
+   double *st_x,double *st_y,double *st_z,
+   double *mhd_st_x,double *mhd_st_y,double *mhd_st_z,
+   double *tau,double *u0,double *vx,double *vy,double *vz,double *A_phi);
+
+//------------------------------------------------------------
+// Setup the initial EM fields from a vector potential 
+//------------------------------------------------------------
+extern "C" void initial_emfields_cpp(const cGH *cctkGH,int *cctk_lsh,int *nghostzones,int Symmetry, double Sym_Bz,
+				     double Riso,double P_max,double p_c,double betam1,
+				     double dx,double dy,double dz,
+				     double *X,double *Y,double *Z,double *PhysR,
+				     double *lapm1,double *shiftx,double *shifty,double *shiftz,  
+				     double *phi, 
+				     double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+				     double *rho_b,double * P,
+				     double *Bx,double *By,double *Bz, 
+				     double *st_x,double *st_y,double *st_z,
+				     double *mhd_st_x,double *mhd_st_y,double *mhd_st_z,
+				     double *tau,double *u0,double *vx,double *vy,double *vz,double *A_phi) {
+  double fs4pi = sqrt(4.0*M_PI);
+  /* Initialise finite differencing variables.  NEED THIS FOR GenericFD.h */
+#include "../../GenFD_decl_set_varCPP.h"
+
+  /* Set up variables used in the grid loop for the physical grid points */
+  int istart = nghostzones[0];
+  int jstart = nghostzones[1];
+  int kstart = nghostzones[2];
+  int iend = cctk_lsh[0] - nghostzones[0];
+  int jend = cctk_lsh[1] - nghostzones[1];
+  int kend = cctk_lsh[2] - nghostzones[2];
+
+  //Following lines needed since nghostzones[0] = ORDER, and 
+  //   not ORDER-1 in axisymmetry 
+  //   (so that rotation can be done on multiprocessor runs)
+  if(Symmetry==4) {
+    istart--;
+    iend++;
+  }
+
+  //------------------------------------------------------------
+  // Compute the vector potential A_phi: 
+  //   A_phi = (x^2+y^2) * sqrt(8 pi P_max * betam1) * 
+  //		max( P/P_max - p_c, 0) 
+  //------------------------------------------------------------
+  for(int k=0;k<cctk_lsh[2];k++) for(int j=0;j<cctk_lsh[1];j++) for(int i=0;i<cctk_lsh[0];i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+    
+    double xL = X[index];
+    double yL = Y[index];
+    double zL = Z[index];
+    double r = sqrt(xL*xL + yL*yL + zL*zL);
+
+    double xp = xL/r * PhysR[index];
+    double yp = yL/r * PhysR[index];
+    double pomega2 = xp*xp + yp*yp;
+
+    double fac = sqrt(8.0*M_PI*P_max*betam1);
+
+    //A_phi[index] = pomega2 * fac * max(P(i,j,k)/P_max - p_c, 0.0);
+    A_phi[index] = 0.0;
+    if(P[index]/P_max - p_c > 0.0) A_phi[index] = pomega2 * fac * (P[index]/P_max - p_c);
+
+    if (Sym_Bz < 0.0) A_phi[index] = A_phi[index]*zL/r*PhysR[index]/sqrt(pomega2);
+  }
+
+  for(int k=kstart;k<kend;k++) for(int j=jstart;j<jend;j++) for(int i=istart;i<iend;i++) {
+    int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+
+    double gxxL = gxx[index];
+    double gxyL = gxy[index];
+    double gxzL = gxz[index];
+    double gyyL = gyy[index];
+    double gyzL = gyz[index];
+    double gzzL = gzz[index];
+    
+    double shiftxL = shiftx[index];
+    double shiftyL = shifty[index];
+    double shiftzL = shiftz[index];
+    
+    double vxL = vx[index];
+    double vyL = vy[index];
+    double vzL = vz[index];
+
+    double xL = X[index];
+    double yL = Y[index];
+    double zL = Z[index];
+
+    //-----------------------------------------------------------------------------
+    // Compute first derivatives of A_phi
+    //-----------------------------------------------------------------------------
+    double A_phix = D1gf(A_phi,i,j,k);
+    double A_phiy = D2gf(A_phi,i,j,k);
+    double A_phiz = D3gf(A_phi,i,j,k);
+
+    // Now compute B^i according to (exercise for the readers)
+    //  B^x = (-x/pomega^2) e^(-6 phi) * A_{phi,z}; 
+    //  B^y = (-y/pomega^2) e^(-6 phi) * A_{phi,z};
+    //  B^z = e^(-6 phi) * (x A_{phi,x} + y A_{phi,y})/pomega^2; 
+    //  pomega^2 = x^2 + y^2
+    //
+    // and then calculate mhd_st_i and tau
+    //
+
+    double Psi4 = exp(4.0*phi[index]);
+
+    double psi_n = Psi4*u0[index];
+    double u_x = (gxxL*(shiftxL+vxL) + gxyL*(shiftyL+vyL) + gxzL*(shiftzL+vzL))*psi_n;
+    double u_y = (gxyL*(shiftxL+vxL) + gyyL*(shiftyL+vyL) + gyzL*(shiftzL+vzL))*psi_n;
+    double u_z = (gxzL*(shiftxL+vxL) + gyzL*(shiftyL+vyL) + gzzL*(shiftzL+vzL))*psi_n;
+
+    double u0L = u0[index];
+
+    double psim6 = exp(-6.0*phi[index]);
+    double pomega2 = xL*xL + yL*yL;
+
+    Bx[index] = -xL/pomega2 * psim6 * A_phiz;
+    By[index] = -yL/pomega2 * psim6 * A_phiz;
+    Bz[index] = psim6/pomega2 * (xL*A_phix +   
+				 yL*A_phiy);
+
+    double BxL = Bx[index];
+    double ByL = By[index];
+    double BzL = Bz[index];
+
+    // Compute b^0 and b_i
+    double al = 1.0 + lapm1[index];
+    double sqrtg = 1.0/psim6;
+    double sqrtg4 = al * sqrtg;
+
+    double B2s = Psi4*(gxxL*BxL*BxL +  
+		       2.0*gxyL*BxL*ByL +  
+		       2.0*gxzL*BxL*BzL + 
+		       gyyL*ByL*ByL + 2.0*gyzL*ByL*BzL +  
+		       gzzL*BzL*BzL)/SQR(fs4pi*al);
+    double psin = Psi4/al/fs4pi;
+    double B_xs  = psin * (gxxL * BxL + gxyL * ByL +  
+			   gxzL * BzL);
+    double B_ys  = psin * (gxyL * BxL + gyyL * ByL +  
+			   gyzL * BzL);
+    double B_zs  = psin * (gxzL * BxL + gyzL * ByL +  
+			   gzzL * BzL);
+    double sb0 = (u_x*BxL + u_y*ByL + 
+		  u_z*BzL)/fs4pi/al;
+    double sb2 = (B2s + sb0*sb0)/u0L/u0L;
+    double sb_x = (B_xs + u_x*sb0)/u0L;
+    double sb_y = (B_ys + u_y*sb0)/u0L;
+    double sb_z = (B_zs + u_z*sb0)/u0L;
+
+    // Now compute mhd_st_i and tau
+    mhd_st_x[index] = st_x[index]+sqrtg4*(u0L*sb2*u_x-sb0*sb_x);
+    mhd_st_y[index] = st_y[index]+sqrtg4*(u0L*sb2*u_y-sb0*sb_y);
+    mhd_st_z[index] = st_z[index]+sqrtg4*(u0L*sb2*u_z-sb0*sb_z);
+    tau[index] += sqrtg*( sb2*SQR(al*u0L)
+			  - sb2*0.5 - SQR(al*sb0) );
+  }
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(initial_emfields_cpp)
+  (const cGH **cctkGH,int *cctk_lsh,int *nghostzones, int *Symmetry,double *Sym_Bz,
+   double *Riso,double *P_max,double *p_c,double *betam1,
+   double *dx,double *dy,double *dz,
+   double *X,double *Y,double *Z,double *PhysR,
+   double *lapm1,double *shiftx,double *shifty,double *shiftz,  
+   double *phi, 
+   double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *rho_b,double * P,
+   double *Bx,double *By,double *Bz, 
+   double *st_x,double *st_y,double *st_z,
+   double *mhd_st_x,double *mhd_st_y,double *mhd_st_z,
+   double *tau,double *u0,double *vx,double *vy,double *vz,double *A_phi)
+{
+  initial_emfields_cpp(*cctkGH,cctk_lsh,nghostzones,*Symmetry,*Sym_Bz,
+		       *Riso,*P_max,*p_c,*betam1,
+		       *dx,*dy,*dz,
+		       X,Y,Z,PhysR,
+		       lapm1,shiftx,shifty,shiftz,  
+		       phi, 
+		       gxx,gxy,gxz,gyy,gyz,gzz,
+		       rho_b, P,
+		       Bx,By,Bz, 
+		       st_x,st_y,st_z,
+		       mhd_st_x,mhd_st_y,mhd_st_z,
+		       tau,u0,vx,vy,vz,A_phi);
+}

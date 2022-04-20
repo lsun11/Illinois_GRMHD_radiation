@@ -1,0 +1,414 @@
+
+
+  do k=1,ext(3)
+     do j=1,ext(2)
+        do i=1,ext(1)
+           if(isnan(lapm1(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "lapse= ",lapm1(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(shiftx(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "shiftx= ",shiftx(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(shifty(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "shifty= ",shifty(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+           
+           if(isnan(shiftz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "shiftz= ",shiftz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(gupxx(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "gxx= ",gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(gupxy(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "gxy= ",gxy(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(gupxz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "gxz= ",gxz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(gupyy(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "gyy= ",gyy(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(gupyz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "gyz= ",gyz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(gupzz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "gzz= ",gzz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Axx(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "kxx= ",Axx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Axy(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "kxy= ",Axy(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Axz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "kxz= ",Axz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Ayy(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "kyy= ",Ayy(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Ayz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "kyz= ",Ayz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Azz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "kzz= ",Azz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(phi(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "rho_b= ",phi(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Gammax(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "vx= ",Gammax(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+           if(isnan(Gammay(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "vy= ",Gammay(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+           
+           if(isnan(Gammaz(i,j,k))) then
+              write(*,*) "initialdata_local: FOUND NAN AT ", i,ext(1),j,ext(2),k,ext(3) 
+              write(*,*)  "vz= ",Gammaz(i,j,k),gxx(i,j,k),gxy(i,j,k),gxz(i,j,k),gyy(i,j,k),gyz(i,j,k),gzz(i,j,k)
+              stop
+           end if
+
+
+        end do
+     end do
+  end do
+
+
+print *, "===============================SALIDA============================================"
+
+
+
+
+
+
+     !-----------------------------------------------------------------------------
+     ! RK4 TIMESTEPPING
+
+     if(mod(cctk_iteration,particle_tracer_substep_every)==0) then
+        ! RK4 Timestepping procedure to advance each particle to the next timestep.
+        ! For notes on the RK4 algorithm used here, visit:
+        !   http://en.wikipedia.org/w/index.php?title=Runge%E2%80%93Kutta_methods&oldid=471711997
+        !
+        ! We are solving y' = f(t,y), where
+        !           y' = dx^i/dt , i=1,2,3
+        !           f(t,y) = v^i , i=1,2,3
+        ! Thus, the basic ODE we're solving is:
+        !           dx^i/dt = v^i.
+        !
+        ! To evaluate the RHS of the above ODE, we need to interpolate v^i at 
+        ! values x^i at times t, t+dt/2, and t+dt -- all as specified by RK4.
+        ! 
+        ! Note that these interpolations are expensive, so dt is some multiple
+        ! of the time between _full_ simulation timesteps, dT.
+        ! We should NOT need dt<dT to get reasonable particle positions!
+
+        dT = CCTK_DELTA_TIME*particle_tracer_substep_every*2
+
+        write(*,*) "****************"
+        write(*,*) " Particle Tracer substep # ",bhns_rk4_particle_tracer_step,"dt=",dT
+        write(*,*) " Particle Tracer thinks the time is =",CCTK_TIME
+
+        write(*,*) "howdy!",CCTK_DELTA_TIME,cctk_delta_time,cctk_timefac
+        
+
+        if(bhns_rk4_particle_tracer_step==2) then
+           ! Within this if() statement, we perform two rhs evaluations at t = t_n + 1/2 dT,
+           ! performing the 2nd and 3rd RK4 steps.
+
+           ! We are now at t = t_n + 1/2 dT
+
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,1) == f(t_n,y_n) == k1_x / dT
+              k1_x = dT*x_rhs(which_particle,1)
+              k1_y = dT*y_rhs(which_particle,1)
+              k1_z = dT*z_rhs(which_particle,1)
+              
+              pointcoords(which_particle,1) = tracer_x(which_particle) + 0.5D0 * k1_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + 0.5D0 * k1_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + 0.5D0 * k1_z
+           end do
+
+           
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+           bhns_rk4_particle_tracer_step=3
+           
+           write(*,*) " Particle Tracer substep # ",bhns_rk4_particle_tracer_step
+           
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,2) == f(t_n + 1/2 dT , y_n + 1/2 k_1) == k2_x / dT
+              k2_x = dT*x_rhs(which_particle,2)
+              k2_y = dT*y_rhs(which_particle,2)
+              k2_z = dT*z_rhs(which_particle,2)
+              
+              pointcoords(which_particle,1) = tracer_x(which_particle) + 0.5D0 * k2_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + 0.5D0 * k2_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + 0.5D0 * k2_z
+           end do
+           
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+           bhns_rk4_particle_tracer_step=4
+
+        else if(bhns_rk4_particle_tracer_step==4) then
+           ! Within this if() statement, we perform two rhs evaluations at t = t_n + dT, 
+           ! performing the 4th RK4 step for this RK4 timestep, and the 1st RK4 step for 
+           ! the next RK4 timestep
+
+           ! We are now at t = t_n + dT
+           write(*,*) " Particle Tracer substep # ",bhns_rk4_particle_tracer_step
+
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,1) == f(t_n,y_n)
+              k1_x = dT*x_rhs(which_particle,1)
+              k1_y = dT*y_rhs(which_particle,1)
+              k1_z = dT*z_rhs(which_particle,1)
+
+              ! x_rhs(...,2) == f(t_n + 1/2 dT , y_n + 1/2 k_1) == k2_x / dT
+              k2_x = dT*x_rhs(which_particle,2)
+              k2_y = dT*y_rhs(which_particle,2)
+              k2_z = dT*z_rhs(which_particle,2)
+
+              ! x_rhs(...,3) == f(t_n + 1/2 dT , y_n + 1/2 k_2) == k3_x / dT
+              k3_x = dT*x_rhs(which_particle,3)
+              k3_y = dT*y_rhs(which_particle,3)
+              k3_z = dT*z_rhs(which_particle,3)
+
+              pointcoords(which_particle,1) = tracer_x(which_particle) + k3_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + k3_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + k3_z
+              
+              pointcoords(which_particle,1) = tracer_x(which_particle) + 0.5D0 * k2_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + 0.5D0 * k2_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + 0.5D0 * k2_z
+
+
+           end do
+           
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+
+           ! Now that we have xyz_rhs at all 4 RK4 substeps, 
+           !  we next construct k1, k2, k3, and k4, then 
+           !  update tracer_xyz
+           do which_particle=1,N_particles_to_trace
+              ! x_rhs(...,1) == f(t_n,y_n)
+              k1_x = dT*x_rhs(which_particle,1)
+              k1_y = dT*y_rhs(which_particle,1)
+              k1_z = dT*z_rhs(which_particle,1)
+
+              ! x_rhs(...,2) == f(t_n + 1/2 dT , y_n + 1/2 k_1) == k2_x / dT
+              k2_x = dT*x_rhs(which_particle,2)
+              k2_y = dT*y_rhs(which_particle,2)
+              k2_z = dT*z_rhs(which_particle,2)
+
+              ! x_rhs(...,3) == f(t_n + 1/2 dT , y_n + 1/2 k_2) == k3_x / dT
+              k3_x = dT*x_rhs(which_particle,3)
+              k3_y = dT*y_rhs(which_particle,3)
+              k3_z = dT*z_rhs(which_particle,3)
+
+              ! x_rhs(...,4) == f(t_n + dT , y_n + k_3) == k4_x / dT
+              k4_x = dT*x_rhs(which_particle,4)
+              k4_y = dT*y_rhs(which_particle,4)
+              k4_z = dT*z_rhs(which_particle,4)
+
+              tracer_x(which_particle) = tracer_x(which_particle) + 1.D0/6.D0 * (k1_x + 2.D0*k2_x + 2.D0*k3_x + k4_x)
+              tracer_y(which_particle) = tracer_y(which_particle) + 1.D0/6.D0 * (k1_y + 2.D0*k2_y + 2.D0*k3_y + k4_y)
+              tracer_z(which_particle) = tracer_z(which_particle) + 1.D0/6.D0 * (k1_z + 2.D0*k2_z + 2.D0*k3_z + k4_z)
+
+              ! Truncation error might conceivably push particle to z<0 with equatorial symmetry turned on, so correct the problem:
+              if((Symmetry.eq.1 .and. tracer_z(which_particle).lt.0.D0)) then
+                 tracer_z(which_particle) = abs(tracer_z(which_particle))
+              end if
+           end do
+
+
+           bhns_rk4_particle_tracer_step = 1
+
+           write(*,*) " Particle Tracer substep # ",bhns_rk4_particle_tracer_step
+
+           ! Next do the first RK4 substep!
+           do which_particle=1,N_particles_to_trace
+              pointcoords(which_particle,1) = tracer_x(which_particle)
+              pointcoords(which_particle,2) = tracer_y(which_particle)
+              pointcoords(which_particle,3) = tracer_z(which_particle)
+
+              pointcoords(which_particle,1) = tracer_x(which_particle) + 0.5D0 * k2_x
+              pointcoords(which_particle,2) = tracer_y(which_particle) + 0.5D0 * k2_y
+              pointcoords(which_particle,3) = tracer_z(which_particle) + 0.5D0 * k2_z
+
+
+           end do
+
+
+           call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,x_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,y_rhs(:,bhns_rk4_particle_tracer_step))
+           call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+           call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,z_rhs(:,bhns_rk4_particle_tracer_step))
+
+        end if
+     end if
+     !--------------------------------------------------------------------------------!
+     !  FILE OUTPUT
+     if((MOD(cctk_iteration,particle_tracer_substep_every)==0 .and. bhns_rk4_particle_tracer_step==1) &
+          .or. cctk_iteration.eq.0) then
+        ! If we are at bhns_rk4_particle_tracer_step==1, it is time to dump the output files.
+        ! Yes, this seems weird, but keep in mind that we must update the RHS twice every
+        !  time this routine is called (except when setting up initial data): 
+        !  The second & third RK4 substeps occur at t + 1/2 delta t
+        !  The fourth RK4 substep occurs at t + delta t, and the first RK4 substep
+        !  for the next timestep uses the same velocity data as the previous fourth RK4 
+        !  substep (note that each time the rhs's are in general evaluated at different
+        !  spatial points).
+
+        ! These files contain tracer_xyz() data at the latest timestep.
+
+        write(*,*) "Particle tracer: Dumping data files..."
+        filename = 'bhns_particle_circulation.mon'
+
+
+        ! Frist interpolate the density
+        call CCTK_VarIndex(vindex,"mhd_evolve::rho_b")
+        call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,local_density)
+
+        ! First interpolate ( -1 - u_0 ) at all the up-to-date particle locations:
+        do which_particle=1,N_particles_to_trace
+           pointcoords(which_particle,1) = tracer_x(which_particle)
+           pointcoords(which_particle,2) = tracer_y(which_particle)
+           pointcoords(which_particle,3) = tracer_z(which_particle)
+
+        end do
+
+        call CCTK_VarIndex(vindex,"mhd_evolve::temp1")
+        call interp_driver_carp(cctkGH,N_particles_to_trace,pointcoords,vindex,m1_minus_u_lower_zero)
+
+
+        ! reset the position of bad particles to a given value       
+
+!        do which_particle=1,N_particles_to_trace
+!           if(bad_particles(which_particle)==1.d0) then
+!              tracer_x(which_particle) = 1.0d10
+!              tracer_y(which_particle) = 1.0d10
+!              tracer_z(which_particle) = 1.0d10
+!           end if
+!        end do
+
+        ! Then output everything to file.
+        do which_particle=1,N_particles_to_trace
+           !           write(filename,41)which_particle
+           !41         FORMAT('bhns-particle.',I4.4)
+
+           num_cols = 6
+           export_data(which_particle,:) = 0.D0
+
+           data_headers(1) = '# Time'
+           export_data(which_particle,1) = CCTK_TIME
+
+           data_headers(2) = 'x position'
+           export_data(which_particle,2) = tracer_x(which_particle)
+
+           data_headers(3) = 'y position'
+           export_data(which_particle,3) = tracer_y(which_particle)
+
+           data_headers(4) = 'z position'
+           export_data(which_particle,4) = tracer_z(which_particle)
+
+           data_headers(5) = '-1 - u_0'
+           export_data(which_particle,5) = m1_minus_u_lower_zero(which_particle)
+
+           data_headers(6) = 'rest-mass density'
+           export_data(which_particle,6) = local_density(which_particle)
+
+!           data_headers(6) = 'bad particle'
+!           export_data(which_particle,6) = bad_particles(which_particle)
+        end do
+
+        if(cctk_iteration.eq.0) then
+           header_flag=1
+        end if
+        !output_multiline_data_to_file(filename,num_cols,col_names,num_rows,output_data,header_flag)
+        if(CCTK_MyProc(CCTKGH)==0) call output_multiline_data_to_file(filename,num_cols,data_headers,N_particles_to_trace,export_data,header_flag)
+
+        write(*,*) "Particle tracer: Finished dumping data files at time",CCTK_TIME
+        write(*,*) "Particle tracer: Previous dump was at time",CCTK_TIME-dT
+
+        ! We have already updated the xyz_rhs at the first RK4 substep (see above),
+        ! so the next substep will be 2.
+        bhns_rk4_particle_tracer_step = 2
+     end if
+     write(*,*) "****************"
+

@@ -1,0 +1,7 @@
+# make.code.defn file for thorn bbhlorene
+
+# Source files in this directory
+SRCS =  read_inputfile_lowlevel.C \
+	read_inputfile_driver.F90 \
+	set_metric_rot_driver_id.F90 \
+	diagnostics.F90

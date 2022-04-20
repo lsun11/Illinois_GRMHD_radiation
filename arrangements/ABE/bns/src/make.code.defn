@@ -1,0 +1,14 @@
+# Main make.code.defn file for thorn hydro_evolve
+# $Header:$
+
+# Source files in this directory
+SRCS = compute_bwh.F90 dump_binfiles.F90 read_inputfiles.C R_to_rfish.F90 initialdata.F90 \
+	binfile_output.C read_inputfiles-part2.C sanitycheck_restore_Aij.F90 translate_matter.F90 \
+	compute_bns.F90 diagnostics.F90 ReadUtil.C emfield_setup.F90 update_falloff.F90
+
+#bns_diagnostic_integrals.F90 BNS-read_inputfiles-part2.C BNS-setup_bns.F90 compute_bwh.F90 kset_c.F90 translate_matter.F90 \
+# BNS-read_inputfiles.C bns_sanitycheck_restore_Aij.F90 compute_bns.F90 copy_to_prev_timelevel.F90 ReadUtil.C update_falloff.F90 \
+# BNS-setup_emfield.F90 R_to_rfish.F90 dump_binfiles.F90 binfile_output.C
+
+#correct_hydro.F90
+

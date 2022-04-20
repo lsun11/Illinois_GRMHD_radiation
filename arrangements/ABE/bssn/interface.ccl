@@ -1,0 +1,158 @@
+# Interface definition for thorn BSSN
+
+implements: BSSN
+
+#FIXME: TESTING:
+##INHERITS: CarpetRegrid2
+
+friend: diagnostics_vacuum
+friend: fisheye
+friend: lapse
+friend: shift
+friend: excision
+
+inherits: grid
+
+USES INCLUDE: Symmetry.h
+
+protected:
+
+# Stores the BSSN variables (3 timelevels)
+cctk_real BSSN_vars type = GF Timelevels=3
+{
+# Variables be evolved in BSSN equations
+  phi, chi, trK, 
+  gxx, gxy, gxz, gyy, gyz, gzz,
+  Axx, Axy, Axz, Ayy, Ayz, Azz,
+  Gammax, Gammay, Gammaz
+} "BSSN variables"
+
+# Set it to 1 at refinement boundaries, 0 elsewhere.
+cctk_real BSSN_refbd type = GF Timelevels=3 tags='Prolongation="FAKE"'
+{
+ refbd
+} "Variable that keeps check of the refinement boundary"
+
+#These are used in hyperbolic shift/lapse, and thus must be declared in the protected block.
+cctk_real BSSN_rhs type = GF TAGS='Checkpoint="no"'
+{
+  # Time derivatives of the metric variables
+  phi_rhs, chi_rhs, trK_rhs,
+  gxx_rhs, gxy_rhs, gxz_rhs, gyy_rhs, gyz_rhs, gzz_rhs,
+  Axx_rhs, Axy_rhs, Axz_rhs, Ayy_rhs, Ayz_rhs, Azz_rhs,
+  Gammax_rhs, Gammay_rhs, Gammaz_rhs
+} "rhs variables"
+
+cctk_real BSSN_gupij type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+# Inverse metric
+  gupxx, gupxy, gupxz, gupyy, gupyz, gupzz
+} "Spatial metric with upper components"
+
+cctk_real BSSN_matter type = GF
+{
+# Matter source
+  rho, S,
+  Sx, Sy, Sz,
+  Sxx, Sxy, Sxz, Syy, Syz, Szz
+} "Matter source terms"
+
+
+cctk_real BSSN_AH type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+  psi, kxx, kxy, kxz, kyy, kyz, kzz
+} "gridfunctions needed by the apparent horizon finders"
+
+cctk_real phi_derivs type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+# Spatial derivatives of phi. phi gets its own group since phi,i must be sync'ed in the ADM mass surface integral
+  phix, phiy, phiz
+}
+
+cctk_int have_global_bdry type = ARRAY DIM=2 SIZE=20,3 DISTRIB=CONSTANT
+{
+  have_global_bdry_min,have_global_bdry_max
+}
+
+cctk_real BSSN_aux_restrict2 type = GF
+{
+# Spatial derivatives of the metric variables, except phi
+  gxxx, gxxy, gxxz,
+  gxyx, gxyy, gxyz,
+  gxzx, gxzy, gxzz,
+  gyyx, gyyy, gyyz,
+  gyzx, gyzy, gyzz,
+  gzzx, gzzy, gzzz, 
+# Christoffel Symbols
+  Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz,
+  Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz,
+  Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz
+} "Group 2 of Restricted type auxiliary grid functions"
+
+cctk_real BSSN_diag_restrict type = GF TAGS='prolongation="none" InterpNumTimelevels=1'
+{
+  PsiNorm,PsiRes,PsiTau, KK,
+  MRsx, MRsy, MRsz, MNorm,
+  gconx, gcony, gconz,
+# Ricci tensor
+  Rxx, Rxy, Rxz, Ryy, Ryz, Rzz,
+# Ricci scalar of the tilde spacetime
+  trRtilde
+} "grid functions needed for bssn diagnostics"
+
+cctk_real BSSN_aux_private type = GF
+{
+  Aupxx, Aupxy, Aupxz, Aupyy, Aupyz, Aupzz,
+# Ricci scalar of "real" spacetime (trR) 
+  trR,
+#
+  div_beta
+} "Private auxiliary grid functions"
+
+####################################################
+####################################################
+# ROTATING METRIC STORAGE ARRAYS: USED FOR BHBH ONLY
+####################################################
+
+REAL metric_spher_pol_1 type = ARRAY DISTRIB=CONSTANT DIM=1 SIZE=Nlograd_rot_interp*Ntheta_rot_interp*Nphi_rot_interp
+{
+  K_rr_rot1,K_rth_rot1,K_rp_rot1,K_thth_rot1,K_thp_rot1,K_pp_rot1,
+  lapm1_rot1,shiftr_rot1,shiftth_rot1,shiftp_rot1,phi_rot1
+} "metric quantities used to obtain analytic, rotated metric, grid 1."
+
+REAL metric_spher_pol_2 type = ARRAY DISTRIB=CONSTANT DIM=1 SIZE=Nlograd_rot_interp*Ntheta_rot_interp*Nphi_rot_interp
+{
+  K_rr_rot2,K_rth_rot2,K_rp_rot2,K_thth_rot2,K_thp_rot2,K_pp_rot2,
+  lapm1_rot2,shiftr_rot2,shiftth_rot2,shiftp_rot2,phi_rot2
+} "metric quantities used to obtain analytic, rotated metric, grid 2."
+
+REAL metric_spher_pol_3 type = ARRAY DISTRIB=CONSTANT DIM=1 SIZE=Nlograd_rot_interp*Ntheta_rot_interp*Nphi_rot_interp
+{
+  K_rr_rot3,K_rth_rot3,K_rp_rot3,K_thth_rot3,K_thp_rot3,K_pp_rot3,
+  lapm1_rot3,shiftr_rot3,shiftth_rot3,shiftp_rot3,phi_rot3
+} "metric quantities used to obtain analytic, rotated metric, grid 3."
+####################################################
+
+
+private:
+
+# ADM mass for bc_type = MoR
+cctk_real BSSN_adm_mass type = SCALAR
+{
+  adm_mass, radius_adm, rbr_adm, drbdr_adm, ddrbddr_adm
+}
+
+###########################################################################
+# Following needed for MoL (timestepping):
+CCTK_INT FUNCTION MoLRegisterEvolvedGroup(CCTK_INT IN EvolvedIndex, \
+                                          CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrained(CCTK_INT IN ConstrainedIndex)
+
+REQUIRES FUNCTION MoLRegisterEvolvedGroup
+REQUIRES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION Boundary_SelectGroupForBC(CCTK_POINTER_TO_CONST IN GH, \
+  CCTK_INT IN faces, CCTK_INT IN boundary_width, CCTK_INT IN table_handle, \
+  CCTK_STRING IN var_name, CCTK_STRING IN bc_name)
+REQUIRES FUNCTION Boundary_SelectGroupForBC
+###########################################################################

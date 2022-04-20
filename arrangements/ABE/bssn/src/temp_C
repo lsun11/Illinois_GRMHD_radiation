@@ -1,0 +1,25 @@
+compute_gupij.C:#pragma omp parallel for
+//compute_rhsnew_2ndorderbdry.C:#pragma omp parallel for
+//compute_rhsnew_4thorderbdry.C:#pragma omp parallel for
+compute_rhsnew_AHinterior.C:#pragma omp parallel for
+compute_rhsnew.C:#pragma omp parallel for
+// compute_riccinew_2ndorderbdry.C:#pragma omp parallel 
+// compute_riccinew_2ndorderbdry.C:#pragma omp for
+// compute_riccinew_2ndorderbdry.C:#pragma omp for
+// compute_riccinew_4thorderbdry.C:#pragma omp parallel 
+// compute_riccinew_4thorderbdry.C:#pragma omp for
+// compute_riccinew_4thorderbdry.C:#pragma omp for
+//compute_riccinew_AHinterior.C:#pragma omp parallel 
+//compute_riccinew_AHinterior.C:#pragma omp for
+compute_riccinew.C:#pragma omp parallel 
+compute_riccinew.C:#pragma omp for
+compute_riccinew.C:#pragma omp for
+compute_riccinew.C:#pragma omp for
+derivs_interior.C:#pragma omp parallel for
+enforce_Aij_gij_constraints.C:#pragma omp parallel for
+sanity_check.C:#pragma omp parallel for
+set_metric_rot_lowlevel.C:#pragma omp parallel for
+set_metric_rot_lowlevel.C:#pragma omp parallel for
+set_metric_rot_lowlevel.C:#pragma omp parallel for
+set_metric_rot_lowlevel.C:#pragma omp parallel for
+shift_upwind.C:#pragma omp parallel for

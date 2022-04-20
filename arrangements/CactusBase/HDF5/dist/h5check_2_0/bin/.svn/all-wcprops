@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/h5check/!svn/ver/171/tags/h5check_2_0/bin
+END
+newer
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/h5check/!svn/ver/171/tags/h5check_2_0/bin/newer
+END
+depcomp
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/h5check/!svn/ver/171/tags/h5check_2_0/bin/depcomp
+END
+reconfigure
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/h5check/!svn/ver/171/tags/h5check_2_0/bin/reconfigure
+END
+missing
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/h5check/!svn/ver/171/tags/h5check_2_0/bin/missing
+END
+install-sh
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/h5check/!svn/ver/171/tags/h5check_2_0/bin/install-sh
+END

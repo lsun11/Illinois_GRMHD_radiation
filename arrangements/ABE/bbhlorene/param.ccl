@@ -1,0 +1,71 @@
+# Parameter definitions for thorn bbhlorene
+# $Header:$
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+shares: IO
+USES KEYWORD out_every
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD scaledsurf
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+
+shares: gw_extraction
+USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+private:
+
+INT genID_cmdline_output_enable "Output initial data commandline?"
+{
+ 0:1 :: "Zero (no) or One (yes)"
+} 0
+
+REAL each_black_hole_mass "Mass of each black hole as fraction of total mass"
+{
+ 0:* :: "Positive"
+} 0.5
+
+REAL each_black_hole_momentum "Momentum of each black hole scaled by total mass"
+{
+ 0:* :: "Positive"
+} 0.0
+
+REAL total_binary_separation "Binary separation (not radius! double the radius!) in units of mtot"
+{
+ 0:* :: "Positive"
+} 0.0
+
+REAL each_black_hole_spin "Spin of each BH, in units of mtot^2"
+{
+ 0:* :: "Positive"
+} 0.0
+
+INT fill_excision_enable "Should I fill an excision zone? (no=0; yes=1)"
+{
+ 0:* :: "Positive"
+} 0
+
+REAL excis_radius "Excision Radius, used only if fill_excision_enable=1"
+{
+ 0:* :: "Positive"
+} 0.5
+
+real moncrief_radius_GW[100] "Radii at which to measure GW's" STEERABLE=recover
+{
+  0:* :: "zero or any positive number"
+} 1.0
+
+INT moncrief_gw_num_radii "How many radii will to measure GW's"
+{ 
+ 1:10 :: "Positive int <= 10"
+} 1

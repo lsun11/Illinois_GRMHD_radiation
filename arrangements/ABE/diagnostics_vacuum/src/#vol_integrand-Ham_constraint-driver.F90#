@@ -1,0 +1,93 @@
+1;95;0c!---------------------------------------------------------------------
+! Sets the Hamiltonian constraint integrand to zero on the ghostzones
+!---------------------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine Ham_constraint_integrand(CCTK_ARGUMENTS)
+  implicit none
+
+  !~~~~~> Input parameters:
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  !~~~~~> Other variables:
+  integer :: i,j,k
+  integer :: AXISYM
+  AXISYM=4
+
+  if(MOD(cctk_iteration,Compute_VolIntegrands_Every)==0) then
+
+     WhichIntegral = 3
+
+     !Reset VolIntegrand's quickly, using OpenMP
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              VolIntegrand(i,j,k) = 0.D0
+              VolIntegrand2(i,j,k) = 0.D0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+
+     !$omp parallel do
+     do k = cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+        do j = cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+           do i = cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+              VolIntegrand(i,j,k)  = PsiRes(i,j,k) *PsiRes(i,j,k)
+              VolIntegrand2(i,j,k) = PsiNorm(i,j,k)*PsiNorm(i,j,k)
+           end do
+        end do
+     end do
+     !$omp end parallel do
+
+     if (Symmetry==AXISYM) then
+        VolIntegrand  = X*VolIntegrand
+        VolIntegrand2 = X*VolIntegrand2
+     end if
+
+     !-----------------------------------------------------------------------------
+     ! Compute integrand
+     !-----------------------------------------------------------------------------
+     if (num_BHs .ne. 0) then
+
+        !Reset VolIntegrand quickly, using OpenMP
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 VolIntegrand3(i,j,k) = 0.D0
+                 VolIntegrand4(i,j,k) = 0.D0
+              end do
+           end do
+        end do
+        !$omp end parallel do
+
+        !$omp parallel do
+        do k = cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+           do j = cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+              do i = cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+                 if(abs(emask(i,j,k)-1.D0) .ge. 1.D-8) then
+                    VolIntegrand3(i,j,k) = VolIntegrand(i,j,k)
+                    VolIntegrand4(i,j,k) = VolIntegrand2(i,j,k)
+                 end if
+              end do ! i-loop
+           end do ! j-loop
+        end do ! k-loop
+        !$omp end parallel do
+        if (Symmetry == AXISYM) then
+           VolIntegrand3 = X*VolIntegrand3
+           VolIntegrand4 = X*VolIntegrand4
+        end if
+     end if
+
+
+
+  end if
+end subroutine Ham_constraint_integrand

@@ -1,0 +1,11 @@
+# Configuration definition for thorn Boundary
+# $Header: /cactusdevcvs/CactusBase/Boundary/configuration.ccl,v 1.1 2004/03/27 16:04:43 goodale Exp $
+
+# This will disappear once function aliasing has requires
+
+PROVIDES Boundary
+{
+  SCRIPT
+  LANG
+}
+

@@ -1,0 +1,15 @@
+# Schedule definitions for thorn IDScalarWaveMoLC
+# $Header: /cactusdevcvs/CactusExamples/IDWaveMoL/schedule.ccl,v 1.1.1.1 2004/06/26 14:49:20 hawke Exp $
+
+schedule IDWaveMoL_CheckParameters at CCTK_PARAMCHECK
+{
+  LANG: C
+} "Check parameters"
+
+schedule IDWaveMoL_InitialData at CCTK_INITIAL
+{
+  STORAGE:       wavemol::scalarevolvemol_scalar[2]
+  STORAGE:       wavemol::scalarevolvemol_vector[2]
+  LANG:          C
+} "Initial data for 3D wave equation"
+

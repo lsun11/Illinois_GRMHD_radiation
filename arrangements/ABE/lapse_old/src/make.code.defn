@@ -1,0 +1,10 @@
+# Main make.code.defn file for thorn lapse
+
+# Source files in this directory
+SRCS =  CheckParameters.C Startup.C InitSymBound.C MoL_registration.C lapse_postinitialdata.F90 \
+	Initial_Lapse.F90 driver_timestepping.F90 driver_bcs.F90 update_falloff.F90 \
+	hyperbolic_lapse_bc_driver.F90  hyperbolic_lapse_bc_lowlevel.F90  hyperbolic_lapse_rhs.C  hyperbolic_lapse_timestepping.F90 \
+	opl_lapse_bc_driver.F90 opl_lapse_bc_lowlevel.F90 opl_lapse_rhs.C opl_lapse_timestepping.F90 opl_lapse_upwind.C \
+	opl_loglapse_timestepping.F90 opl_loglapse_rhs.C driver_post_bcs.F90 fill_lapse_symmetry_ghostzones.F90 \
+	\
+	opl_lapse_upwind_2ndorderbdry.C opl_lapse_upwind_4thorderbdry.C

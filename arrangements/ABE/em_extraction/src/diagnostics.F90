@@ -1,0 +1,263 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+!-----------------------------------------------------------------------------
+! em_extraction diagnostic output
+!-----------------------------------------------------------------------------
+subroutine em_extract_diagnostics(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8, dimension(100)                   :: export_data
+  character, dimension(100)                :: data_headers*20
+  character                                :: filename*50
+  !Interpolation stuff:
+!!  real*8, allocatable, dimension(:,:)      :: pointcoords, phi2reint, phi2imint, phi0reint, phi0imint
+!!  real*8, allocatable, dimension(:)        :: Psi4reint,Psi4imint
+!!  integer                                  :: N_theta,N_phi,ntot,n,j
+!!  integer                                  :: n,j,ii, ntot
+  integer                                  :: n,j,ii
+  real*8                                   :: sintheta,costheta,phiangle,PI
+!!  real*8                                   :: sintheta,costheta,phiangle,dcostheta,PI,dphi
+  real*8                                   :: Psi4relm,Psi4imlm
+  real*8,dimension(1,3)                    :: pointcoords1pt
+  real*8,dimension(1)                      :: outputblah
+  real*8                                   :: psi4r,psi4i
+  real*8                                   :: radius_GWorig
+  integer :: num_cols,i,l,m,radiusindex,psikad_disable
+!!  integer, dimension(nmodes_phi4)               :: lmode,mmode
+  integer :: header_flag,vindex
+  integer :: NO_SYMM, EQUATORIAL, OCTANT, PI_SYMM, AXISYM
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+
+  PI = 3.14159265358979323846D0
+
+  !  if(MOD(cctk_iteration,out_every).eq.0) then
+
+  if(MOD(cctk_iteration,out_every).eq.0) then
+
+     !header_flag == 1 -> write file headers
+     if(CCTK_TIME == 0.D0) then
+        header_flag = 1
+     else
+        header_flag = 0
+     end if
+
+!!$     psikad_disable=0
+!!$     !-----------------------------------------------------------------------------------!
+!!$     ! Setup initial parameters
+!!$
+!!$     if (Symmetry==AXISYM) then
+!!$        m=1
+!!$        do i=1,nmodes_Psi4
+!!$           lmode(i) = m+i
+!!$           mmode(i) = 0
+!!$        end do
+!!$     else if (Symmetry==EQUATORIAL) then
+!!$        i = 1
+!!$        l = 2
+!!$        do
+!!$           m = l
+!!$           do
+!!$              lmode(i) = l
+!!$              mmode(i) = m
+!!$              m = m - 1
+!!$              i = i + 1
+!!$              if (m .lt. -l .or. i .gt. nmodes_Psi4) exit
+!!$           end do
+!!$           if (i .gt. nmodes_Psi4) exit
+!!$           l = l+1
+!!$        end do
+!!$     else
+!!$        psikad_disable=1
+!!$        !        write(*,*) 'Symmetry not supported in Psi4 diagnostics'
+!!$        !        stop
+!!$     end if
+!!$
+!!$     if(psikad_disable==0) then
+!!$        !--------------------------------------------------------------------------------------------
+!!$        ! Output spin-weight -2 decomposition of Psi4 at different radii
+!!$
+!!$        do radiusindex=1,num_extraction_radii
+!!$           if (radius_GW_Psi4(radiusindex) .gt. 0.d0) then 
+!!$
+!!$              if(num_extraction_radii.eq.1) then
+!!$                 filename = 'Psi4_rad.mon'
+!!$              else
+!!$                 write(filename,31)radiusindex
+!!$31               FORMAT('Psi4_rad.mon.',I1)
+!!$              endif
+!!$              num_cols = 2*nmodes_Psi4 + 1
+!!$
+!!$              data_headers(1) = "# Time"
+!!$              export_data(1) = CCTK_TIME
+!!$
+!!$              !| Psi4reint <~~~ psi4re
+!!$              !| Psi4imint <~~~ psi4im
+!!$              N_theta = numtheta
+!!$              N_phi = numphi
+!!$
+!!$              dphi=2.D0 * PI / N_phi
+!!$              dcostheta = 2.D0 / N_theta
+!!$              if (Symmetry==AXISYM) dphi=2.D0*PI
+!!$
+!!$              if (Symmetry==OCTANT) then 
+!!$                 N_theta = N_theta/2
+!!$                 N_phi = N_phi/4
+!!$              else if (Symmetry==EQUATORIAL) then
+!!$                 N_theta = N_theta/2
+!!$              else if (Symmetry==NO_SYMM) then 
+!!$                 write(*,*) 'No symmetry not supported in PsiKadelia diagnostic.'
+!!$                 stop
+!!$              else if (Symmetry==PI_SYMM) then 
+!!$                 N_theta = N_theta/2
+!!$                 N_phi = N_phi/2
+!!$              else if (Symmetry==AXISYM) then
+!!$                 !  FIXME: This only works if equatorial symmetry is also assumed.
+!!$                 N_theta = N_theta/2
+!!$                 N_phi = 1
+!!$              end if
+!!$
+!!$              ntot = N_theta*N_phi
+!!$
+!!$              allocate(pointcoords(ntot,3))
+!!$              allocate(Psi4reint(ntot))
+!!$              allocate(Psi4imint(ntot))
+!!$
+!!$              n = 1
+!!$              do i=1,N_theta
+!!$                 costheta = 1.D0 - (i - 0.5D0)*dcostheta
+!!$                 sintheta = sqrt(1.D0 - costheta*costheta)
+!!$                 do j=1,N_phi
+!!$                    phiangle = (j - 0.5D0)*dphi
+!!$                    if(N_phi==1) phiangle = 0.D0
+!!$                    pointcoords(n,1) = radius_GW_Psi4(radiusindex)*sintheta*cos(phiangle)
+!!$                    pointcoords(n,2) = radius_GW_Psi4(radiusindex)*sintheta*sin(phiangle)
+!!$                    pointcoords(n,3) = radius_GW_Psi4(radiusindex)*costheta
+!!$                    n = n + 1
+!!$                 end do
+!!$              end do
+!!$
+!!$              call CCTK_VarIndex(vindex,"gw_extraction::psi0re")
+!!$              call interp_driver_carp(cctkGH,ntot,pointcoords,vindex,Psi4reint)
+!!$              call CCTK_VarIndex(vindex,"gw_extraction::psi0im")
+!!$              call interp_driver_carp(cctkGH,ntot,pointcoords,vindex,Psi4imint)
+!!$
+!!$              do i=1,nmodes_Psi4
+!!$                 l = lmode(i)
+!!$                 m = mmode(i)
+!!$                 write(*,*) "outputting l mode =",l,"m mode = ",m,radius_GW_Psi4(radiusindex)
+!!$                 call lm_modes(cctkGH,Symmetry,l,m,N_theta,N_phi,ntot, &
+!!$                      dphi,dcostheta,radius_GW_Psi4(radiusindex),Psi4reint,Psi4imint,Psi4relm,Psi4imlm)
+!!$                 data_headers(2*i) = "Re(psi4_lm)"
+!!$                 data_headers(2*i+1) = "Im(psi4_lm)"
+!!$                 export_data(2*i) = Psi4relm
+!!$                 export_data(2*i+1) = Psi4imlm
+!!$              end do
+!!$
+!!$              if(CCTK_MyProc(CCTKGH).eq.0) call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+!!$
+!!$              deallocate(pointcoords)
+!!$              deallocate(Psi4reint)
+!!$              deallocate(Psi4imint)
+!!$           end if
+!!$
+!!$        end do
+
+     	if(num_extraction_radii_em.gt.0) write(*,*) 'In em_extraction diagnostics.F90, N_theta, N_phi = ',N_theta,N_phi
+
+        !--------------------------------------------------------------------------------------------
+        ! Output phi0, phi2 interpolated to a given point.  Useful for linearized wave analyses.
+
+           filename = 'phi2_0_1pt_rad.mon'
+
+           num_cols = 8
+           data_headers(1) = "# Time"
+           export_data(1) = CCTK_TIME
+
+           pointcoords1pt(1,1) = radius_EM*sin(theta_EM)*cos(phi_EM)
+           pointcoords1pt(1,2) = radius_EM*sin(theta_EM)*sin(phi_EM)
+           pointcoords1pt(1,3) = radius_EM*cos(theta_EM)
+           data_headers(2) = "radius coord"
+           export_data(2) = radius_EM
+
+           data_headers(3) = "theta coord"
+           export_data(3) = theta_EM
+
+           data_headers(4) = "phi coord"
+           export_data(4) = phi_EM
+
+           call CCTK_VarIndex(vindex,"em_extraction::NPphi0re")
+           call interp_driver_carp(cctkGH,1,pointcoords1pt,vindex,outputblah)
+           data_headers(5) = "NPphi0_re"
+           export_data(5) = outputblah(1)
+           call CCTK_VarIndex(vindex,"em_extraction::NPphi0im")
+           call interp_driver_carp(cctkGH,1,pointcoords1pt,vindex,outputblah)
+           data_headers(6) = "NPphi0_im"
+           export_data(6) = outputblah(1)
+           call CCTK_VarIndex(vindex,"em_extraction::NPphi2re")
+           call interp_driver_carp(cctkGH,1,pointcoords1pt,vindex,outputblah)
+           data_headers(7) = "NPphi2_re"
+           export_data(7) = outputblah(1)
+           call CCTK_VarIndex(vindex,"em_extraction::NPphi2im")
+           call interp_driver_carp(cctkGH,1,pointcoords1pt,vindex,outputblah)
+           data_headers(8) = "NPphi2_im"
+           export_data(8) = outputblah(1)
+
+           if(CCTK_MyProc(CCTKGH).eq.0) then 
+	        call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+	   end if
+
+        !--------------------------------------------------------------------------------------------
+     
+     !--------------------------------------------------------------------------------!
+
+
+     do ii=1,nsurf
+
+        surf_radius=surfvec(ii)
+        rbr=rbrvec(ii)
+        drbdr=drbrvec(ii)
+        ddrbddr=ddrbrvec(ii)
+
+        if(nsurf.eq.1) then
+           filename = 'em_lum.lon'
+        else
+           write(filename,31)(ii-1)
+31         FORMAT("em_lum.lon.",I1)
+        endif
+
+        num_cols = 10
+
+        data_headers(1) = '# Time'
+        export_data(1) = CCTK_TIME
+
+        data_headers(2) = "fisheye radius"
+        export_data(2) = surf_radius
+
+        data_headers(3) = "phys radius"
+        export_data(3) = surf_radius*rbr
+
+        data_headers(4) = "L_EM_out"
+        data_headers(5) = "L_EM_in"
+        data_headers(6) = "L_EM_out_no_sqrtmg"
+        data_headers(7) = "L_EM_in_no_sqrtmg"
+        data_headers(8) = "Poynting Lum"
+        data_headers(9) = "Poynting Vec Lum"
+        data_headers(10) = "Luminosity via T_0r"
+	call em_radiative_luminosity(cctkGH,export_data(4),export_data(5),export_data(6),export_data(7),export_data(8),export_data(9),export_data(10),ii,cctk_time)
+
+        if(CCTK_MyProc(CCTKGH)==0) call output_data_to_file(filename,num_cols,data_headers,export_data,header_flag)
+     end do
+
+     !--------------------------------------------------------------------------------!
+
+
+  end if
+end subroutine em_extract_diagnostics

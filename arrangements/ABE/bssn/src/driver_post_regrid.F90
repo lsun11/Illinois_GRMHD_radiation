@@ -1,0 +1,242 @@
+!-------------------------------------------------------------
+! Update all auxiliary BSSN variables after an AMR regridding
+!-------------------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine driver_bssn_post_regrid(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8                  :: dT, dX,dY,dZ,chi_floor
+  integer, dimension(3)   :: ext,fake_ext
+  integer                 :: dummy,i,index,j,k
+  integer, parameter      :: AXISYM = 4
+  !
+
+  dT = CCTK_DELTA_TIME
+  dX=CCTK_DELTA_SPACE(1)
+  dY=CCTK_DELTA_SPACE(2)
+  dZ=CCTK_DELTA_SPACE(3)
+
+  write(*,*) "HI inside BSSN post regrid!"
+
+  ext = cctk_lsh
+
+
+
+  ! IMPORTANT NOTE:
+  ! After an AMR regridding (i.e., AMR grid movement), Carpet sets only the evolved variables (e.g., gij's, Aij's) 
+  !   at all points on all grids.
+  ! However, auxiliary variables (such as, e.g., matter source terms, Rij, etc.) are set only in regions where the grid
+  !   _was_, and not in new regions.  
+  !
+  ! To properly explain this, it's best to draw a 1D picture of a gridfunction defined along a line parallel to the x-axis.
+  ! Let '+' denote the gridpoints where the gridfunction is defined, 'X' denote the gridpoints where the gridfunction is
+  !   not defined, and '|' the grid boundary
+  ! Before a regrid, here's what our grid looks like:
+  ! |++++++++++++++++++++++++++|
+  !  <---      x-axis      --->  
+  ! After a regrid, the grid has moved a little to the right:
+  !      |+++++++++++++++++++++XXXXX|
+  !  <---      x-axis      --->
+  !  Attempting to access a gridfunction at the 'X' points will result in memory errors, and ultimately the simulation may crash.
+  ! This function is designed to fill in all the gridpoints after a regrid, including the 'X' points.
+
+  if(cctk_iteration.gt.0) then
+     !call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+     !call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+     !call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+     call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+     call CartSymGN(dummy,cctkGH,'lapse::lapse_vars')
+     !     call fill_shift_symmetry_gz(ext,X,Y,Z,Symmetry,shiftx,shifty,shiftz,shiftxt,shiftyt,shiftzt)
+     call CartSymGN(dummy,cctkGH,'shift::shift_vars')
+
+     if(chi_evolution_enable==1) then
+        if(chi_floor_enable==1) then
+           !Make sure chi remains positive!
+           !This is in the same vein as the floor imposed by the Rochester (formerly Brownsville) 
+           !    group.  See: Phys. Rev. Lett. 96, 111101 (2006).
+           ! We use this floor in tandem with the floor imposed in compute_rhsnew.
+           chi_floor = exp(chi_exponent*phi_cap);
+
+           write(*,*) "chi floor: ",chi_floor,log(chi_floor)/chi_exponent
+
+           !$omp parallel do
+           do k=1,ext(3)
+              do j=1,ext(2)
+                 do i=1,ext(1)
+                    if(chi(i,j,k).lt.0.D0) chi(i,j,k) = chi_floor*1.D-2
+                 end do
+              end do
+           end do
+           !$omp end parallel do
+        end if
+        !$omp parallel do
+        do k=1,ext(3)
+           do j=1,ext(2)
+              do i=1,ext(1)
+                 phi(i,j,k) = log(chi(i,j,k))/chi_exponent
+                 psi(i,j,k) = exp(phi(i,j,k))
+              end do
+           end do
+        end do
+        !$omp end parallel do
+     end if
+
+     if(phi_cap_enable==1) then
+        !$omp parallel do
+        do k=1,ext(3)
+           do j=1,ext(2)
+              do i=1,ext(1)
+                 if(phi(i,j,k).gt.phi_cap) then
+                    phi(i,j,k) = phi_cap
+                    psi(i,j,k) = exp(phi(i,j,k))
+                 end if
+              end do
+           end do
+        end do
+        !$omp end parallel do
+     end if
+     !$omp parallel do
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              chi(i,j,k) = exp(chi_exponent*phi(i,j,k))
+           end do
+        end do
+     end do
+     !$omp end parallel do
+!     write(*,*) "HIIII post regrid1"
+
+     if(trA_detg_enforce.eq.2) then
+        call enforce_Aij_gij_constraints(cctkGH,ext,gxx,gxy,gxz,gyy,gyz,gzz, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz,x,y,z)
+     end if
+
+!      write(*,*) "HIIII post regrid2"
+
+     do i=1,ext(1)
+        if(abs(X(i,1,1)).lt.dX*0.001 .and. 1==0) then
+           write(*,*) "HIbeforericci",dX,i
+           write(*,*) "phi",phi(i,i,:)
+           write(*,*) "Axx_rhs",Axx_rhs(i,i,:)
+           write(*,*) "Axx",Axx(i,i,:)
+           write(*,*) "gxx",gxx(i,i,:)
+           write(*,*) "gxy",gxy(i,i,:)
+        end if
+     end do
+
+     if (zero_out_matter_source_terms .eq. 1) then
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 rho(i,j,k)=0.d0
+                 Sx(i,j,k)=0.d0
+                 Sy(i,j,k)=0.d0
+                 Sz(i,j,k)=0.d0
+                 Sxx(i,j,k)=0.d0 
+                 Sxy(i,j,k)=0.d0
+                 Sxz(i,j,k)=0.d0
+                 Syy(i,j,k)=0.d0
+                 Syz(i,j,k)=0.d0
+                 Szz(i,j,k)=0.d0
+                 S(i,j,k)=0.d0
+              end do
+           end do
+        end do
+        !$omp end parallel do
+     end if
+
+
+     !$omp parallel do
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              psi(i,j,k) = exp(phi(i,j,k))
+           end do
+        end do
+     end do
+     !$omp end parallel do
+
+     call BSSN_compute_gupij(cctkGH,cctk_lsh, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+     call BSSN_ricci_and_constraints(cctkGH,  dT,  dx,  dy,  dz, &
+          cctk_nghostzones, cctk_lsh, &
+          gxx, gxy, gxz, gyy, gyz, gzz, &
+          gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+          Rxx, Rxy, Rxz, Ryy, Ryz, Rzz, &
+          trRtilde, &
+          Gammax, Gammay, Gammaz, &
+          gxxx, gxxy, gxxz, &
+          gxyx, gxyy, gxyz, &
+          gxzx, gxzy, gxzz, &
+          gyyx, gyyy, gyyz, &
+          gyzx, gyzy, gyzz, &
+          gzzx, gzzy, gzzz, &
+          Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz, &
+          Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz, &
+          Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz, &
+          Sx,Sy,Sz, &
+          Aupxx,Aupxy,Aupxz,Aupyy,Aupyz,Aupzz, &
+          phi, trK, MRsx,MRsy,MRsz,MNorm, &
+          Axx,Axy,Axz,Ayy,Ayz,Azz, &
+          psi, rho, PsiRes, PsiNorm,1)
+
+!     write(*,*) "HIIII post regrid3"
+     
+     if(enable_lower_order_at_boundaries==1) then
+        write(*,*) "Although enable_lower_order_at_boundaries==1 is supported, the code has been disabled, due to long compile times."
+        write(*,*) "You can re-enable this code by uncommenting all BSSN_ricci_and_constraints_{2,4} function calls"
+        stop
+
+     end if
+
+     !FIXME: NECESSARY?:
+     !call driver_bssn_update_boundary(CCTK_PASS_FTOF)
+  end if
+
+  if(cctk_iteration.gt.0) then
+
+     !call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+
+     !Need the following line so that gupij_f's are correctly computed in mhd_evolve!
+     call fill_bssn_symmetry_gz_gupij(ext,X,Y,Z,Symmetry,gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+     call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+
+     !Following is needed for accurate ADM mass calculation, among other things, maybe.
+     call Derivs(ext,X,Y,Z,dX,dY,dZ,phi,phix,phiy,phiz,Symmetry)
+     call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,phi,phix,phiy,phiz)
+
+     !$omp parallel do
+     do k=1,ext(3)
+        do j=1,ext(2)
+           do i=1,ext(1)
+              psi(i,j,k) = exp(phi(i,j,k))
+              refbd(i,j,k) = 0.d0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  end if
+
+   write(*,*) "HIIII post regrid4, DONE!"
+!!$  do k=1,ext(3)
+!!$     do j=1,ext(2)
+!!$        do i=1,ext(1)
+!!$           if(psi(i,j,k).eq.0.D0) then
+!!$              write(*,*) "BAD PSI at:",x(i,j,k),y(i,j,k),z(i,j,k),psi(i,j,k),phi(i,j,k)
+!!$           end if
+!!$        end do
+!!$     end do
+!!$  end do
+
+end subroutine driver_bssn_post_regrid

@@ -1,0 +1,247 @@
+# Parameter definitions for thorn disk_powerlaw
+# $Header:$
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+shares: IO
+USES KEYWORD out_every
+
+#Do we need "shares: driver"
+
+shares: mhd_evolve
+USES KEYWORD primitives_solver
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD use_HARM_primitives
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD sdots_o_rhot
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD force_font_fix_fail
+USES KEYWORD enable_primitives_disk
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD pfloor
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD em_evolve_enable
+USES KEYWORD rho_b_max
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD scaledsurf
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+USES KEYWORD N_theta
+USES KEYWORD N_phi
+USES KEYWORD sym_factor
+
+shares: diagnostics_mhd
+USES KEYWORD N_rad_ray
+USES KEYWORD rhosurf_rmin
+USES KEYWORD rhosurf_rmax
+USES KEYWORD inner_lum_rad_ratio
+USES KEYWORD lum_outer_rad
+#USES KEYWORD ah_rad
+
+shares: gw_extraction
+USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+#shares: TwoPunctures
+#USES KEYWORD genID_cmdline_output_enable
+#USES KEYWORD half_binary_separation
+
+shares: bssn
+USES KEYWORD xbh1_initial
+USES KEYWORD xbh2_initial
+USES KEYWORD rah1_initial
+USES KEYWORD rah2_initial
+USES KEYWORD binary_orb_freq
+USES KEYWORD enable_lower_order_at_boundaries
+
+private:
+
+
+##########################################################
+# EM Field stuff:
+REAL betam1 "P_B / P_gas"
+{
+ 0:* :: "Positive"
+} 0.0
+
+INT em_field_type "poloidal (0) or toroidal (1) fields?"
+{
+ *:* :: "Any Integer"
+} 0
+##########################################################
+
+INT metric_type "cook pfeiffer rotating bbh (1), stationary kerr metric (2), bssn evolution (3)" STEERABLE=ALWAYS
+{
+ 1:3 :: "1,2 or 3"
+} 1
+
+INT nsurfrho "Number of integration surfaces for density isocontour integration"
+{
+ 0:20 :: "Positive, less than 20 for array allocation purposes"
+} 1
+
+INT arithrhosurf "Use arithmetic (1) or geometric (0) spacing for multiple integrations surfaces"
+{
+ 0:1 :: "Zero or one"
+} 1
+
+
+# Initial horizon position and radius (assume the horizon is a sphere)
+INT ntot_disk_powerlaw "size of array ah_radii, must be equal to N_theta*N_phi; otherwise the code will quit"
+{
+ 1:* :: "positive"
+} 800
+REAL bbh_rhosurf1 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 1.5e-7
+
+REAL bbh_rhosurf2 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 2.0e-7
+
+REAL bbh_rhosurf3 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 4.0e-7
+
+REAL bbh_rhosurf4 "rho value for surface of constant rho"
+ {
+   0:* :: "Positive"
+ } 6.0e-7
+
+REAL bbh_r_const1 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 5.0
+
+REAL bbh_r_const2 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 7.0
+
+REAL bbh_r_const3 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 10.0
+
+REAL bbh_r_const4 "value for surface of constant r"
+ {
+   0:* :: "Positive"
+ } 12.0
+
+REAL sam_disk "spin parameter"
+ {
+  *:* :: "anything"
+ } 0.0
+
+REAL ell_inner "the \ell at the inner edge"
+{
+ *:* :: "any real"
+} 4.66
+
+REAL RoM_inner "inner radius of the torus"
+{
+ 0:* :: "positive real"
+} 15.0
+
+REAL q "power law index determines ang mom profile"
+{
+ 0:* :: "positive real"
+} 1.68
+
+#REAL u_inner "u_t at inner edge of torus"
+#{
+# *:* :: "real"
+#} -0.9725
+
+REAL BigMass "adm mass"
+{
+ 0:* :: "positive real"
+} 1.0
+
+REAL rho_cut "density cutoff, used for setting magnetic vector potential, gets set in initial data"
+{
+ 0:* :: "positive real"
+} 1.0
+
+REAL rho_cut_o_rho_max "parameter for setting rho_cut = rho_cut_o_rho_max * rho_max"
+{
+ 0:* :: "positivie real"
+} 0.5
+
+REAL A_const "constant used to compute A_phi"
+{
+ 0:* :: "positive real"
+} 1.0
+
+REAL p_c ""
+{
+ *:* :: "Any Real"
+} 0.0
+
+#REAL disk_powerlaw_rho_b_max "Maximum value of pressure on grid"
+#{
+# 0:* :: "Positive"
+#} 1.0
+REAL disk_powerlaw_P_max "Maximum value of pressure on grid" 
+{
+ 0:* :: "Positive"
+} 1.0
+REAL disk_powerlaw_rho_star_max "Maximum value of rho_star on grid"
+{
+ 0:* :: "Positive"
+} 1.0
+REAL disk_powerlaw_tau_max "Maximum value of tau on grid"
+{
+ 0:* :: "Positive"
+} 1.0
+
+INT surfxnum "number of points in x direction for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive integer"
+} 50
+
+INT surfphinum "number of points in phi direction for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive integer"
+} 50 
+
+INT surfznum "number of points in z direction for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive integer"
+} 50
+
+REAL surfxmin "minimum x value for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive real"
+} 15.0
+
+REAL surfxmax "maximum x value for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive real"
+} 150.0
+
+REAL surfzmax "maximum z value for surface integrals" STEERABLE=ALWAYS
+{
+ 0:* :: "positive real"
+} 30.0

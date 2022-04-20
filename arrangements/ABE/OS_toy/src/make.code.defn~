@@ -1,0 +1,11 @@
+# Main make.code.defn file for thorn shocktests
+
+# Source files in this directory
+SRCS =  initialdata_local.F90 initialdata_global.F90 \
+	diagnostics.F90 Integrate_vol_integrand.F90 \
+	vol_integrand1d-rest_mass.F90 \
+	nr.F90 nrtype.F90 nrutil.F90 rtbis.F90\
+	copy_to_prev_timelevel.F90 particle_tracer.F90\
+	OS_rad_diagnostic_integrals.F90 OS_rad_analytic_new.F90\
+# Subdirectories containing source files
+SUBDIRS = 

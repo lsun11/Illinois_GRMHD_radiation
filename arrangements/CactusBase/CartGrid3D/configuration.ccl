@@ -1,0 +1,13 @@
+# Configuration definitions for thorn CartGrid2D
+# $Header: /cactusdevcvs/CactusBase/CartGrid3D/configuration.ccl,v 1.4 2008/05/26 03:42:39 yye00 Exp $
+
+# This will disappear once no-one calls anything from this thorn
+PROVIDES CartGrid3D
+{
+  SCRIPT
+  LANG
+}
+
+# This will disappear once the aliasing has a requires
+
+REQUIRES CoordBase

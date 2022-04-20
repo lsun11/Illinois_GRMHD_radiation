@@ -1,0 +1,526 @@
+// ****************************************************************
+// Compute the radiation hydro shock/wave semi-analytic solution 
+// according to Appendix C of Farris et.al., PRD 78, 024023 (2008).
+// ****************************************************************
+#include "cctk.h"
+#include "cctk_Parameters.h"
+#include "cctk_Arguments.h"
+
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include "rad.h"
+#include "rkf_adaptive.C"
+
+using namespace std;
+
+//int main(int argc, char* argv[])
+
+
+
+extern "C" void CCTK_FCALL CCTK_FNAME(initialdata_radiation)
+  ( int *ext, double *x, double &npolyshock, double &rad_opacity_abs, double &rad_opacity_sct, 
+    double &rho_l, double &P_l, double &u1_l, double &Erad_l, double &Fradx_l, double &Fradx_r, 
+    const cGH **cctkGH, int *cctk_lsh, int &integrate_flag, double*xsave,double *tausave,
+    double *rhosave, double *Psave, double *uxsave, double *Eradsave, double *Fradsave);
+
+void initialdata_radiation 
+( int *ext, double *x, double &npolyshock, double &rad_opacity_abs, double &rad_opacity_sct,
+ double &rho_l, double &P_l, double &u1_l, double &Erad_l, double &Fradx_l, double &Fradx_r, 
+  const cGH *cctkGH, int *cctk_lsh, int &integrate_flag, double *xsave, double *tausave,
+ double *rhosave, double *Psave, double *uxsave, double *Eradsave, double *Fradsave){
+
+  auxvars u;
+  double rho0L,PL,uxL,EL,fL,fR,xL,xR;
+  int n, flag;
+  //  printf("Start initialdata_radiation!!!!\n");
+
+  double dx = x[CCTK_GFINDEX3D(cctkGH,1,0,0)]-x[CCTK_GFINDEX3D(cctkGH,0,0,0)];
+
+  u.n = npolyshock;
+  u.kap_a = rad_opacity_abs;
+  u.kap_s = rad_opacity_sct;
+  rho0L = rho_l;
+  PL = P_l;
+  uxL = u1_l;
+  EL = Erad_l;
+  fL = Fradx_l;
+  fR = Fradx_r;
+  //n = ext[0];
+  xL = x[CCTK_GFINDEX3D(cctkGH,0,0,0)];
+  xR = -xL;
+  //xR = x[CCTK_GFINDEX3D(cctkGH,ext[0],0,0)];
+  n =  (int)(xR-xL)/dx;
+  flag = integrate_flag;
+
+  printf("CHECK!!! integrate_flag=%d, flag=%d \n ", integrate_flag, flag);
+
+  double rho0_P = rho0L/PL; 
+  double P_rho0m4 = rho0_P*rho0_P;
+  P_rho0m4 *= P_rho0m4;
+  u.am4 = EL*P_rho0m4;
+
+  //  printf ("xR=%e, xL=%e, dx=%e, n=%d, (xR-xL)/dx = %e \n", xR, xL, dx, n, (xR-xL)/dx);
+  
+  // printf ("1. rho0=%.16g, PL=%.16g, uxL=%.16g, EL=%.16g, fL=%.16g\n", rho0L, PL, uxL, EL, fL);
+  getUfromP(u, rho0L, PL, uxL, EL, fL);
+
+  if (flag==2) {
+    printf ("flag is 2 \n");
+    printf ("Before odeIntegrate, check boundary again!!! xR=%e, xL=%e, dx=%e, n=%d, (xR-xL)/dx = %e \n", xR, xL, dx, n, (xR-xL)/dx);
+    odeIntegrateOut(xL, xR, n, u, xsave, rhosave, Psave, uxsave, Eradsave, Fradsave, tausave);
+    //printf("U4, U5: %20.16g, %20.16g\n",u.U4, u.U5);
+  } else if (flag==1) {
+    printf ("flag is 1 \n");
+    u.fR = fR;
+    double rho0R, uxR, PR, ER;
+    computeRightState(u, rho0R, PR, uxR, ER);
+    getUfromP(u, rho0R, PR, uxR, ER, fR);
+    odeIntegrateOut(xR, xL, n, u, xsave, rhosave, Psave, uxsave, Eradsave, Fradsave, tausave);
+    //printf("U4, U5: %20.16g, %20.16g\n",u.U4, u.U5);
+  } else {
+    // Store parameters in u for shooting
+    printf ("flag is 0 \n");
+    u.xL = xL; u.xR = xR; u.nx = n; u.rho0L = rho0L; 
+    u.PL = PL; u.uxL = uxL; u.EL = EL;
+    double x[2] = {fL, fR};
+    double abserr = 0.0, relerr = 1.e-6;
+    newt2d(x, abserr, relerr, u, shootingFJ);
+    //printf("Shooting result: fL = %20.16g, fR = %20.16g\n",x[0],x[1]);
+    //double f[2],fnorm[2];
+    //shootingFun(x[0],x[1],f,fnorm,u);
+    //printf("f0, f1: %g, %g\n",f[0]/fnorm[0],f[1]/fnorm[1]);
+    // output data to outfile 
+    outputShootingData(x[0],x[1],u, xsave, rhosave, Psave, uxsave, Eradsave, Fradsave, tausave);
+  }
+  printf("Done with radition shock initialdata reading");
+}
+
+
+
+// Compute U1-U5 from primitive variables
+void getUfromP(auxvars &u, double rho0, double P, double ux, double E, double f) {
+  u.ux = ux;
+  u.U1 = rho0*ux;
+  double u0 = sqrt(1.0+ux*ux);
+  double v = ux/u0;
+  double e43 = 4.0*E/3.0;
+  double e = rho0 + (u.n+1.0)*P + e43;
+  u.U2 = e*ux*u0 + f*u0*(1.0 + v*v);
+  u.U3 = e*ux*ux + P + 0.25*e43 + 2.0*f*ux;
+  u.U4 = e43*ux*u0 + f*u0*(1.0 + v*v);
+  u.U5 = e43*ux*ux + 0.25*e43 + 2.0*f*ux;
+
+
+  //printf ("U1=%e,U2=%e,U3=%e,U4=%e,U5=%e \n", u.U1, u.U2,u.U3,u.U4,u.U5);
+}
+
+// Compute the state in the asymptotic right region 
+void computeRightState(auxvars &u, double &rho0r, double &Pr, double &uxr, double &Er) {
+  double abserr = 0.0, relerr = 1.e-15;
+  uxr = newt(0.0,u,uxFromUandLTE, abserr, relerr);
+  double u0 = sqrt(1.0+uxr*uxr);
+  double v = uxr/u0;
+  rho0r = u.U1/uxr;
+  double p1 = u.U2 - u.U1*u0 + 4.0*(u.U2*uxr*uxr - u.U3*u0*uxr) - u.fR*u0*(1.0-3.0*v*v);
+  double p2 = (u.n-3.0)*u.U1*u0;
+  double p_rho = p1/p2;
+  double p_rho2 = p_rho*p_rho;
+  Pr = p_rho*rho0r;
+  Er = u.am4*p_rho2*p_rho2;
+  //printf("\nAsynptotic right side...\n");
+  //printf("rho0: %20.16g\n",rho0r);
+  //printf("P: %20.16g\n",Pr);
+  //printf("ux: %20.16g\n",uxr);
+  //printf("E: %20.16g\n\n",Er);
+}
+
+// Integrate the ODEs from x=x1 to x=x2
+// If outf = 1, output data to outfile, else not.
+void odeIntegrateOut(double x1, double x2, int n, auxvars &u, double *xsave, double *rhosave,
+		  double *Psave, double *uxsave, double *Esave, double *Fxsave, double *tausave) {
+
+   double dx = (x2-x1)/(n-1.0);
+   double dw = dx*u.kap_a;
+   double dws = 0.5*dw; // suggested initial integration stepsize
+   printf("dx = %.16g, dw = %.16g, x1 = %.16g, x2 = %.16g \n", dx, dw, x1, x2);
+   double abserr = 0.0, relerr = 1.e-6;
+   int i, flag;
+   double U[4] = {0.0, u.U4, u.U5, 0.0};
+   double Uerr[4];
+
+   double rho0, P, ux, u0, E, Fx, F0;
+   
+   getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+  
+   xsave[0] = x1; rhosave[0] = rho0; Psave[0] = P;
+   uxsave[0] = ux; Esave[0] = E; Fxsave[0] = Fx; tausave[0] = 0.0; 
+
+   printf ("xsave[0]=%e, rhosave[0]=%e, Psave[0]=%e, uxsave[0]=%e, Esave[0]=%e, \n", xsave[0], rhosave[0], Psave[0], uxsave[0], Esave[0]);
+
+   for (i=1; i<n; i++) {
+     // printf("i=%d \n", i);
+      double x = x1 + i*dx;
+      double w = u.kap_a*x;
+      // printf("Before rkf_adaptive, check in parameters. U1=%.16g,U2=%.16g,U3=%.16g,U4=%.16g,U5=%.16g\n", u.U1, u.U2, u.U3, u.U4, u.U5);
+      rkf_adaptive(U, 3, w, dw, u, dws, abserr, relerr, flag, Uerr, odeRHS);
+      // update variables in u
+      u.U4 = U[1]; u.U5 = U[2];
+      getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+      printf("After getPfromU, check out parameters. u0=%.16g, ux=%.16g, u.U5=%.16g, u.U4=%.16g, F0=%.16g, rho0=%.16g, P=%.16g, E=%.16g, Fx=%.16g \n",
+	     u0, ux, u.U5, u.U4, F0, rho0, P, E, Fx);
+      u.ux = ux;
+      xsave[i] = x; rhosave[i] = rho0; Psave[i] = P;
+      uxsave[i] = ux; Esave[i] = E; Fxsave[i] = Fx; tausave[i] = U[3];
+      printf ("xsave=%.16g, rhosave=%.16g, Psave=%.16g, uxsave=%.16g, Esave=%.16g, \n", xsave[i], rhosave[i], Psave[i], uxsave[i], Esave[i]);
+   }
+   //printf ("xsave[n-1]=%e, rhosave[n-1]=%e, Psave[n-1]=%e, uxsave[n-1]=%e, Esave[n-1]=%e, \n", xsave[n-1], rhosave[n-1], Psave[n-1], uxsave[n-1], Esave[n-1]);
+}
+
+
+void odeIntegrate(double x1, double x2, int n, auxvars &u)
+{
+  double dx = (x2-x1)/(n-1.0);
+  double dw = dx*u.kap_a;
+  double dws = 0.5*dw; // suggested initial integration stepsize                                                                                                                          
+
+  double abserr = 0.0, relerr = 1.e-6;
+  int i, flag;
+  double U[4] = {0.0, u.U4, u.U5, 0.0};
+  double Uerr[4];
+
+  double rho0, P, ux, u0, E, Fx, F0;
+
+  getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+
+  ofstream fout;
+  
+    fout.open("rad_shock.dat");
+    fout << "x   rho0    P   ux   E  Fx  tau" << endl;
+    fout << setprecision(16) << x1 << "  " << rho0 << "  " << P << "  " << ux
+	 << "   " << E << "  " << Fx << "  " << 0.0 << endl;
+  
+
+  for (i=1; i<n; i++) {
+    // printf("i=%d \n", i);                                                                                                                                                              
+    double x = x1 + i*dx;
+    double w = u.kap_a*x;
+    // printf("Before rkf_adaptive, check in parameters. U1=%.16g,U2=%.16g,U3=%.16g,U4=%.16g,U5=%.16g\n", u.U1, u.U2, u.U3, u.U4, u.U5);                                                 
+    rkf_adaptive(U, 3, w, dw, u, dws, abserr, relerr, flag, Uerr, odeRHS);
+    // update variables in u                                                                                                                                                             
+    u.U4 = U[1]; u.U5 = U[2];
+    getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+    u.ux = ux;
+
+   
+      fout << setprecision(16) << x << "  " << rho0 << "  " << P << "  "
+	   << ux << "   " << E << "  " << Fx << "  " << U[3] << endl;
+      fout.close();  
+  }
+}
+
+
+// Output the data from the shooting calculation
+   void outputShootingData(double fL, double fR, auxvars u, double *xsave, double *rhosave, 
+			   double *Psave, double *uxsave, double *Esave, double *Fxsave, double *tausave) {
+   int n = u.nx;
+   // Integrate from xL to 0
+   getUfromP(u, u.rho0L, u.PL, u.uxL, u.EL, fL);
+   double dx = -u.xL/(n - 1.0);
+   double dw = dx*u.kap_a;
+   double dws = 0.5*dw; // suggested initial integration stepsize
+   double abserr = 0.0, relerr = 1.e-10;
+   int i, flag;
+   double U[4] = {0.0, u.U4, u.U5, 0.0};
+   double Uerr[4];
+
+   double rho0, P, ux, u0, E, Fx, F0;
+   getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+  
+
+   ofstream fout("rad_shock_shooting.dat");
+   fout << "x   rho0    P   ux   E  Fx  tau" << endl;
+   fout << setprecision(16) << x << "  " << rho0 << "  " << P << "  "
+	<< ux << "   " << E << "  " << Fx << "  " << U[3] << endl;
+
+
+   // Integrate from xL to 0
+   double tau0 = 0.0;
+   for (i=1; i<n; i++) {
+      double x = u.xL + i*dx;
+      double w = u.kap_a*x;
+      rkf_adaptive(U, 3, w, dw, u, dws, abserr, relerr, flag, Uerr, odeRHS);
+      // update variables in u
+      u.U4 = U[1]; u.U5 = U[2];
+      getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+      u.ux = ux;
+      if (i==n-1) { tau0 = U[3];}
+   }
+   // Integrate from xR to 0 and store result in an array
+   dx = -u.xR/(n - 1.0);
+   dw = dx*u.kap_a;
+   dws = 0.5*dw;
+   /*   
+   double *xsave = new double[u.nx];
+   double *rhosave = new double[u.nx];
+   double *Psave = new double[u.nx];
+   double *uxsave = new double[u.nx];
+   double *Esave = new double[u.nx];
+   double *Fxsave = new double[u.nx];
+   double *tausave = new double[u.nx];
+  */
+   u.fR = fR;
+   double rho0R, uxR, PR, ER;
+   computeRightState(u, rho0R, PR, uxR, ER);
+   getUfromP(u, rho0R, PR, uxR, ER, fR);
+   xsave[0] = u.xR; rhosave[0] = rho0R; Psave[0] = PR; 
+   uxsave[0] = uxR; Esave[0] = ER; Fxsave[0] = fR; tausave[0] = 0.0;
+   U[0] = 0.0; U[1] = u.U4; U[2] = u.U5; U[3] = 0.0;
+   for (i=1; i<n; i++) {
+      double x = u.xR + i*dx;
+      double w = u.kap_a*x;
+      rkf_adaptive(U, 3, w, dw, u, dws, abserr, relerr, flag, Uerr, odeRHS);  
+      // update variables in u
+      u.U4 = U[1]; u.U5 = U[2];
+      getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+      u.ux = ux;
+      xsave[i] = x; rhosave[i] = rho0; Psave[i] = P;
+      uxsave[i] = ux; Esave[i] = E; Fxsave[i] = Fx; tausave[i] = U[3];
+      //printf("xsave=%e, rhosave=%e, tausave=%e",xsave[i],rhosave[i],tausave[i]);
+   }
+
+   for (i=n-1; i>=0; i--) {
+     fout << setprecision(16) << xsave[i] << "  " << rhosave[i] << "  " << Psave[i] << "  "
+	  << uxsave[i] << "   " << Esave[i] << "  " << Fxsave[i] << "  "
+	  << tau0+(tausave[i] - tausave[n-1]) << endl;
+   }
+   fout.close();
+
+   //   printf("xsave=%e, rhosave=%e, tausave=%e, Esave=%e,",xsave[n-1],rhosave[n-1],tausave[n-1], Esave[n-1]); 
+}
+
+// Define the function and its derivative for equation (C11)
+void uxFromU(double ux, double &f, double &dfdux, double &fnorm, auxvars &u) {
+  //printf("check: beginning of uxFromU: u.U1=%.16g, u.U2=%.16g,u.U3=%.16g,u.U4=%.16g,u.U5=%.16g \n",
+  //       u.U1,u.U2,u.U3,u.U4,u.U5);
+  double Ua = u.U2 - u.U4;
+  double Ub = u.U3 - u.U5;
+  double u0 = sqrt(1.0+ux*ux);
+  double du0 = ux/u0;
+  double n1 = u.n+1.0;
+
+  double f1 = u.U1*u0;
+  double f2 = n1*Ub*u0*ux;
+  double f3 = - Ua*(n1*ux*ux + 1.0);
+  f = f1+f2+f3;
+  if (fabs(f) < 1.0e-8){ f = 0.0;}
+  fnorm = fabs(f1) + fabs(f2) + fabs(f3);
+  dfdux = u.U1*du0 + n1*Ub*(ux*du0 + u0) - 2.0*n1*Ua*ux;
+
+  //printf("check: end of uxFromU: Ua=%.16g, Ub=%.16g, u0=%.16g, n1=%.16g, f1=%.16g, f2=%.16g,f3=%.16g,f=%.16g,fnorm=%.16g,dfdux=%.16g\n",
+  //       Ua, Ub, u0, n1, f1, f2, f3, f, fnorm, dfdux);
+
+}
+
+// Define the  function and its derivative for equation (C20) (note that there is
+//  a typo in the paper: a factor of u0 is missing in the term involving f_R)
+void uxFromUandLTE(double ux, double &f, double &dfdux, double &fnorm, auxvars &u) {
+  double u0 = sqrt(1.0+ux*ux);
+  double du0 = ux/u0;
+  double p1 = u.U2 - u.U1*u0 + 4.0*(u.U2*ux*ux - u.U3*u0*ux) - u.fR*u0*(1.0-3.0*du0*du0);
+  double p2 = (u.n-3.0)*u.U1*u0;
+  double dp1 = -u.U1*du0 + 4.0*(u.U2*2.0*ux - u.U3*(du0*ux + u0))
+               - u.fR*du0*(1.0-3.0*du0*du0) + 6.0*u.fR*du0*(1.0 - du0*du0);
+  double dp2 = (u.n-3.0)*u.U1*du0;
+  double p_rho = p1/p2;
+  double p_rho2 = p_rho*p_rho;
+  double p_rho4 = p_rho2*p_rho2;
+  double dp_rho = (dp1 - p_rho*dp2)/p2;
+  double dp_rho4 = 4.0*p_rho2*p_rho/p2*(dp1 - p_rho*dp2);
+
+  double f1 = u.U1*u0*(1.0+(u.n+1.0)*p_rho);
+  double f2 = 4.0/3.0*u.am4*p_rho4*u0*ux;
+  double f3 = u.fR*u0*(1.0+du0*du0);
+  double f4 = -u.U2;
+  f = f1 + f2 + f3 + f4;
+  fnorm = fabs(f1) + fabs(f2) + fabs(f3) + fabs(f4);
+  dfdux = u.U1*du0*(1.0+(u.n+1.0)*p_rho) + u.U1*u0*(u.n+1.0)*dp_rho
+          + 4.0/3.0*u.am4*(dp_rho4*u0*ux + p_rho4*(du0*ux + u0))
+          + u.fR*du0*(1.0+du0*du0) + 2.0*u.fR*du0*(1.0-du0*du0);
+}
+
+// Newton-Raphson scheme for solving a transcendental equation f(x)=0
+// xg: initial guess,
+// f: user supplied function with args f(double, double &, double &, double &, auxvars &)
+double newt(double xg, auxvars &u,
+            void (*f)(double, double &, double &, double &, auxvars &),
+            double abserr, double relerr) {
+   const int maxit = 50;
+   double x[50], ffx[50];
+   double x0 = xg;
+   double x1,tol,fx,dfx, fnorm, dx;
+   int i;
+
+   //printf("In newt, check parameters. u.xL=%e,u.xR=%e,u.nx=%d,u.rho0L=%e,u.PL=%e,u.uxL=%e,u.EL=%e \n",
+   //       u.xL,u.xR,u.nx,u.rho0L,u.PL,u.uxL,u.EL);
+   
+   for (i=0; i<maxit; i++) {
+      f(x0, fx, dfx, fnorm, u);
+      dx = -fx/dfx;
+      x1 = x0 + dx;
+      x[i] = x1;
+      ffx[i] = fx/fnorm;
+      //  printf ("inside newt, check: dx=%.16g, x1=%.16g, fx=%.16g, dfx=%.16g fnorm=%.16g \n", dx, x1, fx, dfx, fnorm);
+      tol = (fabs(x1) > relerr*1000.0 ? fabs(x1)*relerr:relerr*0.1);
+      if (fabs(dx) < tol || fabs(fx) < relerr*fnorm || fabs(dx) < abserr) {
+         break;
+      } else {
+	//printf("keep iterating... x0=%.16g, x1=%.16g \n", x0, x1);
+         x0 = x1;
+      }
+   }
+   if (fabs(dx) > tol && fabs(fx) > relerr*fnorm && fabs(dx) > abserr) {
+     printf("Newton-Raphson solver fails to converge after %d iterations!\n",maxit);
+     for (i=0; i<maxit; i++) {
+        printf("In iteration %d, x = %g, f(x)/||f|| = %g\n",i+1,x[i],ffx[i]);
+     }
+     printf("U1 = %20.16g\n",u.U1);
+     printf("U2 = %20.16g\n",u.U2);
+     printf("U3 = %20.16g\n",u.U3);
+     printf("U4 = %20.16g\n",u.U4);
+     printf("U5 = %20.16g\n",u.U5);
+     exit(1);
+   }
+   return x1;
+}
+
+// Recovery of primitive variables from U1--U5
+void getPfromU(auxvars &u, double &rho0, double &P, double &ux, double &u0,
+               double &E, double &Fx, double &F0) {
+   double abserr = 0.0, relerr = 1.e-8;
+   //   printf("inside getPfromU, before newt, u.U4=%.16g, u.U5=%.16g, u.ux =%.16g\n", u.U4, u.U5,u.ux);
+   ux = newt(u.ux, u, uxFromU, abserr, relerr);
+   //   printf("inside getPfromU, after newt, u.U4=%.16g, u.U5=%.16g, ux =%.16g\n", u.U4, u.U5, ux);   
+
+   u0 = sqrt(1.0+ux*ux);
+   double v = ux/u0;
+   rho0 = u.U1/ux;
+   P = u.U3-u.U5 - (u.U2-u.U4)*v;
+   double delta = 2.0*u0/3.0 - 1.0/u0;
+   double deltaE = 2.0*ux*u.U4 - u0*u.U5*(1.0+v*v);
+   double deltaF = 4.0/3.0*u0*ux*u.U5 - (4.0*ux*ux + 1.0)*u.U4/3.0;
+   E = deltaE/delta;
+   Fx = deltaF/delta;
+   F0 = Fx*v;
+   
+   //printf("At the end of getPfromU, check out parameters. u0=%.16g, ux=%.16g, deltaF=%.16g, u.U5=%.16g, u.U4=%.16g, F0=%.16g, rho0=%.16g, P=%.16g, E=%.16g, Fx=%.16g \n",
+   //	  u0, ux, deltaF, u.U5, u.U4, F0, rho0, P, E, Fx);
+  
+}
+
+// Define the shooting functions f[0]=G0xR-G0xL, f[1]=GxxR-GxxL
+void shootingFun(double fL, double fR, double *f, double *fnorm, auxvars u) {
+  //char outfile[] = "null";
+   // Integrate from xL to 0
+   getUfromP(u, u.rho0L, u.PL, u.uxL, u.EL, fL);
+   odeIntegrate(u.xL, 0.0, u.nx, u);
+   double G0xL = u.U4, GxxL = u.U5;
+   // Integrate from xR to 0
+   u.fR = fR;
+   double rho0R, uxR, PR, ER;
+   computeRightState(u, rho0R, PR, uxR, ER);
+   getUfromP(u, rho0R, PR, uxR, ER, fR);
+   odeIntegrate(u.xR, 0.0, u.nx, u);
+   double G0xR = u.U4, GxxR = u.U5;
+   f[0] = G0xR - G0xL; fnorm[0] = fabs(G0xR) + fabs(G0xL);
+   f[1] = GxxR - GxxL; fnorm[1] = fabs(GxxR) + fabs(GxxL);
+}
+
+// Compute the shooting functions f[0]=G0xR-G0xL, f[1]=GxxR-GxxL and their Jacobian matrix
+// x[0] = fL, x[1] = fR
+void shootingFJ(double *x, double *f, double *fnorm, double *fjac, auxvars u) {
+   double fL = x[0], fR = x[1];
+   double delta = 1.e-3, dfL = fL*delta, dfR = fR*delta;
+   shootingFun(fL, fR, f, fnorm, u);
+   double f1[2], f1norm[2], f2[2];
+   shootingFun(fL+dfL, fR, f1, f1norm, u);
+   shootingFun(fL, fR+dfR, f2, f1norm, u);
+   fjac[0] = (f1[0] - f[0])/dfL;
+   fjac[1] = (f1[1] - f[1])/dfL;
+   fjac[2] = (f2[0] - f[0])/dfR;
+   fjac[3] = (f2[1] - f[1])/dfR;
+}
+
+// ODE R0x,w = -G^0/kappa_a, Rxx,w = -G^x/kappa_a, tau,w = rho0, where w = kappa_a x
+// U[1] = R0x, U[2] = Rxx, U[3] = tau
+void odeRHS(double *U, double w, auxvars u, double *derivs) {
+   u.U4 = U[1]; u.U5 = U[2];
+   //printf("Beginning of odeRHS, u.U4=%.16g, u.U5=%.16g \n", u.U4, u.U5);
+   double rho0, P, ux, u0, E, Fx, F0;
+   getPfromU(u, rho0, P, ux, u0, E, Fx, F0);
+   double P_rho = P/rho0;
+   double P_rho2 = P_rho*P_rho;
+   double rhoE_4piB = rho0*(E - u.am4*P_rho2*P_rho2);
+   double kk = (1.0+u.kap_s/u.kap_a)*rho0;
+   derivs[0] = w; // derivs[0] is not used, setting it to w just to make the compiler happy
+   derivs[1] = -rhoE_4piB*u0 - kk*F0;
+   derivs[2] = -rhoE_4piB*ux - kk*Fx;
+   derivs[3] = rho0;
+   //printf("End of odeRHS, u.U4=%.16g, u.U5=%.16g, derivs[1]=%.16g, derivs[2]=%.16g, u.am4=%.16g, P_rho2=%.16g, rhoE_4piB=%.16g, rho0=%.16g, E=%.16g\n", u.U4, u.U5, derivs[1], derivs[2], u.am4, P_rho2, rhoE_4piB, rho0, E);
+}
+
+// 2d Newton-Raphson solver
+void newt2d(double *x, double abserr, double relerr, auxvars &u,
+            void (*FJac)(double *, double *, double *, double *, auxvars)) {
+   double f[2], fnorm[2], fjac[4], dx[2];
+   const int maxit = 20;
+   double xsave[40];
+   int i, converge = 0;
+   //printf("In newt2d, check parameters. u.xL=%e,u.xR=%e,u.nx=%d,u.rho0L=%e,u.PL=%e,u.uxL=%e,u.EL=%e \n", 
+   //	  u.xL,u.xR,u.nx,u.rho0L,u.PL,u.uxL,u.EL);
+   for (i=0; i<maxit; i++) {
+      FJac(x, f, fnorm, fjac, u);
+      double invdetfjac = 1.0/(fjac[0]*fjac[3] - fjac[1]*fjac[2]);
+      dx[0] = (-fjac[3]*f[0] + fjac[2]*f[1])*invdetfjac;
+      dx[1] = (fjac[1]*f[0] - fjac[0]*f[1])*invdetfjac;
+      x[0] += dx[0]; x[1] += dx[1];
+      xsave[2*i] = x[0]; xsave[2*i+1] = x[1];
+      double dxnorm = 0.5*(fabs(dx[0])+fabs(dx[1]));
+      double ff = 0.5*(fabs(f[0])+fabs(f[1]));
+      int abs_converge = (dxnorm < abserr || ff < abserr ? 1:0);
+      int rel_converge = ((fabs(dx[0]) < relerr*fabs(x[0]) &&
+                           fabs(dx[1]) < relerr*fabs(x[1])) ||
+                          (fabs(f[0]) < relerr*fabs(fnorm[0]) &&
+                           fabs(f[1]) < relerr*fabs(fnorm[1])) ? 1:0);
+      if (abs_converge==1 || rel_converge==1) {
+        converge = 1;
+        break;
+      }
+   }
+   if (converge==0) {
+     printf("2D Newton-Raphson solver fails to converge after %d iteratons!\n",maxit);
+     for (i=0; i<maxit; i++) {
+        printf("Iteration %d: x = (%20.16g, %20.16g)\n",i+1, xsave[2*i],xsave[2*i+1]);
+     }
+     exit(1);
+   }
+}
+
+
+
+extern "C" void CCTK_FCALL CCTK_FNAME(initialdata_radiation)
+  (  int *ext, double *x, double &npolyshock, double &rad_opacity_abs, double &rad_opacity_sct,
+     double &rho_l, double &P_l, double &u1_l, double &Erad_l, double &Fradx_l, double &Fradx_r,
+     const cGH **cctkGH, int *cctk_lsh, int &integrate_flag, double*xsave,double *tausave,
+     double *rhosave, double *Psave, double *uxsave, double *Eradsave, double *Fradsave)
+ {
+   initialdata_radiation(ext, x, npolyshock, rad_opacity_abs, rad_opacity_sct, 
+			 rho_l, P_l, u1_l, Erad_l, Fradx_l, Fradx_r, 
+			 *cctkGH, cctk_lsh, integrate_flag, xsave, tausave,
+			 rhosave, Psave, uxsave, Eradsave, Fradsave);
+ }

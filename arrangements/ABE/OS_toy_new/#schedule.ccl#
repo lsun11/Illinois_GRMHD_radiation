@@ -1,0 +1,62 @@
+# Schedule definitions for thorn OS_toy
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::em_rhsx, mhd_evolve::em_rhsy, mhd_evolve::em_rhsz
+STORAGE: mhd_evolve::em_Blagrangemultiplier[3], mhd_evolve::em_Blagrangemultiplier_rhs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+#STORAGE: mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+STORAGE: mhd_evolve::rad_conservatives[3], mhd_evolve::rad_conservatives_rhs, mhd_evolve::rad_primitives
+STORAGE: mhd_evolve::temperatures, mhd_evolve::radscalar, mhd_evolve::rad_pressure, mhd_evolve::mhd_nosync
+STORAGE: mhd_evolve::micphys_conservatives[3], mhd_evolve::micphys_conservatives_rhs 
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::volIntegrals, diagnostics_mhd::volIntegrals_mhd
+STORAGE: mhd_OS_private,mhd_OS_VolInt
+STORAGE: OS_toy::particle_tracer_coord, OS_toy::pcle_stuff, OS_toy::more_pcle_stuff, OS_toy::v_previous, OS_toy::OS_center_diagnostics, OS_toy::analytic, OS_toy::Tracer
+STORAGE: mhd_evolve::OS_stellar_surface
+STORAGE: movingbox::volIntegrals_movingbox mhd_evolve::ka_rho mhd_evolve::opacities
+
+# Setup Initial Data
+
+if (enable_OS_collapse==1){
+schedule mhd_OS_initialdata_local at CCTK_INITIAL as OS_initialdata before lapse_initialdata
+{
+  LANG:		FORTRAN
+} "Set up initial data for mhd_shock star evolver"
+
+schedule OS_rad_copy_to_prev_timelevel at CCTK_INITIAL as OS_second_initialdata after OS_initialdata
+{
+  LANG:          FORTRAN
+} "Copy to previous timelevel"
+
+schedule mhd_OS_initialdata_global in ABE_PostInitial after OS_second_initialdata as OS_third_initialdata before postid
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set rho_b_atm, etc."
+
+schedule particle_tracer_toy at CCTK_ANALYSIS as tracer_toy
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+}"do particle tracer"
+
+schedule OS_rad_diag_integrals at CCTK_ANALYSIS as OS_poststep after tracer_toy
+{
+  LANG:          FORTRAN
+  OPTIONS:       GLOBAL
+} "Evaluate diagnostic integrals"
+
+
+#schedule OS_toy_diagnostics at CCTK_ANALYSIS after OS_poststep
+#{
+#  LANG:         FORTRAN
+#  OPTIONS:      GLOBAL
+#} "Evaluate diagnostic integrals"
+
+}

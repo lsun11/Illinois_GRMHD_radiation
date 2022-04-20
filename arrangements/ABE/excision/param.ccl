@@ -1,0 +1,18 @@
+# Parameter definitions for thorn excision
+
+global:
+INT excision_enable "disable (0) or enable (1) excision" STEERABLE=ALWAYS
+{
+ *:* :: "Any Integer"
+} 0
+
+REAL excision_radius "Excision radius.  Set to some fraction of AH radius" STEERABLE=ALWAYS
+{
+ 0:* :: "Any Positive Real"
+} 0.1
+
+restricted:
+REAL C_ko "Kreiss-Oliger parameter" 
+{
+ *:* :: "Anything"
+} 0.2

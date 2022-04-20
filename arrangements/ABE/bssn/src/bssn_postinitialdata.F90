@@ -1,0 +1,269 @@
+!----------------------------------------------------------------
+! Stuff that needs to be done right after initial data is set up
+!----------------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+!
+subroutine BSSN_PostInitialData(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  real*8 					:: dT,dX,dY,dZ
+  real*8 					:: radius_old, rbr_old, drbdr_old, ddrbddr_old
+  real*8 					:: xmax,ymax,zmax
+  integer, dimension(3)		 	        :: ext
+  real*8, dimension(1)                          :: int_val
+  real*8, dimension(1,3)                        :: pointcoords
+  integer					:: ierr,handle,vindex,i,j,k
+  !
+
+  ext = cctk_lsh
+
+  dT = CCTK_DELTA_TIME
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  !Here's what you need to set in your initial data thorn:
+  ! BSSN stuff: gij, Aij, phi, Gammai, Si, rho
+  ! Matter stuff: primitives, conserved variables ... what else?
+
+  !Zach says: The following lines should not be necessary, since [see the above 3 lines of comments]!
+  !zero out source terms if zero_out_matter_source_terms==1
+  if (zero_out_matter_source_terms .eq. 1) then
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              rho(i,j,k)=0.d0
+              Sx(i,j,k)=0.d0
+              Sy(i,j,k)=0.d0
+              Sz(i,j,k)=0.d0
+              Sxx(i,j,k)=0.d0 
+              Sxy(i,j,k)=0.d0
+              Sxz(i,j,k)=0.d0
+              Syy(i,j,k)=0.d0
+              Syz(i,j,k)=0.d0
+              Szz(i,j,k)=0.d0
+              S(i,j,k)=0.d0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  endif
+
+  ! Initialize the refbd array to 0
+  !$omp parallel do
+  do k=1,cctk_lsh(3)
+     do j=1,cctk_lsh(2)
+        do i=1,cctk_lsh(1)
+           refbd(i,j,k) = 0.d0
+        end do
+     end do
+  end do
+ !$omp end parallel do
+
+  !Following is needed for accurate ADM mass calculation, among other things, maybe.
+  call Derivs(ext,X,Y,Z,dX,dY,dZ,phi,phix,phiy,phiz,Symmetry)
+  call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,phi,phix,phiy,phiz)
+
+  psi = exp(phi)
+  chi = exp(chi_exponent*phi)
+  call fill_bssn_symmetry_gz_bssn_vars(ext,X,Y,Z,Symmetry,phi,chi,trK,Gammax,Gammay,Gammaz,gxx,gxy,gxz,gyy,gyz,gzz,Axx,Axy,Axz,Ayy,Ayz,Azz)
+  psi = exp(phi)
+  chi = exp(chi_exponent*phi)
+
+  write(*,*) "HI chi(5,5,5):",chi(5,5,5)
+
+  if(trA_detg_enforce.eq.2) then
+     call enforce_Aij_gij_constraints(cctkGH,ext,gxx,gxy,gxz,gyy,gyz,gzz, &
+          Axx,Axy,Axz,Ayy,Ayz,Azz,x,y,z)
+  end if
+
+  !Set all constraint gridfunctions to zero to avoid memory errors
+  PsiRes = 0.D0
+  PsiTau = 0.D0
+  PsiNorm = 0.D0
+
+  MRsx = 0.D0
+  MRsy = 0.D0
+  MRsz = 0.D0
+  MNorm = 0.D0  
+
+
+  !Following is needed to avoid memory errors when computing Hamiltonian & Momentum constraints at t=0
+  write(*,*) "COMPUTING RICCI IN BSSN_POSTINITIALDATA()!"
+
+  call BSSN_compute_gupij(cctkGH,cctk_lsh, &
+       gxx,gxy,gxz,gyy,gyz,gzz, &
+       gupxx,gupxy,gupxz,gupyy,gupyz,gupzz);
+  call BSSN_ricci_and_constraints(cctkGH,dT,dx,dy,dz, & 
+       cctk_nghostzones, cctk_lsh, &
+       gxx, gxy, gxz, gyy, gyz, gzz, &
+       gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+       Rxx, Rxy, Rxz, Ryy, Ryz, Rzz, &
+       trRtilde, &
+       Gammax, Gammay, Gammaz, &
+       gxxx, gxxy, gxxz, &
+       gxyx, gxyy, gxyz, &
+       gxzx, gxzy, gxzz, &
+       gyyx, gyyy, gyyz, &
+       gyzx, gyzy, gyzz, &
+       gzzx, gzzy, gzzz, &
+       Gammaxxx, Gammaxxy, Gammaxxz, Gammaxyy, Gammaxyz, Gammaxzz, &
+       Gammayxx, Gammayxy, Gammayxz, Gammayyy, Gammayyz, Gammayzz, &
+       Gammazxx, Gammazxy, Gammazxz, Gammazyy, Gammazyz, Gammazzz, &
+       Sx,Sy,Sz, &
+       Aupxx,Aupxy,Aupxz,Aupyy,Aupyz,Aupzz, & 
+       phi, trK, MRsx,MRsy,MRsz,MNorm, &
+       Axx,Axy,Axz,Ayy,Ayz,Azz, & 
+       psi, rho, PsiRes, PsiNorm,1)
+
+
+  if(enable_lower_order_at_boundaries==1) then
+     write(*,*) "Although enable_lower_order_at_boundaries==1 is supported, the code has been disabled, due to long compile times."
+     write(*,*) "You can re-enable this code by uncommenting all BSSN_ricci_and_constraints_{2,4} function calls and re-adding compute_riccinew_2ndorderbdry.C  compute_riccinew_4thorderbdry.C to make.code.defn inside the bssn/src directory."
+     stop
+
+  end if
+
+  call Derivs(ext,X,Y,Z,dX,dY,dZ,phi,phix,phiy,phiz,Symmetry)
+  call Derivs(ext,X,Y,Z,dX,dY,dZ,lapm1,lapsex,lapsey,lapsez,Symmetry)
+
+  call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,phi,phix,phiy,phiz)
+  call Derivs_interior(cctkGH,dx,dy,dz,cctk_nghostzones,cctk_lsh,Symmetry,lapm1,lapsex,lapsey,lapsez)
+
+  !Finally, compute K_ij's for apparent horizon finder:
+  Psi = exp(phi)
+  Kxx = Psi*Psi*Psi*Psi * (Axx + (1.D0/3.D0) * gxx * trK)
+  Kxy = Psi*Psi*Psi*Psi * (Axy + (1.D0/3.D0) * gxy * trK)
+  Kxz = Psi*Psi*Psi*Psi * (Axz + (1.D0/3.D0) * gxz * trK)
+  Kyy = Psi*Psi*Psi*Psi * (Ayy + (1.D0/3.D0) * gyy * trK)
+  Kyz = Psi*Psi*Psi*Psi * (Ayz + (1.D0/3.D0) * gyz * trK)
+  Kzz = Psi*Psi*Psi*Psi * (Azz + (1.D0/3.D0) * gzz * trK)
+
+  !====================================
+  ! FINALLY WE COPY TO PREV TIMELEVEL:
+  phi_p = phi 
+  chi_p = chi 
+
+  gxx_p = gxx
+  gyy_p = gyy
+  gzz_p = gzz
+  gxy_p = gxy
+  gxz_p = gxz
+  gyz_p = gyz
+
+  Gammax_p = Gammax
+  Gammay_p = Gammay
+  Gammaz_p = Gammaz
+
+  trK_p = trK
+  Axx_p = Axx
+  Axy_p = Axy
+  Axz_p = Axz
+  Ayy_p = Ayy
+  Ayz_p = Ayz
+  Azz_p = Azz
+
+  phi_p_p = phi 
+  chi_p_p = chi 
+
+  gxx_p_p = gxx
+  gyy_p_p = gyy
+  gzz_p_p = gzz
+  gxy_p_p = gxy
+  gxz_p_p = gxz
+  gyz_p_p = gyz
+
+  Gammax_p_p = Gammax
+  Gammay_p_p = Gammay
+  Gammaz_p_p = Gammaz
+
+  trK_p_p = trK
+  Axx_p_p = Axx
+  Axy_p_p = Axy
+  Axz_p_p = Axz
+  Ayy_p_p = Ayy
+  Ayz_p_p = Ayz
+  Azz_p_p = Azz
+  !====================================
+
+  ! The case bc_type==7 requires that we compute the ADM mass:
+  ! I.e., bc_type==7 imposes phi = M_ADM/2r + O(1/r^2) at the outer boundary
+
+  if(bc_type==7) then
+     ! First setup the integration surface parameters
+     radius_old  = surf_radius
+     rbr_old     = rbr
+     drbdr_old   = drbdr
+     ddrbddr_old = ddrbddr
+
+     call CCTK_ReductionHandle(handle,"maximum")
+     call CCTK_VarIndex(vindex,"grid::X")
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,xmax,1,vindex)
+     call CCTK_VarIndex(vindex,"grid::Y")
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,ymax,1,vindex)
+     call CCTK_VarIndex(vindex,"grid::Z")
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,zmax,1,vindex)
+     surf_radius = 0.9d0 * min( xmax,ymax,zmax )
+
+     if (fisheye_enable==1) then
+        pointcoords(1,1)=surf_radius
+        pointcoords(1,2)=0.d0
+        pointcoords(1,3)=0.d0
+
+        call CCTK_VarIndex(vindex,"fisheye::PhysicalRadius")     
+        call interp_driver_carp(cctkGH,1,pointcoords,vindex,int_val)
+        !     call interpolate_pointset(cctkGH,cctk_nghostzones,1,3,ext,cctk_gsh,dX,dY,dZ, &
+        !          Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,PhysicalRadius,int_val)
+        rbr = int_val(1)/surf_radius
+        call CCTK_VarIndex(vindex,"fisheye::RadiusDerivative")
+        call interp_driver_carp(cctkGH,1,pointcoords,vindex,int_val)
+        !     call interpolate_pointset(cctkGH,cctk_nghostzones,1,3,ext,cctk_gsh,dX,dY,dZ, &
+        !          Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,RadiusDerivative,int_val)
+        drbdr = int_val(1)
+        call CCTK_VarIndex(vindex,"fisheye::RadiusDerivative2")
+        call interp_driver_carp(cctkGH,1,pointcoords,vindex,int_val)
+        !     call interpolate_pointset(cctkGH,cctk_nghostzones,1,3,ext,cctk_gsh,dX,dY,dZ, &
+        !          Xlocal1d,Ylocal1d,Zlocal1d,Xglobal,Yglobal,Zglobal,pointcoords,RadiusDerivative2,int_val)
+        ddrbddr = int_val(1)
+     else
+        rbr = 1.d0
+        drbdr = 1.d0
+        ddrbddr = 0.d0
+     end if
+
+     ! Now compute the ADM mass
+     call M_surf_integral(cctkGH,adm_mass)
+
+     !Next we save these values for later use [in bssn_post_update_boundary()].
+     radius_adm = surf_radius
+     rbr_adm = rbr
+     drbdr_adm = drbdr
+     ddrbddr_adm = ddrbddr
+
+     surf_radius = radius_old
+     rbr        = rbr_old
+     drbdr      = drbdr_old
+     ddrbddr    = ddrbddr_old
+
+     !  call surf_Mass3_fisheye(cctkGH,ext,cctk_gsh,cctk_nghostzones,X,Y,Z,dX,dY,dZ,ntot, &
+     !             radius_adm,N_theta,N_phi,Xlocal1d,Ylocal1d,Zlocal1d, &
+     !             Xglobal,Yglobal,Zglobal,phi,gupxx,gupxy,gupxz,gupyy, &
+     !             gupyz,gupzz,phix,phiy,phiz,Gammax,Gammay,Gammaz,rbr_adm,drbdr_adm, &
+     !             ddrbddr_adm,adm_mass,sym_factor,dcostheta,dphi)
+
+     write(*,*) "Computed ADM Mass for this system:",adm_mass,rbr,drbdr,ddrbddr,N_theta,N_phi
+  end if
+
+  write(*,*) "INSIDE BSSN_PostInitialData: ", gupxx(3,3,3)
+
+end subroutine BSSN_PostInitialData

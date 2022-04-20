@@ -1,0 +1,5 @@
+# Configuration definitions for thorn CarpetSlab
+
+REQUIRES Carpet CarpetLib
+
+REQUIRES THORNS: Carpet CarpetLib

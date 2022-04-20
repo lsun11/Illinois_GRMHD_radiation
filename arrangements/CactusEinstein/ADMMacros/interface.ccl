@@ -1,0 +1,12 @@
+# Interface definition for thorn ADMMacros
+# $Header: /cactusdevcvs/CactusEinstein/ADMMacros/interface.ccl,v 1.6 2004/11/20 20:21:51 jthorn Exp $
+
+implements: ADMMacros
+
+USES INCLUDE: CalcTmunu_temps.inc
+USES INCLUDE: CalcTmunu.inc
+
+public:
+
+int local_spatial_order type=SCALAR \
+  "Can be set pointwise to change the finite differencing order"

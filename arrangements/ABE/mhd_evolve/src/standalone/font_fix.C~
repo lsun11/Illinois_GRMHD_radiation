@@ -1,0 +1,543 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <iostream>
+#include <sys/time.h>
+
+struct auxarray {
+  double rho_s,tau,gamma_th,BxL_f1o4pa,ByL_f1o4pa,BzL_f1o4pa;
+  double mhd_st_x,mhd_st_y,mhd_st_z,alpn1,B2;
+  double B_xl_f1o4pa,B_yl_f1o4pa,B_zl_f1o4pa;
+  double gupxx_phys,gupxy_phys,gupxz_phys,gupyy_phys,gupyz_phys,gupzz_phys;
+  double Psi6,Psi2;
+  //Note that we got rid of sti_scal_inv, which was in the old solver.
+};
+
+void newt2_cpp_newsolver(double x[],struct auxarray &aux,
+			 void (*function_hybrd)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			 void (*jacobian_hybrd)
+			 (int &n,double *x,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gmma_tab,double *fvec,int &np,double fjac[][5]),
+			 int &n,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,bool &check,
+			 int *indx,double *g,double *p,double *xold,double *fvec,int &MAXITS,double &STPMX);
+void compute_pcold_epscold_cpp_newsolver(double &rhob, double &P_cold, double &eps_cold, 
+					 int &neos, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse);
+void function_hybrd_font_fix_newsolver(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab);
+void jacobian_hybrd_font_fix_newsolver
+(int &n,double *x,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5]);
+double max_val_newsolver(double val1,double val2);
+double **dmatrix_newt_newsolver(long nrl, long nrh, long ncl, long nch);
+void free_dmatrix_newt_newsolver(double **m, long nrl, long nrh, long ncl, long nch);
+void ludcmp_newt_newsolver(double a[][5], int n, int *indx, double *d);
+void lubksb_newt_newsolver(double a[][5], int n, int *indx, double b[]);
+void lnsrch_newt_newsolver(int n, double xold[], double fold, double g[], double p[], double x[],
+			   double *f, double stpmax, bool &check, 
+			   double (*fmin)
+			   (double *x,struct auxarray &aux,double *fvec,
+			    void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			    int &n,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			   void (*nrfuncv)
+			   (int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			   struct auxarray &aux,double *fvec,
+			   int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab);
+double fmin_newt_newsolver(double *x,struct auxarray &aux,double *fvec,
+			   void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			   int &n,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab);
+
+double fasterpow_prim_newsolver(double inputvar,double inputpow);
+
+
+//-----------------------------------------------------------------------------
+//
+// reconstruct primitive variables, compute sources for "hybrid" EOS
+//
+//-----------------------------------------------------------------------------
+int font_fix(double *UU_font_fix,
+	     double &rho_starL,double &tauL,double &mhd_st_xL,double &mhd_st_yL,double &mhd_st_zL,
+	     double &gamma_th,double &BxL,double &ByL,double &BzL,
+	     double &alphaL,double &gxx_physL,double &gxy_physL,double &gxz_physL,double &gyy_physL,double &gyz_physL,double &gzz_physL,
+	     double &gupxx_physL,double &gupxy_physL,double &gupxz_physL,double &gupyy_physL,double &gupyz_physL,double &gupzz_physL,
+	     double &Psi2,double &Psi6,
+	     int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab)
+{
+  
+  double f1o4pa = 1.0/(4.0*M_PI*alphaL);
+
+  struct auxarray AUX;
+
+  AUX.rho_s = rho_starL;
+  AUX.tau = tauL;
+  AUX.gamma_th = gamma_th;
+  AUX.BxL_f1o4pa = BxL*f1o4pa;
+  AUX.ByL_f1o4pa = ByL*f1o4pa;
+  AUX.BzL_f1o4pa = BzL*f1o4pa;
+  AUX.B2 = gxx_physL*SQR(AUX.BxL_f1o4pa) +
+    2.0*gxy_physL*AUX.BxL_f1o4pa*AUX.ByL_f1o4pa + 2.0*gxz_physL*AUX.BxL_f1o4pa*AUX.BzL_f1o4pa +
+    gyy_physL*SQR(AUX.ByL_f1o4pa) + 2.0*gyz_physL*AUX.ByL_f1o4pa*AUX.BzL_f1o4pa +
+    gzz_physL*SQR(AUX.BzL_f1o4pa);
+
+  AUX.mhd_st_x = mhd_st_xL;
+  AUX.mhd_st_y = mhd_st_yL;
+  AUX.mhd_st_z = mhd_st_zL;
+  AUX.alpn1 = alphaL;
+
+  double B_xl  = gxx_physL * BxL + gxy_physL * ByL + gxz_physL * BzL;
+  double B_yl  = gxy_physL * BxL + gyy_physL * ByL + gyz_physL * BzL;
+  double B_zl  = gxz_physL * BxL + gyz_physL * ByL + gzz_physL * BzL;
+
+  AUX.B_xl_f1o4pa = B_xl*f1o4pa;
+  AUX.B_yl_f1o4pa = B_yl*f1o4pa;
+  AUX.B_zl_f1o4pa = B_zl*f1o4pa;
+  AUX.gupxx_phys = gupxx_physL;
+  AUX.gupxy_phys = gupxy_physL;
+  AUX.gupxz_phys = gupxz_physL;
+  AUX.gupyy_phys = gupyy_physL;
+  AUX.gupyz_phys = gupyz_physL;
+  AUX.gupzz_phys = gupzz_physL;
+  AUX.Psi2 = Psi2;
+  //Note: Psi6 = sqrtg !
+  AUX.Psi6 = Psi6;
+
+  //****************************************************************
+  //                          FONT FIX
+  // Impose Font fix when HARM primitives solver fails to find
+  //   acceptable set of primitives.
+  //****************************************************************
+
+  UU_font_fix[1] = 1.0;  //Initial guess.
+  UU_font_fix[2] = 1.0;
+  UU_font_fix[3] = 1.0;
+
+  int nn = 3; // We solve system of equations with 3 eqns, 3 unknowns
+
+  bool fontcheck=false;
+  //Set the max number of iterations & max number of steps for Newton-Raphson solver
+  int MAXITS_fontfix=500;
+  double STPMX_fontfix=200.0;
+
+  //Declare temporary arrays for Newton-Raphson solver.
+  int newt_indx[5];
+  double newt_g[5],newt_p[5],newt_xold[5],newt_fvec[5];
+  newt2_cpp_newsolver(UU_font_fix,AUX,function_hybrd_font_fix_newsolver,jacobian_hybrd_font_fix_newsolver,nn,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,fontcheck,
+		      newt_indx,newt_g,newt_p,newt_xold,newt_fvec,MAXITS_fontfix,STPMX_fontfix);
+  while(fontcheck) {
+    fontcheck = false;
+    newt2_cpp_newsolver(UU_font_fix,AUX,function_hybrd_font_fix_newsolver,jacobian_hybrd_font_fix_newsolver,nn,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,fontcheck,
+			newt_indx,newt_g,newt_p,newt_xold,newt_fvec,MAXITS_fontfix,STPMX_fontfix);
+    MAXITS_fontfix*=10;  // <-- Try even harder!  Don't give up!
+    if(MAXITS_fontfix>=500.0*1e5) break;
+  }
+  //************************************************************************************************************** 
+
+  if(fontcheck==true) return 1;
+
+  return 0;
+}
+
+void compute_pcold_epscold_cpp_newsolver(double &rhob, double &P_cold, double &eps_cold, 
+					 int &neos, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab) {
+  
+  bool exit_do;
+  int i = 0;
+  exit_do = 0;
+  while(exit_do==0) {
+    if (rhob <= rho_tab[i]) {
+      exit_do = 1;
+      P_cold = k_tab[i]*fasterpow_prim_newsolver(rhob,gamma_tab[i]);
+      if (i==0) {
+	if (rhob != 0.0) {
+	  eps_cold = P_cold/rhob/(gamma_tab[i]-1.0);
+	} else {
+	  eps_cold = 0.0;
+	}
+      } else {
+	eps_cold = eps_tab[i-1] + (P_cold/rhob - P_tab[i-1]/rho_tab[i-1])/(gamma_tab[i]-1.0);
+      }
+    }
+    if (i==neos-1) exit_do=1;
+    i++;
+  }
+  if (rhob > rho_tab[neos-1]) {
+    P_cold = k_tab[neos]*fasterpow_prim_newsolver(rhob,gamma_tab[neos]);
+    eps_cold = eps_tab[neos-1] + (P_cold/rhob - P_tab[neos-1]/rho_tab[neos-1])/(gamma_tab[neos]-1.0);
+  }
+}
+
+double max_val_newsolver(double val1, double val2) {
+  if(val1>val2) return val1;
+  return val2;
+}
+
+#define NP 5
+#define TOLF 1.0e-8
+#define TOLMIN 1.0e-12
+#define TOLX 3.0e-16
+#define FREERETURN {return;}
+
+void newt2_cpp_newsolver(double x[],struct auxarray &aux,
+			 void (*funcv1)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			 void (*fdjac1)
+			 (int &n,double *x,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gmma_tab,double *fvec,int &np,double fjac[][5]),
+			 int &n,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,bool &check,
+			 int *indx,double *g,double *p,double *xold,double *fvec,int &MAXITS,double &STPMX)
+{
+  void lubksb_newt_newsolver(double a[][5], int n, int *indx, double b[]);
+  void ludcmp_newt_newsolver(double a[][5], int n, int *indx, double *d);
+  int i,its,j;
+  double d,den,f,fold,stpmax,sum,temp,test,fjac[5][5];
+
+  f=fmin_newt_newsolver(x,aux,fvec,funcv1,n,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab);
+
+  test=0.0;
+  for (i=1;i<=n;i++)
+    if (fabs(fvec[i]) > test) test=fabs(fvec[i]);
+  if (test < 0.01*TOLF) {
+    check=0;
+    FREERETURN
+      }
+  for (sum=0.0,i=1;i<=n;i++) sum += SQR(x[i]);
+  stpmax=STPMX*max_val_newsolver(sqrt(sum),(double)n);
+  for (its=1;its<=MAXITS;its++) {
+    int np=NP;
+    fdjac1(n,x,aux,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,fvec,np,fjac);
+    for (i=1;i<=n;i++) {
+      for (sum=0.0,j=1;j<=n;j++) sum += fjac[j][i]*fvec[j];
+      g[i]=sum;
+    }
+    for (i=1;i<=n;i++) xold[i]=x[i];
+    fold=f;
+    for (i=1;i<=n;i++) p[i] = -fvec[i];
+    ludcmp_newt_newsolver(fjac,n,indx,&d);
+    lubksb_newt_newsolver(fjac,n,indx,p);
+    lnsrch_newt_newsolver(n,xold,fold,g,p,x,&f,stpmax,check,fmin_newt_newsolver,funcv1,aux,fvec,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab);
+    test=0.0;
+    for (i=1;i<=n;i++)
+      if (fabs(fvec[i]) > test) test=fabs(fvec[i]);
+    if (test < TOLF) {
+      check=0;
+      FREERETURN
+	}
+    if (check) {
+      test=0.0;
+      den=max_val_newsolver(f,0.5*n);
+      for (i=1;i<=n;i++) {
+	temp=fabs(g[i])*max_val_newsolver(fabs(x[i]),1.0)/den;
+	if (temp > test) test=temp;
+      }
+      check=(test < TOLMIN ? 1 : 0);
+      if(check!=0) printf("BAD CHECK %d: %e\t%e\n",check,test,TOLMIN);
+      FREERETURN
+	}
+    test=0.0;
+    for (i=1;i<=n;i++) {
+      temp=(fabs(x[i]-xold[i]))/max_val_newsolver(fabs(x[i]),1.0);
+      if (temp > test) test=temp;
+    }
+    if (test < TOLX) FREERETURN
+		       }
+  check=1;
+}
+
+double fmin_newt_newsolver(double *x,struct auxarray &aux,double *fvec,
+			   void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			   int &n,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab)
+{
+  int i;
+  double sum;
+
+  (*nrfuncv)(n,x,fvec,aux,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab);
+  for (sum=0.0,i=1;i<=n;i++) sum += SQR(fvec[i]);
+  return 0.5*sum;
+}
+#define ALF 1.0e-4
+#define TOLX 3.0e-16
+
+void lnsrch_newt_newsolver(int n, double xold[], double fold, double g[], double p[], double x[],
+			   double *f, double stpmax, bool &check, 
+			   double (*fmin)
+			   (double *x,struct auxarray &aux,double *fvec,
+			    void (*nrfuncv)(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			    int &n,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			   void (*nrfuncv)
+			   (int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab),
+			   struct auxarray &aux,double *fvec,
+			   int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab)	    
+{
+  int i;
+  double a,alam,alam2,alamin,b,disc,f2,rhs1,rhs2,slope,sum,temp,
+    test,tmplam;
+
+  check=0;
+  for (sum=0.0,i=1;i<=n;i++) sum += p[i]*p[i];
+  sum=sqrt(sum);
+  if (sum > stpmax)
+    for (i=1;i<=n;i++) p[i] *= stpmax/sum;
+  for (slope=0.0,i=1;i<=n;i++)
+    slope += g[i]*p[i];
+  if (slope >= 0.0) printf("OUCH!  Roundoff problem in lnsrch.  Note that this function has been updated to correct a bug in Numerical Recipes 2.06.  This is version 2.08, with the 2.06->2.08 diff obtained from http://www.numerical-recipes.com/upgrade/upgrade-208.html\n");
+  test=0.0;
+  for (i=1;i<=n;i++) {
+    temp=fabs(p[i])/max_val_newsolver(fabs(xold[i]),1.0);
+    if (temp > test) test=temp;
+  }
+  alamin=TOLX/test;
+  alam=1.0;
+  for (;;) {
+    for (i=1;i<=n;i++) x[i]=xold[i]+alam*p[i];
+    *f=(*fmin)(x,aux,fvec,nrfuncv,n,neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab);
+    if (alam < alamin) {
+      for (i=1;i<=n;i++) x[i]=xold[i];
+      check=1;
+      return;
+    } else if (*f <= fold+ALF*alam*slope) return;
+    else {
+      if (alam == 1.0)
+        tmplam = -slope/(2.0*(*f-fold-slope));
+      else {
+        rhs1 = *f-fold-alam*slope;
+        rhs2=f2-fold-alam2*slope;
+        a=(rhs1/(alam*alam)-rhs2/(alam2*alam2))/(alam-alam2);
+        b=(-alam2*rhs1/(alam*alam)+alam*rhs2/(alam2*alam2))/(alam-alam2);
+        if (a == 0.0) tmplam = -slope/(2.0*b);
+        else {
+          disc=b*b-3.0*a*slope;
+          if (disc < 0.0) tmplam=0.5*alam;
+          else if (b <= 0.0) tmplam=(-b+sqrt(disc))/(3.0*a);
+          else tmplam=-slope/(b+sqrt(disc));
+	}
+        if (tmplam > 0.5*alam)
+          tmplam=0.5*alam;
+      }
+    }
+    alam2=alam;
+    f2 = *f;
+    alam=max_val_newsolver(tmplam,0.1*alam);
+    //    alam=FMAX(tmplam,0.1*alam);
+  }
+
+}
+#undef ALF
+#undef TOLX
+
+void lubksb_newt_newsolver(double a[][5], int n, int *indx, double b[])
+{
+  int i,ii=0,ip,j;
+  double sum;
+
+  for (i=1;i<=n;i++) {
+    ip=indx[i];
+    sum=b[ip];
+    b[ip]=b[i];
+    if (ii)
+      for (j=ii;j<=i-1;j++) sum -= a[i][j]*b[j];
+    else if (sum) ii=i;
+    b[i]=sum;
+  }
+  for (i=n;i>=1;i--) {
+    sum=b[i];
+    for (j=i+1;j<=n;j++) sum -= a[i][j]*b[j];
+    b[i]=sum/a[i][i];
+  }
+}
+
+#define TINY 1.0e-20;
+void ludcmp_newt_newsolver(double a[][5], int n, int *indx, double *d)
+{
+  int i,imax,j,k;
+  double big,dum,sum,temp;
+  double vv[5];
+
+  *d=1.0;
+  for (i=1;i<=n;i++) {
+    big=0.0;
+    for (j=1;j<=n;j++)
+      if ((temp=fabs(a[i][j])) > big) big=temp;
+    if (big == 0.0) {
+	for(int www=0;www<10000;www++) {
+        printf("Singular matrix in routine ludcmp_newt\n"); 
+        for (j=1;j<=n;j++) printf("i, j, a[i][j]: %d %d %e\n",i,j,a[i][j]);
+	}
+        exit(1);
+    }
+    vv[i]=1.0/big;
+  }
+  for (j=1;j<=n;j++) {
+    for (i=1;i<j;i++) {
+      sum=a[i][j];
+      for (k=1;k<i;k++) sum -= a[i][k]*a[k][j];
+      a[i][j]=sum;
+    }
+    big=0.0;
+    for (i=j;i<=n;i++) {
+      sum=a[i][j];
+      for (k=1;k<j;k++)
+	sum -= a[i][k]*a[k][j];
+      a[i][j]=sum;
+      if ( (dum=vv[i]*fabs(sum)) >= big) {
+	big=dum;
+	imax=i;
+      }
+    }
+    if (j != imax) {
+      for (k=1;k<=n;k++) {
+	dum=a[imax][k];
+	a[imax][k]=a[j][k];
+	a[j][k]=dum;
+      }
+      *d = -(*d);
+      vv[imax]=vv[j];
+    }
+    indx[j]=imax;
+    if (a[j][j] == 0.0) a[j][j]=TINY;
+    if (j != n) {
+      dum=1.0/(a[j][j]);
+      for (i=j+1;i<=n;i++) a[i][j] *= dum;
+    }
+  }
+}
+#undef TINY
+
+void function_hybrd_font_fix_newsolver(int &n,double *x,double *fvec,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab) {
+  //
+  double u_x    = x[1]*(SQR(x[1]) + 1.0)*aux.Psi2;
+  double u_y    = x[2]*(SQR(x[2]) + 1.0)*aux.Psi2;
+  double u_z    = x[3]*(SQR(x[3]) + 1.0)*aux.Psi2;
+
+  double gijuiuj = aux.gupxx_phys*SQR(u_x) + 2.0*aux.gupxy_phys*u_x*u_y + 
+    2.0*aux.gupxz_phys*u_x*u_z + aux.gupyy_phys*SQR(u_y) + 2.0*aux.gupyz_phys*u_y*u_z + 
+    aux.gupzz_phys*SQR(u_z);
+  double au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+  if (aux.rho_s < 0.0) au0m1 = gijuiuj/( 1.0-sqrt(1.0+gijuiuj) );
+  double u0 = (au0m1+1.0)/aux.alpn1;
+  double u0_inv = aux.alpn1/(au0m1+1.0);
+  double rhob = aux.rho_s/(aux.alpn1*aux.Psi6*u0);
+  double P_cold,eps_cold; //Below we set P=P_cold
+  compute_pcold_epscold_cpp_newsolver(rhob, P_cold, eps_cold, neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab);
+  
+  double h     = 1.0 + P_cold/rhob + eps_cold;
+  double sb0 = u_x*aux.BxL_f1o4pa + u_y*aux.ByL_f1o4pa + u_z*aux.BzL_f1o4pa;
+  double sb2 = (aux.B2 + SQR(sb0))*SQR(u0_inv);
+  double sb_x = (aux.B_xl_f1o4pa + u_x*sb0)*u0_inv;
+  double sb_y = (aux.B_yl_f1o4pa + u_y*sb0)*u0_inv;
+  double sb_z = (aux.B_zl_f1o4pa + u_z*sb0)*u0_inv;
+  //
+  // fvec[1]: Eq. for mhd_st_x; fvec[2]: Eq. for mhd_st_y; fvec[3]: Eq. for mhd_st_z; 
+  //
+  fvec[1] = (aux.rho_s*h*u_x + aux.alpn1*aux.Psi6*u0*sb2*u_x - aux.alpn1*aux.Psi6*sb0*sb_x - aux.mhd_st_x);
+  fvec[2] = (aux.rho_s*h*u_y + aux.alpn1*aux.Psi6*u0*sb2*u_y - aux.alpn1*aux.Psi6*sb0*sb_y - aux.mhd_st_y);
+  fvec[3] = (aux.rho_s*h*u_z + aux.alpn1*aux.Psi6*u0*sb2*u_z - aux.alpn1*aux.Psi6*sb0*sb_z - aux.mhd_st_z);
+}
+
+void jacobian_hybrd_font_fix_newsolver
+(int &n,double *x,struct auxarray &aux,int &neos,double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,double *fvec,int &np,double fjac[][5]) {
+  //
+  double u_x    = x[1]*(SQR(x[1]) + 1.0)*aux.Psi2;
+  double u_y    = x[2]*(SQR(x[2]) + 1.0)*aux.Psi2;
+  double u_z    = x[3]*(SQR(x[3]) + 1.0)*aux.Psi2;
+  double fac[4];
+  fac[1] = (3.0*SQR(x[1]) + 1.0)*aux.Psi2;
+  fac[2] = (3.0*SQR(x[2]) + 1.0)*aux.Psi2;
+  fac[3] = (3.0*SQR(x[3]) + 1.0)*aux.Psi2;
+
+  double gijuiuj = aux.gupxx_phys*SQR(u_x) + 2.0*aux.gupxy_phys*u_x*u_y + 
+    2.0*aux.gupxz_phys*u_x*u_z + aux.gupyy_phys*SQR(u_y) + 2.0*aux.gupyz_phys*u_y*u_z + 
+    aux.gupzz_phys*SQR(u_z);
+  double au0m1 = gijuiuj/( 1.0+sqrt(1.0+gijuiuj) );
+  if (aux.rho_s < 0.0) au0m1 = gijuiuj/( 1.0-sqrt(1.0+gijuiuj) );
+  double u0 = (au0m1+1.0)/aux.alpn1;
+  double u0_inv = aux.alpn1/(au0m1+1.0);
+  double rhob = aux.rho_s/(aux.alpn1*aux.Psi6*u0);
+  double rhob_inv = (aux.alpn1*aux.Psi6*u0)/aux.rho_s;
+
+  int i = 0;
+  bool exit_do = false;
+  double P_cold,dPcold_drho,depscold_drho,eps_cold;
+  while(i<neos) {
+    if (rhob <= rho_tab[i])  {
+      exit_do = true;
+      P_cold = k_tab[i]*fasterpow_prim_newsolver(rhob,gamma_tab[i]);
+      dPcold_drho = gamma_tab[i]*P_cold*rhob_inv;
+      depscold_drho = P_cold*SQR(rhob_inv);
+      if (i==0)  {
+	eps_cold = P_cold*rhob_inv/(gamma_tab[i]-1.0);
+      } else {
+	eps_cold = eps_tab[i-1] +  
+	  (P_cold*rhob_inv - P_tab[i-1]/rho_tab[i-1])/(gamma_tab[i]-1.0);
+      }
+    }
+    i++;
+    if(exit_do==true) i=neos+10;
+  }
+  if (rhob > rho_tab[neos-1])  {
+    P_cold = k_tab[neos]*fasterpow_prim_newsolver(rhob,gamma_tab[neos]);
+    eps_cold = eps_tab[neos-1] + (P_cold*rhob_inv - P_tab[neos-1]/rho_tab[neos-1])/(gamma_tab[neos]-1.0);
+    //Bug in the following line: 
+    //(gives incorrect values of the jacobian during the primitive inversion at density higher than rho_tab[neos-1], causinga spurious Font fix and even spurious Font fix failure)
+    //eps_cold = eps_tab[neos-1] + (P_cold*rhob_inv - P_tab[neos-1]/rho_tab[neos-1]);
+    dPcold_drho = gamma_tab[neos]*P_cold*rhob_inv;
+    depscold_drho = P_cold*SQR(rhob_inv);
+  }
+
+  double h = 1.0 + P_cold*rhob_inv + eps_cold;
+  double sb0 = u_x*aux.BxL_f1o4pa + u_y*aux.ByL_f1o4pa + u_z*aux.BzL_f1o4pa;
+  double sb2 = (aux.B2 + SQR(sb0))*SQR(u0_inv);
+  double sb_x = (aux.B_xl_f1o4pa + u_x*sb0)*u0_inv;
+  double sb_y = (aux.B_yl_f1o4pa + u_y*sb0)*u0_inv;
+  double sb_z = (aux.B_zl_f1o4pa + u_z*sb0)*u0_inv;
+
+  double du0dux = (aux.gupxx_phys*u_x + aux.gupxy_phys*u_y + aux.gupxz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double du0duy = (aux.gupxy_phys*u_x + aux.gupyy_phys*u_y + aux.gupyz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double du0duz = (aux.gupxz_phys*u_x + aux.gupyz_phys*u_y + aux.gupzz_phys*u_z)*u0_inv/SQR(aux.alpn1);
+  double db2dux = 2.0*sb0*aux.BxL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0dux;
+  double db2duy = 2.0*sb0*aux.ByL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0duy;
+  double db2duz = 2.0*sb0*aux.BzL_f1o4pa*SQR(u0_inv) - 2.0*sb2*u0_inv*du0duz;
+  double temp = -rhob*u0_inv*dPcold_drho;
+  double dpdux = temp*du0dux;
+  double dpduy = temp*du0duy;
+  double dpduz = temp*du0duz;
+  temp = P_cold*rhob_inv*u0_inv - depscold_drho*rhob*u0_inv;
+  double dhdux = temp*du0dux + dpdux*rhob_inv;
+  double dhduy = temp*du0duy + dpduy*rhob_inv;
+  double dhduz = temp*du0duz + dpduz*rhob_inv;
+  double dbxdux = (sb0+u_x*aux.BxL_f1o4pa)*u0_inv - sb_x*u0_inv*du0dux;
+  double dbxduy = u_x*aux.ByL_f1o4pa*u0_inv - sb_x*u0_inv*du0duy;
+  double dbxduz = u_x*aux.BzL_f1o4pa*u0_inv - sb_x*u0_inv*du0duz;
+  double dbydux = u_y*aux.BxL_f1o4pa*u0_inv - sb_y*u0_inv*du0dux;
+  double dbyduy = (sb0+u_y*aux.ByL_f1o4pa)*u0_inv - sb_y*u0_inv*du0duy;
+  double dbyduz = u_y*aux.BzL_f1o4pa*u0_inv - sb_y*u0_inv*du0duz;
+  double dbzdux = u_z*aux.BxL_f1o4pa*u0_inv - sb_z*u0_inv*du0dux;
+  double dbzduy = u_z*aux.ByL_f1o4pa*u0_inv - sb_z*u0_inv*du0duy;
+  double dbzduz = (sb0+u_z*aux.BzL_f1o4pa)*u0_inv - sb_z*u0_inv*du0duz;
+  //
+  // f(1) = mhd_st_x; f(2) = mhd_st_y; f(3) = mhd_st_z; 
+  // u_i= Psi^2 [ x(i)^3 + x(i) ]
+  // fjac[i,j) = partial f(i) / partial x(j) 
+  //
+  double c = aux.rho_s*h + aux.alpn1*aux.Psi6*u0*sb2;
+    
+  fjac[1][1] = ( c + aux.alpn1*aux.Psi6*( u_x*(u0*db2dux + sb2*du0dux) 
+					  - (aux.BxL_f1o4pa*sb_x + sb0*dbxdux) ) + aux.rho_s*u_x*dhdux ) * fac[1];
+  fjac[1][2] = ( aux.alpn1*aux.Psi6*( u_x*(u0*db2duy+sb2*du0duy)  
+				      - (aux.ByL_f1o4pa*sb_x + sb0*dbxduy) ) + aux.rho_s*u_x*dhduy ) * fac[2];
+  fjac[1][3] = ( aux.alpn1*aux.Psi6*( u_x*(u0*db2duz+sb2*du0duz)  
+				      - (aux.BzL_f1o4pa*sb_x + sb0*dbxduz) ) + aux.rho_s*u_x*dhduz ) * fac[3];
+
+  fjac[2][1] = ( aux.alpn1*aux.Psi6*( u_y*(u0*db2dux+sb2*du0dux)  
+				      - (aux.BxL_f1o4pa*sb_y + sb0*dbydux) ) + aux.rho_s*u_y*dhdux ) * fac[1];
+  fjac[2][2] = ( c + aux.alpn1*aux.Psi6*( u_y*(u0*db2duy+sb2*du0duy)  
+					  - (aux.ByL_f1o4pa*sb_y + sb0*dbyduy) ) + aux.rho_s*u_y*dhduy ) * fac[2];
+  fjac[2][3] = ( aux.alpn1*aux.Psi6*( u_y*(u0*db2duz+sb2*du0duz)  
+				      - (aux.BzL_f1o4pa*sb_y + sb0*dbyduz) ) + aux.rho_s*u_y*dhduz ) * fac[3];
+
+  fjac[3][1] = ( aux.alpn1*aux.Psi6*( u_z*(u0*db2dux+sb2*du0dux)  
+				      - (aux.BxL_f1o4pa*sb_z + sb0*dbzdux) ) + aux.rho_s*u_z*dhdux ) * fac[1];
+  fjac[3][2] = ( aux.alpn1*aux.Psi6*( u_z*(u0*db2duy+sb2*du0duy)  
+				      - (aux.ByL_f1o4pa*sb_z + sb0*dbzduy) ) + aux.rho_s*u_z*dhduy ) * fac[2];
+  fjac[3][3] = ( c + aux.alpn1*aux.Psi6*( u_z*(u0*db2duz+sb2*du0duz)  
+					  - (aux.BzL_f1o4pa*sb_z + sb0*dbzduz) ) + aux.rho_s*u_z*dhduz ) * fac[3];
+
+}
+
+double fasterpow_prim_newsolver(double inputvar,double inputpow) {
+  if(inputpow==2.0) return SQR(inputvar);
+  return pow(inputvar,inputpow);
+}

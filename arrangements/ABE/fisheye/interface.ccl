@@ -1,0 +1,17 @@
+# Interface definition for thorn fisheye
+# $Header:$
+
+implements: fisheye
+
+inherits: grid
+
+friend: bssn
+
+USES INCLUDE: Symmetry.h
+
+protected:
+
+cctk_real fisheye_vars type = GF
+{
+  PhysicalRadius,RadiusDerivative,RadiusDerivative2
+}

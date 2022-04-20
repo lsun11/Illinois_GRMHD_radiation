@@ -1,0 +1,167 @@
+# Schedule definitions for thorn bssn
+
+STORAGE: BSSN_vars[3], BSSN_rhs, have_global_bdry
+STORAGE: BSSN_diag_restrict, BSSN_gupij, BSSN_matter, BSSN_aux_restrict2, phi_derivs, BSSN_aux_private,BSSN_adm_mass,BSSN_AH
+STORAGE: BSSN_refbd[3]
+STORAGE: lapse::lapse_vars[3], lapse::lapse_derivatives, lapse::lapse_vars_aux
+STORAGE: shift::shift_vars[3], shift::shift_vars_temp
+STORAGE: fisheye::fisheye_vars, excision::excision_int_gfs
+STORAGE: metric_spher_pol_1,metric_spher_pol_2,metric_spher_pol_3
+
+schedule BSSN_Startup at CCTK_STARTUP
+{
+  LANG:	C
+} "Print a banner onscreen indicating that bssn thorn is active"
+
+# Checks that you've set all the bssn parameters properly.  If not, will abort program.
+schedule BSSN_CheckParameters at CCTK_PARAMCHECK
+{
+  LANG:	C
+} "Check parameters"
+
+schedule BSSN_RegisterVars in MoL_Register
+{
+  LANG:	C
+  OPTIONS:	META
+} "Register variables for MoL"
+
+schedule BSSN_InitSymBound at BASEGRID
+{
+  LANG:	C
+} "Schedule symmetries"
+# Tells the symmetry thorn what type of symmetry to use
+
+schedule bssn_set_have_global_bdry_minmax in CCTK_POSTINITIAL
+{
+  LANG:	FORTRAN
+} "Set have_global_bdry_max/min (used for update_boundary)"
+
+schedule bssn_set_have_global_bdry_minmax in CCTK_POST_RECOVER_VARIABLES
+{
+  LANG:	FORTRAN
+} "Set have_global_bdry_max/min (used for update_boundary) when restarting from checkpoint, since have_global_bdry_max/min is different on each processor, and checkpoint will only save proc. zero!"
+
+schedule GROUP ABE_PostInitial at CCTK_POSTPOSTINITIAL before MoL_PostStep
+{
+} "ABE Post-initial data routines"
+
+schedule BSSN_PostInitialData in ABE_PostInitial after shift_initialdata as postid 
+{
+  LANG:	FORTRAN
+  OPTIONS: GLOBAL,loop-local
+} "Compute post-initialdata quantities"
+
+#  SYNC: lapse_derivatives
+
+schedule print_time in MoL_PreStep
+{
+  LANG:	FORTRAN
+} "Print the iteration number and time."
+
+#IMPORTANT NOTES:
+#1) bssn_enable=0 shuts off bssn only.
+#2) cowling_enable=1 shuts off bssn+lapse+shift.
+if(cowling_enable == 1 || bssn_enable == 0) {
+	schedule BSSN_timestepping_Cowling in MoL_CalcRHS as bssn_rhs
+	{
+	  LANG:	FORTRAN
+	} "Set BSSN rhs's to zero for Cowling"
+}
+else {
+	schedule BSSN_timestepping in MoL_CalcRHS as bssn_rhs
+	{
+	  LANG:	FORTRAN
+#	  SYNC:	BSSN_vars
+	} "Set BSSN rhs's"
+}
+
+#schedule GROUP ABE_PostStep in MoL_PostStep before MoL_ResetDeltaTime
+schedule GROUP ABE_PostStep in MoL_Step after MoL_PostStep before MoL_ResetDeltaTime
+{
+} "ABE post-step (i.e., after gridfunction update)"
+
+if(cowling_enable == 0) {
+  schedule driver_bssn_update_boundary in ABE_PostStep as bssn_update_bc
+  {
+    SYNC:	BSSN_vars
+    SYNC:       BSSN_refbd[3]
+    LANG:	FORTRAN
+  } "Update outer boundary."
+  schedule driver_ricci_constraints in ABE_PostStep as bssn_ricci_const after bssn_update_bc
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:	phi_derivs
+    LANG:	FORTRAN
+  } "Compute Ricci, constraints."
+  schedule driver_bssn_post_regrid in CCTK_POSTREGRIDINITIAL as bssn_postregrid after fish_postregrid_update0
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:	phi_derivs,BSSN_diag_restrict, BSSN_gupij,BSSN_vars, BSSN_matter, BSSN_aux_restrict2,BSSN_aux_private,BSSN_AH
+    SYNC:       BSSN_refbd[3]
+#    SYNC:	BSSN_vars
+    OPTIONS:	LEVEL,LOOP-LOCAL
+    LANG:	FORTRAN
+  } "postregridinitial: Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+  schedule driver_bssn_post_regrid in CCTK_POSTRESTRICTINITIAL as bssn_postregrid after fish_postregrid_update0
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:	phi_derivs,BSSN_diag_restrict, BSSN_gupij,BSSN_vars, BSSN_matter, BSSN_aux_restrict2,BSSN_aux_private,BSSN_AH
+    SYNC:       BSSN_refbd[3]
+#    SYNC:	BSSN_vars
+    OPTIONS:	LEVEL,LOOP-LOCAL
+    LANG:	FORTRAN
+  } "postrestrictinitial:  Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+  schedule driver_bssn_post_regrid in CCTK_POSTRESTRICT as bssn_postregrid after fish_postregrid_update0
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:	phi_derivs,BSSN_diag_restrict, BSSN_gupij,BSSN_vars, BSSN_matter, BSSN_aux_restrict2,BSSN_aux_private,BSSN_AH
+    SYNC:       BSSN_refbd[3]
+#    SYNC:	BSSN_vars
+    OPTIONS:	LEVEL,LOOP-LOCAL
+    LANG:	FORTRAN
+  } "Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+  schedule driver_bssn_post_regrid in CCTK_POSTREGRID as bssn_postregrid after fish_postregrid_update
+  {
+    # NOTE: need to sync phi_derivs before ADM mass calculation
+    SYNC:	phi_derivs,BSSN_diag_restrict, BSSN_gupij,BSSN_vars, BSSN_matter, BSSN_aux_restrict2,BSSN_aux_private,BSSN_AH
+    SYNC:       BSSN_refbd[3]
+#    SYNC:	BSSN_vars
+    OPTIONS:	LEVEL,LOOP-LOCAL
+#    OPTIONS:	GLOBAL,LOOP-LOCAL
+    LANG:	FORTRAN
+  } "Set auxiliary BSSN quantities over all grids after Carpet moves any grid."
+} else if (rot_metric==1) {
+   schedule set_metric_rotation in ABE_PostStep as metric_rotation
+  {
+    LANG:       FORTRAN
+#    SYNC:         BSSN::BSSN_vars[3]
+  } "rotate the metric analytically"
+#  schedule driver_ricci_constraints in ABE_PostStep as bssn_ricci_const after metric_rotation
+#  {
+#    # NOTE: need to sync phi_derivs before ADM mass calculation
+#   SYNC:       phi_derivs
+#    LANG:       FORTRAN
+#  } "Compute Ricci, constraints."      
+} else if (cowling_enable==1) {
+   schedule cowling_poststep in ABE_PostStep as cowling_poststep
+  {
+    LANG:       FORTRAN
+    SYNC:       BSSN::BSSN_refbd[3]
+  } "May need this to do prolongation for BSSN_refbd"
+}
+
+
+schedule driver_post_update_boundary in ABE_PostStep as bssn_post_bc after bssn_ricci_const
+{
+  LANG:	FORTRAN
+} "Post bc update: If bc_type==7, compute ADM mass."
+
+schedule BSSN_Gauge_Derivs as gaugederivs in ABE_PostStep after shift_update_bc after lapse_update_bc
+{
+  LANG:	FORTRAN
+} "Compute time derivative of lapse and shift (might change it later)"
+
+schedule increment_iter_count in ABE_PostStep as iter_count_update after bssn_update_bc after gaugederivs
+{
+  LANG:	FORTRAN
+} "Increment iter_count, which gives the current MoL step"

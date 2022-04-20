@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn gw_extraction
+# $Header:$
+
+# Source files in this directory
+SRCS = nrutil_gw_extraction.F90 x_axis_waves.F90 gw_functions.F90 gw_extraction.F90 setup_gw_extraction.F90
+
+# Subdirectories containing source files
+SUBDIRS = PsiKadelia

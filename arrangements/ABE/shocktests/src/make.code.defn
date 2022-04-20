@@ -1,0 +1,11 @@
+# Main make.code.defn file for thorn shocktests
+
+# Source files in this directory
+SRCS =  initialdata_local.F90 initialdata_global.F90 \
+	diagnostics.F90 \
+	rieman_analytic_shock.F90 zbrac.f zbrent.f \
+	vol_integrand-shock_error.F90 Integrate_vol_integrand.F90 \
+	vol_integrand1d-rest_mass.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

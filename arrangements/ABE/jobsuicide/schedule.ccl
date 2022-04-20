@@ -1,0 +1,22 @@
+# Schedule definitions for thorn jobsuicide
+# $Header: $
+STORAGE:       jobsuicide::timescalar
+
+schedule Setup_JobSuicide at CCTK_RECOVER_VARIABLES
+{
+  STORAGE:       jobsuicide::timescalar
+  LANG:          C
+} "Startup JobSuicide: Kill this job if another job that will evolve further has already started"
+
+schedule Setup_JobSuicide at CCTK_INITIAL
+{
+  STORAGE:       jobsuicide::timescalar
+  LANG:          C
+} "Startup JobSuicide: Kill this job if another job that will evolve further has already started"
+
+
+schedule JobSuicideCheck at CCTK_POSTSTEP
+{
+  STORAGE:       jobsuicide::timescalar
+  LANG:          C
+} "JobSuicide periodic check: Kill this job if another job that will evolve further has already started"

@@ -1,0 +1,156 @@
+subroutine reset_u0(cctk_lsh,phi,lapm1,shiftx,shifty,shiftz,gxx,gxy,gxz,gyy,gyz,gzz,vx,vy,vz,u0,X,Y,Z)
+   
+   implicit none
+   integer, dimension(3)                    :: cctk_lsh
+   integer                                  :: i,j,k
+   real*8,dimension(cctk_lsh(1),cctk_lsh(2),cctk_lsh(3))      :: phi,lapm1
+   real*8,dimension(cctk_lsh(1),cctk_lsh(2),cctk_lsh(3))      :: shiftx,shifty,shiftz
+   real*8,dimension(cctk_lsh(1),cctk_lsh(2),cctk_lsh(3))      :: vx,vy,vz,u0,X,Y,Z
+   real*8,dimension(cctk_lsh(1),cctk_lsh(2),cctk_lsh(3))      :: gxx,gxy,gxz,gyy,gyz,gzz
+   real*8                                    :: gxx_physL,gxy_physL,gxz_physL
+   real*8                                    :: gyy_physL,gyz_physL,gzz_physL
+   real*8                                    :: alpha,alpha_inv,alp_u02,u02        
+   real*8                                    :: Psi4,v2,max,A
+
+
+   do k=1,cctk_lsh(3)
+      do j=1,cctk_lsh(2)
+         do i=1,cctk_lsh(1)
+
+            alpha     =  lapm1(i,j,k) + 1.0d0
+            alpha_inv =  1.0/alpha 
+            
+            Psi4     =   exp(4.0d0*phi(i,j,k))
+            
+            gxx_physL  =  gxx(i,j,k)*Psi4
+            gxy_physL  =  gxy(i,j,k)*Psi4
+            gxz_physL  =  gxz(i,j,k)*Psi4
+            gyy_physL  =  gyy(i,j,k)*Psi4
+            gyz_physL  =  gyz(i,j,k)*Psi4
+            gzz_physL  =  gzz(i,j,k)*Psi4
+  
+
+            v2 = (      gxx_physL*(vx(i,j,k) + shiftx(i,j,k))*(vx(i,j,k) + shiftx(i,j,k)) &
+               +  2.0d0*gxy_physL*(vx(i,j,k) + shiftx(i,j,k))*(vy(i,j,k) + shifty(i,j,k)) &
+               +  2.0d0*gxz_physL*(vx(i,j,k) + shiftx(i,j,k))*(vz(i,j,k) + shiftz(i,j,k)) &
+               +        gyy_physL*(vy(i,j,k) + shifty(i,j,k))*(vy(i,j,k) + shifty(i,j,k)) &
+               +  2.0d0*gyz_physL*(vy(i,j,k) + shifty(i,j,k))*(vz(i,j,k) + shiftz(i,j,k)) &
+               +        gzz_physL*(vz(i,j,k) + shiftz(i,j,k))*(vz(i,j,k) + shiftz(i,j,k)))*alpha_inv*alpha_inv
+
+            if(v2.gt.1.0d0)  then
+               max = 100.0d0
+               A  =  (1.0d0 -  1.0d0/(max*max))/v2
+               v2 =  A*v2
+            end if
+
+             alp_u02    =  1.0d0/(1.0d0 - v2)
+             u02        =  alp_u02*alpha_inv*alpha_inv
+             u0(i,j,k)  =  sqrt(u02)
+             if((i==11).and.(j==1).and.(k==1)) then
+                print *,"u0=",u0(i,j,k),"u02=",u02,"vx=",vx(i,j,k),"vy=",vy(i,j,k),"vz=",vz(i,j,k),"v2=",v2
+                print *,"1/alpha=",alpha_inv,"gxx=",gxx_physL,"gxy_physL=",gxy_physL,"gxz_physL=",gxz_physL,"gyy=",gyy_physL,"gyz_physL=",gyz_physL,"gzz_physL=",gzz_physL
+                print *,"alpha=",alpha,"betax=",shiftx(i,j,k),"betay=",shifty(i,j,k),"betaz=",shiftz(i,j,k)
+                print *,"x,y,z",X(i,j,k),Y(i,j,k),Z(i,j,k)
+             end if
+          end do
+       end do
+    end do
+    
+ end subroutine reset_u0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      !if(rad.lt.3.0d0*R_NS) then
+                     !else if (rad.ge.3.0d0*R_NS) then
+                     !   vx(i,j,k)    = vx_CM*(3.0d0*R_NS/rad**rhobatm_falloff_power)
+                     !   vy(i,j,k)    = vy_CM*(3.0d0*R_NS/rad**rhobatm_falloff_power)
+
+
+
+!    Compute the  velocity of the center of mass 
+
+!     points_CM(1,1) = x_NS_CoM_coord
+!     points_CM(1,2) = y_NS_CoM_coord
+!     points_CM(1,3) = 0.0d0
+     
+!     call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+!     call interp_driver_carp(cctkGH,1,points_CM,vindex,vx_CM)
+!     call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+!     call interp_driver_carp(cctkGH,1,points_CM,vindex,vy_CM)
+!    call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+!     call interp_driver_carp(cctkGH,1,points_CM,vindex,vz_CM)
+     
+!     print *, "reset the velocity of the magnetic field (vx,vy,vz)=",vx_CM,vy_CM,vz_CM 
+
+
+!   assign the velocity of the center of mass of the star to the magnetic field
+!   only inside the atmosphere
+
+!   assign the velocity of the center of mass of the star to the magnetic field
+!   only inside the atmosphere
+
+        points_CM(1,1) = x_NS_CoM_coord
+        points_CM(1,2) = y_NS_CoM_coord
+        points_CM(1,3) = 0.0d0
+
+        call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+        call interp_driver_carp(cctkGH,1,points_CM,vindex,vx_CM)
+        call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+        call interp_driver_carp(cctkGH,1,points_CM,vindex,vy_CM)
+        call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+        call interp_driver_carp(cctkGH,1,points_CM,vindex,vz_CM)
+
+        print *, "reset the velocity of the magnetic field (vx,vy,vz)=",vx_CM,vy_CM,vz_CM 
+
+        call reset_b_atm_f90(cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+              x_NS_CoM_coord,y_NS_CoM_coord,vx_CM,vy_CM,vz_CM,bhns_rhob_fac,rad_rhob_fac, &
+              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+
+!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+!             x_NS_CoM_coord,y_NS_CoM_coord,bhns_rhob_fac,rad_rhob_fac, &
+!             bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+
+!        call reset_b_atm_f90(cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+!              x_NS_CoM_coord,y_NS_CoM_coord,bhns_rhob_fac,rad_rhob_fac, &
+!              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+
+!   assign the velocity of the center of mass of the star to the magnetic field
+!   only inside the atmosphere
+
+        points_CM(1,1) = x_NS_CoM_coord
+        points_CM(1,2) = y_NS_CoM_coord
+        points_CM(1,3) = 0.0d0
+
+        call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+        call interp_driver_carp(cctkGH,1,points_CM,vindex,vx_CM)
+        call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+        call interp_driver_carp(cctkGH,1,points_CM,vindex,vy_CM)
+        call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+        call interp_driver_carp(cctkGH,1,points_CM,vindex,vz_CM)
+
+        print *, "reset the velocity of the magnetic field (vx,vy,vz)=",vx_CM,vy_CM,vz_CM 
+
+        call reset_b_atm_f90(cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+              x_NS_CoM_coord,y_NS_CoM_coord,vx_CM,vy_CM,vz_CM,bhns_rhob_fac,rad_rhob_fac, &
+              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+
+
+!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+!             x_NS_CoM_coord,y_NS_CoM_coord,bhns_rhob_fac,rad_rhob_fac, &
+!             bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+
+!        call reset_b_atm_f90(cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+!              x_NS_CoM_coord,y_NS_CoM_coord,bhns_rhob_fac,rad_rhob_fac, &
+!              bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+

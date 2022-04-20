@@ -1,0 +1,13 @@
+Cactus Code Thorn WeakRates
+Author(s)    : Filippo Galeazzi <galeazzi@th.physik.uni-frankfurt.de>
+             : David Radice <dradice@caltech.edu>
+Maintainer(s): David Radice <dradice@caltech.edu>
+Licence      : GPLv3
+--------------------------------------------------------------------------
+
+1. Purpose
+
+This Thorn implements the weak rates necessary to compute emissions and
+opacities assuming that the neutrinos absorbed, scattered and emitted are in
+thermal and chemical equilibrium with the matter. The energy and number
+distributions are also assumed to follow a Fermi ditribution at equilibrium.

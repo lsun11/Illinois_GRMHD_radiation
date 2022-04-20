@@ -1,0 +1,6 @@
+# Configuration definition for thorn MoL
+# $Header: /cactusdevcvs/CactusBase/MoL/configuration.ccl,v 1.2 2004/04/28 14:51:12 hawke Exp $
+
+REQUIRES NaNChecker
+
+

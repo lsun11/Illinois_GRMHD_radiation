@@ -1,0 +1,6 @@
+
+                   !superpose the vectors
+
+                   !Ax(i,j,k) = Ax(i,j,k) + Ax_temp
+                   !Ay(i,j,k) = Ay(i,j,k) + Ay_temp
+                   !Az(i,j,k) = Az(i,j,k) + Az_temp

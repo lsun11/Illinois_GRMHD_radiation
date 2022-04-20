@@ -1,0 +1,454 @@
+# Schedule definitions for thorn bhns
+
+STORAGE: BSSN::BSSN_vars[3]
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3],mhd_evolve::mhd_conservatives[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3]
+STORAGE: mhd_evolve::em_Blagrangemultiplier[3]
+STORAGE: mhd_evolve::Stagger_Bs
+STORAGE: BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict, BSSN::BSSN_refbd[3]
+STORAGE: mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs,mhd_evolve::mhd_temps
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+STORAGE: mhd_evolve::field_line_variables[3]
+STORAGE: mhd_evolve::rad_conservatives[3], mhd_evolve::rad_primitives
+STORAGE: mhd_evolve::rad_pressure, mhd_evolve::mhd_nosync
+STORAGE: mhd_evolve::micphys_conservatives[3], mhd_evolve::microphys_primitives
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+##STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::volIntegrals,diagnostics_mhd::volIntegrals_mhd
+STORAGE: bhns::int_Mdot, bhns::last_ah_data, bhns::Axyzintrgroup
+STORAGE: movingbox::volIntegrals_movingbox
+# Particle tracer stuff
+STORAGE: bhns::Tracergroup, bhns::Tracer_rhs_group, bhns::Tracer_substep_count
+
+
+ if(bhns_regrid_input_enable==0) {   
+
+if (use_new_bhns_initial_data==-1){
+   scheduLe Magnetar_initialdata_readfiles_bhns at CCTK_INITIAL as first_initialdata_ID
+   {
+     LANG:       C
+     OPTIONS:    LOCAL
+   } "Used for generating regrid infor for ID used for other thorns"
+}
+else{
+# Setup BHNS Initial Data
+ if(use_new_bhns_initial_data==5){
+
+   scheduLe Magnetar_initialdata_readfiles_bhns at CCTK_INITIAL as first_initialdata
+   {
+     LANG:       C
+     OPTIONS:    LOCAL
+   } "Read in initial data for magnetar star evolver from Cook code data."
+
+   schedule magnetar_setup_Aijs_Gammais_bhns at CCTK_INITIAL after first_initialdata as second_initialdata
+   { 	
+     LANG:       FORTRAN
+     SYNC:       BSSN::BSSN_vars
+   #  OPTIONS:   GLOBAL, LOOP-LOCAL
+   }"Set up Aij's, Gammai's"
+
+ }
+ else { 
+   schedule bhns_initialdata_read_binfile_driver at CCTK_INITIAL as first_initialdata
+   {
+     LANG:       FORTRAN
+     OPTIONS:    LOCAL
+   } "Read in initial data for BHNS evolver from Keisuke's or SpEC binary data"
+   
+   #schedule bhns_initialdata_local at CCTK_INITIAL after first_initialdata as second_initialdata before postid
+   schedule bhns_initialdata_local at CCTK_INITIAL after first_initialdata as second_initialdata
+   {
+     LANG:	FORTRAN
+     SYNC:	BSSN::BSSN_vars
+   } "Fill in metric quantities"
+   
+  }
+  
+   schedule GROUP bhns_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+   {
+   } "Finish up BHNS initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+   
+   #schedule bhns_initialdata_global in bhns_postid after second_initialdata as third_initialdata before postid
+   schedule bhns_initialdata_global in bhns_postid as third_initialdata
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL
+   } "Set rho_b_atm, etc."
+   
+   #schedule bhns_initialdata_local2 in bhns_postid after third_initialdata as fourth_initialdata before postid
+   schedule bhns_initialdata_local2 in bhns_postid after third_initialdata as fourth_initialdata
+   {
+     LANG:	FORTRAN
+     SYNC:	BSSN::BSSN_vars
+     OPTIONS:	GLOBAL,LOOP-LOCAL
+   } "Fill in matter quantities.  Note that rho_b depends on rho_b_atm, and most hydro vars depend on rho_b"
+   
+
+   if(use_new_bhns_initial_data==5){
+   schedule bhns_initia_velpert in bhns_postid after fourth_initialdata as fifth_initialdata
+   { 	
+     LANG:       FORTRAN
+     OPTIONS:	GLOBAL,LOOP-LOCAL
+   }"add the perturbation in v's"
+   }
+
+
+   #schedule bhns_initialdata_global2 in bhns_postid after fourth_initialdata as fifth_initialdata before postid
+   schedule bhns_initialdata_global2 in bhns_postid after fifth_initialdata as sixth_initialdata
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL
+   } "Set tau_atm, which depends on tau, which depends on rho_b, etc."
+
+########################################
+}
+} else {
+
+########################################
+# REGRID RUN
+
+   schedule GROUP regridder_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+   {
+   } "Finish up regridder initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+   schedule bhns_regridder_reader_driver in regridder_postid as first_initialdata
+   { 
+     OPTIONS:      GLOBAL,LOOP-LOCAL
+     LANG:          FORTRAN
+   } "Set up regridded initialdata -- part 1: read in files"
+
+   schedule bhns_compute_B_from_A in regridder_postid as first_postinitialdata before postid
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL,LOOP-LOCAL
+     SYNC: Stagger_Bs, mhd_primitives, em_Ax[3], em_Ay[3], em_Az[3],em_Phi[3]
+   } "Set up regridded initialdata -- part 2: compute B from A, then SYNC B's"
+
+   schedule bhns_regridder_reader_driver_part2_primitives_etc in ABE_PostInitial as second_postinitialdata before postid
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL,LOOP-LOCAL
+     SYNC: Stagger_Bs, mhd_primitives, em_Ax[3], em_Ay[3], em_Az[3],em_Phi[3], rad_primitives, microphys_primitives, rad_pressure
+   } "Set up regridded initialdata -- part 3: Compute primitives, etc."
+
+}
+########################################
+
+if (use_new_bhns_initial_data!=-1){
+
+   
+if(1==1 && em_evolve_enable==1) {
+   # Schedule this before we compute any of the integrands, so that we still have the AH mask function (before it gets reset in the M_0 diagnostic in diagnostics_mhd)
+   schedule bhns_diagnostics_local at CCTK_ANALYSIS as diag_local before T_integrand  
+   {
+     LANG:         FORTRAN
+     OPTIONS:      LEVEL,LOOP-LOCAL
+   #  OPTIONS:      GLOBAL,LOOP-LOCAL
+   } "Set b2 array"
+   
+   schedule bhns_diagnostics_global0 at CCTK_ANALYSIS as globalzero after diag_local before T_integrand
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL
+   } "Compute bhns_max_b2"
+   
+   schedule bhns_diagnostics_local2 at CCTK_ANALYSIS as diag_localtwo after globalzero before T_integrand
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL,LOOP-LOCAL
+   } "Compute coordinates of bhns_max_b2"
+   
+   schedule fill_in_bh_Afields_part1_interpolate_to_spheres at CCTK_ANALYSIS as fillbh1 after diag_localtwo before T_integrand
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL
+   } "Fill BH with smoothed Afields: Part 1 -- interpolate onto two spheres to get parameters for smoothing polynomial."
+   
+   schedule fill_in_bh_Afields_part2_fill_interior at CCTK_ANALYSIS as fillbh2 after fillbh1 before T_integrand
+   {
+     LANG:          FORTRAN
+     OPTIONS:      GLOBAL,LOOP-LOCAL
+   } "Fill BH with smoothed Afields: Part 2 -- fill in BH with smoothed Afields."
+}
+
+
+
+
+
+schedule bhns_sanitycheck_restore_Aij at CCTK_ANALYSIS as sanitycheck_restore_Aij after diag_local
+{
+  LANG:          FORTRAN
+} "Sanity check, Restore Aij"
+
+schedule bhns_diagnostics at CCTK_ANALYSIS as poststep after sanitycheck_restore_Aij
+{
+ LANG:          FORTRAN
+ STORAGE:	volIntegrals_movingbox	
+ OPTIONS:     	GLOBAL
+} "Evaluate diagnostic integrals"
+
+#schedule compute_g00_driver at CCTK_ANALYSIS as comp_g00 after sanitycheck_restore_Aij
+#{
+#   LANG:       FORTRAN
+#     OPTIONS:    LOCAL
+#} "compute g00"
+
+
+if (use_new_bhns_initial_data==5){
+schedule magnetar_diagnostics_bhns at CCTK_ANALYSIS as poststep2 after poststep
+{
+ LANG:		FORTRAN
+ OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"
+}
+
+
+#if(use_new_bhns_initial_data==3){
+#schedule calc_u_0_PoPcold_driver at CCTK_ANALYSIS as poststep after poststep0
+#{
+#  LANG:          FORTRAN
+#  OPTIONS:      GLOBAL,LOOP-LOCAL
+#} "Evaluate u_0 and K = P/P_cold"
+#}
+
+schedule bhns_diagnostics_tracer_compute_u_0 at CCTK_ANALYSIS as particle_tracer_u_0 after poststep after sanitycheck_restore_Aij
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "BHNS Particle tracer algorithm: compute u_0, store in temp1"
+
+
+#schedule bhns_diagnostics_tracer_compute_u_i at CCTK_ANALYSIS as particle_tracer_u_i after particle_tracer_u_0 after poststep after sanitycheck_restore_Aij
+#{
+#  LANG:         FORTRAN
+#  OPTIONS:        GLOBAL	
+#} "BHNS Particle tracer algorithm: u_x store in temp_16, u_y store in temp_17"
+
+
+#schedule bhns_diagnostics_trace_particles at CCTK_ANALYSIS as particle_tracer after particle_tracer_u_i after particle_tracer_u_0 after poststep after sanitycheck_restore_Aij
+if(initial_particle_geometry==3){	   
+   schedule bhns_diagnostics_trace_particles_circle at CCTK_ANALYSIS as particle_tracer after particle_tracer_u_0 after poststep after sanitycheck_restore_Aij
+   {
+    LANG:          FORTRAN
+    OPTIONS:      GLOBAL
+  } "BHNS Particle tracer algorithm on a circle"
+   }
+ else{
+  schedule bhns_diagnostics_trace_particles at CCTK_ANALYSIS as particle_tracer after particle_tracer_u_0 after poststep after sanitycheck_restore_Aij
+ {
+    LANG:          FORTRAN
+   OPTIONS:      GLOBAL
+ } "BHNS Particle tracer algorithm"
+}
+
+#schedule circulation_trace_particles at CCTK_ANALYSIS as particle_circle_tracer after particle_tracer after particle_tracer_u_i  after particle_tracer_u_0 after poststep after sanitycheck_restore_Aij
+#{
+#  LANG:          FORTRAN
+#  OPTIONS:      GLOBAL
+#} "BHNS Particle circle tracer algorithm"
+
+
+
+##################################################
+# SETUP EMFIELDS STUFF
+
+if(em_evolve_enable==1) {
+schedule BHNS_setup_emfield_part1_Pmax in bhns_postid as bhns_em_pt1 after fifth_initialdata
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS EMFields, part 1"
+
+schedule BHNS_setup_emfield_part2_local_setBi as bhns_em_pt2 in bhns_postid after bhns_em_pt1
+{
+        LANG:           FORTRAN
+# This routine calls bhns_compute_B_from_A, which needs a sync right after.
+        SYNC: mhd_evolve::Stagger_Bs,mhd_evolve::mhd_primitives,mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3],mhd_evolve::mhd_conservatives[3]
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS EMFields, part 2"
+
+
+#schedule BHNS_setup_emfield_part2p5_local_consrv as bhns_em_pt2p5 at CCTK_POSTPOSTINITIAL after bhns_em_pt2
+schedule BHNS_setup_emfield_part2p5_local_consrv as bhns_em_pt2p5 in bhns_postid after bhns_em_pt2
+{
+        LANG:           FORTRAN
+# This routine calls bhns_compute_B_from_A, which needs a sync right after.
+        SYNC:mhd_evolve::Stagger_Bs,mhd_evolve::mhd_primitives,mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3],mhd_evolve::mhd_conservatives[3],mhd_evolve::rad_pressure
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS EMFields, part 2.5"
+
+
+schedule Integrate_vol_integrand_bhns_emfields_compute_avgbetam1 as bhns_em_pt3 in bhns_postid after bhns_em_pt2p5
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS EMFields, part 3"
+
+schedule driver_setup_emfields_part4_local_rescaleB_set_conservs as bhns_em_pt4 in bhns_postid after bhns_em_pt3
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS EMFields, part 4"
+}
+
+}
+
+
+##################################################
+# REGRID STUFF
+#schedule GROUP bhns_regrid_output at CCTK_POSTPOSTINITIAL after ABE_PostInitial after MoL_PostStep
+#schedule GROUP bhns_regrid_output at CCTK_ANALYSIS before T_integrand
+
+schedule GROUP bhns_regrid_output at CCTK_ANALYSIS after poststep
+{
+} "Perform a regridding at the specified time"
+
+schedule bhns_regridder_unstagger_driver in bhns_regrid_output as bhns_regrid_unstagger_driver
+{
+	LANG: FORTRAN
+	SYNC: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3], em_Blagrangemultiplier[3]
+	OPTIONS: GLOBAL,loop-local
+} "Driver for unstaggering A^{\mu}"
+
+schedule bhns_regridder_writer_driver in bhns_regrid_output as bhns_regrid_writer_driver after bhns_regrid_unstagger_driver
+{
+	LANG: FORTRAN
+	OPTIONS: GLOBAL
+} "Driver for regridding output"
+
+
+##################################################
+# ADD B FIELDS AFTER CHECKPOINT STUFF
+
+if (use_new_bhns_initial_data!=-1){
+if(em_evolve_enable==1) {
+schedule BHNS_setup_emfield_part1_Pmax in CCTK_ANALYSIS after poststep before bhns_add_em_fields_after_checkpoint
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS EMFields, part 1"
+}
+
+schedule GROUP bhns_add_em_fields_after_checkpoint in CCTK_ANALYSIS after poststep WHILE bhns::bhnsinsertBNOW
+{
+} "Add EM fields after some checkpoint.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+schedule BHNS_setup_emfield_part1_Pmax in bhns_add_em_fields_after_checkpoint as bhns_em_checkpoint_pt1
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS EMFields, part 1"
+
+schedule find_CoM_velocity in bhns_add_em_fields_after_checkpoint as bhns_CoM_velocity after bhns_em_checkpoint_pt1
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS EMFields, part 1"
+
+
+
+schedule BHNS_setup_emfield_part2_local_setBi_after_checkpoint as bhns_em_checkpoint_pt2 in bhns_add_em_fields_after_checkpoint after bhns_CoM_velocity
+{
+        LANG:           FORTRAN
+# This routine calls bhns_compute_B_from_A, which needs a sync right after.
+        SYNC: mhd_evolve::Stagger_Bs,mhd_evolve::mhd_primitives,mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3],mhd_evolve::mhd_conservatives[3],mhd_evolve::rad_primitives, mhd_evolve::microphys_primitives, mhd_evolve::rad_conservatives[3], mhd_evolve::micphys_conservatives[3],mhd_evolve::rad_pressure
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS EMFields, part 2"
+
+
+
+
+schedule BHNS_setup_emfield_part2p5_local_consrv_aftercp as bhns_em_checkpoint_pt2p5 in bhns_add_em_fields_after_checkpoint after bhns_em_checkpoint_pt2
+{
+        LANG:           FORTRAN
+# This routine calls bhns_compute_B_from_A, which needs a sync right after.
+        SYNC: mhd_evolve::Stagger_Bs,mhd_evolve::mhd_primitives,mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3],mhd_evolve::mhd_conservatives[3]
+	
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS EMFields, part 2.5"
+
+schedule Integrate_vol_integrand_bhns_emfields_compute_avgbetam1 as bhns_em_checkpoint_pt3 in bhns_add_em_fields_after_checkpoint after bhns_em_checkpoint_pt2p5
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS EMFields, part 3"
+
+#schedule driver_setup_emfields_part4_local_rescaleB_set_conservs as bhns_em_checkpoint_pt4 at CCTK_ANALYSIS after bhns_em_checkpoint_pt3
+schedule driver_setup_emfields_part4_local_rescaleB_set_conservs as bhns_em_checkpoint_pt4 in bhns_add_em_fields_after_checkpoint after bhns_em_checkpoint_pt3
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS EMFields, part 4"
+
+}
+##################################################
+
+
+##################################################
+# COMPUTE THERMAL ENERGY AFTER CHECKPOINT STUFF
+
+if (use_new_bhns_initial_data!=-1){
+if(compute_microphysics==1) {
+schedule BHNS_setup_thermal_pressure_preset in CCTK_ANALYSIS after poststep before bhns_add_therm_after_checkpoint
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Setup BHNS Thermal Pressure based on temperature: preset flag"
+}
+
+schedule GROUP bhns_add_therm_after_checkpoint in CCTK_ANALYSIS before bhns_regrid_output after poststep WHILE bhns::bhnsEthermalNOW
+{
+} "Add thermal energy after checkpoint"
+
+schedule BHNS_setup_thermal_pressure_after_checkpoint as bhns_thermal_pressure in bhns_add_therm_after_checkpoint before bhns_thermal_pressure_after
+{
+	LANG:           FORTRAN
+# This routine calls bhns_compute_B_from_A, which needs a sync right after.
+  SYNC: mhd_evolve::Stagger_Bs,mhd_evolve::mhd_primitives,mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3],mhd_evolve::mhd_conservatives[3],mhd_evolve::rad_primitives, mhd_evolve::microphys_primitives, mhd_evolve::rad_conservatives[3], mhd_evolve::micphys_conservatives[3],mhd_evolve::rad_pressure
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS Thermal Pressure based on temperature"
+
+schedule BHNS_setup_thermal_pressure_afterset as bhns_thermal_pressure_after in bhns_add_therm_after_checkpoint after bhns_thermal_pressure
+{
+        LANG:           FORTRAN
+	OPTIONS:        GLOBAL,loop-local
+} "Unset bhnsEthermalNOW"
+}
+##################################################
+
+
+##################################################
+# INSERT RADIATION CHECKPOINT STUFF
+
+if (use_new_bhns_initial_data!=-1){
+if(rad_evolve_enable==1) {
+schedule BHNS_insert_radiation_preset in CCTK_ANALYSIS after poststep before bhns_insert_rad_checkpoint
+{			    
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Insert BHNS radiation: preset flag"
+
+
+schedule GROUP bhns_insert_rad_checkpoint in CCTK_ANALYSIS after poststep WHILE bhns::bhnsinsertRADNOW
+{
+} "Add BHNS radiation after checkpoint"
+
+schedule BHNS_insert_radiation_after_checkpoint as bhns_insert_rad in bhns_insert_rad_checkpoint before bhns_insert_rad_after
+{
+        LANG:           FORTRAN
+ This routine calls bhns_compute_B_from_A, which needs a sync right after.
+  SYNC: mhd_evolve::Stagger_Bs,mhd_evolve::mhd_primitives,mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3],mhd_evolve::em_Phi[3],mhd_evolve::mhd_conservatives[3],mhd_evolve::rad_primitives, mhd_evolve::microphys_primitives, mhd_evolve::rad_conservatives[3], mhd_evolve::micphys_conservatives[3],mhd_evolve::rad_pressure
+        OPTIONS:        GLOBAL,loop-local
+} "Setup BHNS Thermal Pressure based on temperature"
+
+schedule BHNS_insert_radiation_afterset as bhns_insert_rad_after in bhns_insert_rad_checkpoint after bhns_insert_rad
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Unset bhnsinsertRADNOW"
+}
+}
+##################################################

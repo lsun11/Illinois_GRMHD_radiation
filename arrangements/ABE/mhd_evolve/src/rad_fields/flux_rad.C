@@ -1,0 +1,717 @@
+//---------------------------
+// compute radiation flux
+//---------------------------
+#include "stdio.h"
+#include "stdlib.h"
+#include "math.h"
+#include "cctk.h"
+
+#define SQR(x) ((x) * (x))
+#define FAC 0.99
+#define AXISYM 4
+
+
+inline void find_cp_cm_rad2(double &cplus,double &cminus,double &v02,double &u0,
+                       double &vi,double &lapse,double &shifti,double &psim4,double &gupii);
+
+
+double fasterpow_radflux(double inputvar,double inputpow);
+
+double fasterpow_radflux(double inputvar,double inputpow) {
+  if(inputpow==2.0) return SQR(inputvar);
+  return pow(inputvar,inputpow);
+}
+
+template <class T> const T& min (const T& a, const T& b) {
+  return !(b<a)?a:b;     // or: return !comp(b,a)?a:b; for version (2)
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(flux_rad_cpp)
+  (int *flux_direction, const cGH **cctkGH,int *ext,double *X,double *Y, double *Z,
+   double *tau_rad_flux, double *tau_rad_flux_diag,
+   double *S_radx_flux, double *S_rady_flux, double *S_radz_flux,
+   double *E_radr, double *E_radl, 
+   double *F_radxr, double *F_radxl,
+   double *F_radyr, double *F_radyl,
+   double *F_radzr, double *F_radzl,
+   double *FaFar, double *FaFal,
+   double *Pr, double *Pl,
+   double *rho_br, double *rho_bl,
+   double *Bxr, double *Bxl, double *Byr, double *Byl, double *Bzr, double *Bzl,
+   double *v02r, double *v02l,
+   double *vxr, double *vxl, double *vyr, double *vyl, double *vzr, double *vzl,
+   double *gxx_f, double *gxy_f, double *gxz_f, double *gyy_f, double *gyz_f, double *gzz_f,
+   double *gupxx_f, double *gupyy_f, double *gupzz_f,double *gupxy_f, double *gupxz_f, double *gupyz_f,
+   double *cmax,double *cmin,
+   double *betax_f, double *betay_f, double *betaz_f,
+   double *alpha_f, double *phi_f, 
+   int &pow_axi,int &Symmetry, int &rad_closure_scheme,
+   int *enable_OS_collapse,
+   int *neos, int *ergo_star, double *ergo_sigma, double *rho_tab, double *P_tab, double *eps_tab, double *k_tab, double *gamma_tab,double *gamma_th, double *Erad_atm_cut);
+
+
+void flux_hll_cpp_frad(int *ext,double &Ur,double &Ul,double &Fr,double &Fl,double &F,double &cmax,double &cmin);
+void compute_M1(double &Pij,double &Fi,double &Fj,double &Fasq,double &E,double &gupij, double &shifti, double &shiftj, double &lapse, double &ui, double &uj, double &chi, double &psim4, double &Erad_atm_cut);
+extern "C" void flux_rad_cpp(int flux_direction, const cGH *cctkGH,int *ext,double *X,double *Y,double *Z,
+			     double *tau_rad_flux, double *tau_rad_flux_diag,
+			     double *S_radx_flux, double *S_rady_flux, double *S_radz_flux,
+			     double *E_radr, double *E_radl,
+			     double *F_radxr, double *F_radxl,
+			     double *F_radyr, double *F_radyl,
+			     double *F_radzr, double *F_radzl,
+			     double *FaFar, double *FaFal,
+			     double *Pr, double *Pl,
+			     double *rho_br, double *rho_bl,
+			     double *Bxr, double *Bxl, double *Byr, double *Byl, double *Bzr, double *Bzl,
+			     double *v02r, double *v02l,
+			     double *vxr, double *vxl, double *vyr, double *vyl, double *vzr, double *vzl,
+			     double *gxx_f, double *gxy_f, double *gxz_f, double *gyy_f, double *gyz_f, double *gzz_f,
+			     double *gupxx_f, double *gupyy_f, double *gupzz_f,double *gupxy_f, double *gupxz_f, double *gupyz_f,
+			     double *cmax,double *cmin,
+			     double *betax_f, double *betay_f, double *betaz_f,
+			     double *alpha_f, double *phi_f,
+			     int &pow_axi,int &Symmetry, int &rad_closure_scheme,
+			     int enable_OS_collapse,
+			     int neos, int ergo_star, double ergo_sigma, double *rho_tab, double *P_tab, double *eps_tab, double *k_tab, double *gamma_tab,double gamma_th, double Erad_atm_cut)
+{
+
+  double f1os4pi = 1.0/sqrt(4.0*M_PI);
+
+ 
+  int istart = 0;
+  int jstart = 0;
+  int kstart = 0;
+  int iend = ext[0];
+  int jend = ext[1];
+  int kend = ext[2];
+
+
+  // Find flux for tau_rad (alpha^2*psi6*R^{0i})
+#pragma omp parallel for
+    for(int k=kstart;k<kend;k++)
+      for(int j=jstart;j<jend;j++)
+	for(int i=istart;i<iend;i++) {
+	  int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+	  //printf("hi %d %d %d %e %e %e %e\n",i,j,k,vir[index],Bjr[index],vjr[index],Bir[index]);
+	  //	  printf("%d,%d,%d, %d, %e, %e \n", i,j,k, index, X[index],Y[index]);
+	  
+	  double alpha_fL = alpha_f[index];
+	  double al = 1.0 + alpha_fL;
+	  double phi_fL = phi_f[index];
+	  double psi2 = exp(2.0 * phi_fL);
+	  double psi4 = psi2*psi2; 
+	  double psi6 = psi4*psi2;
+	  double psim4 = 1.0/psi4;
+	  
+	  double gxx_fL = gxx_f[index];
+	  double gxy_fL = gxy_f[index];
+	  double gxz_fL = gxz_f[index];
+	  double gyy_fL = gyy_f[index];
+	  double gyz_fL = gyz_f[index];
+	  double gzz_fL = gzz_f[index];
+
+	  double gupxx_fL = gupxx_f[index];
+	  double gupyy_fL = gupyy_f[index];
+	  double gupzz_fL = gupzz_f[index];
+	  double gupxy_fL = gupxy_f[index];
+          double gupxz_fL = gupxz_f[index];
+          double gupyz_fL = gupyz_f[index];
+
+	  double betax_fL = betax_f[index];
+	  double betay_fL = betay_f[index];
+	  double betaz_fL = betaz_f[index];
+
+	  double vxrL = vxr[index];
+	  double vyrL = vyr[index];
+	  double vzrL = vzr[index];
+
+	  double vxlL = vxl[index];
+	  double vylL = vyl[index];  
+	  double vzlL = vzl[index];  
+
+
+	  double E_radrL = E_radr[index];
+	  double E_radlL = E_radl[index];
+	  double F_rad0rL; 
+          double F_rad0lL; 
+	  double F_radxrL = F_radxr[index]; 
+          double F_radxlL = F_radxl[index];
+	  double F_radyrL = F_radyr[index];
+          double F_radylL = F_radyl[index];
+          double F_radzrL = F_radzr[index];
+          double F_radzlL = F_radzl[index];
+	  double P_radrL; 
+          double P_radlL; 
+	  double P_radxxrL;
+          double P_radxxlL;
+          double P_radyyrL;
+          double P_radyylL;
+          double P_radzzrL;
+          double P_radzzlL;
+          double P_radxyrL;
+          double P_radxylL;
+          double P_radxzrL;
+          double P_radxzlL;
+          double P_radyzrL;
+          double P_radyzlL;
+
+	  double er = psi4*(gxx_fL*SQR(vxrL + betax_fL) +
+			    2.0*gxy_fL*(vxrL + betax_fL)*(vyrL + betay_fL) +
+			    2.0*gxz_fL*(vxrL + betax_fL)*(vzrL + betaz_fL) +
+			    gyy_fL*SQR(vyrL + betay_fL) +
+			    2.0*gyz_fL*(vyrL + betay_fL)*(vzrL + betaz_fL) +
+			    gzz_fL*SQR(vzrL + betaz_fL) )/al/al;
+
+	  // *** Check for superluminal velocity ***                                                                                               
+	  if (er > 1.0) {
+	    double sqrtFACoer_r = sqrt(FAC/er);
+	    vxrL = (vxrL + betax_fL)*sqrtFACoer_r-betax_fL;
+	    vyrL = (vyrL + betay_fL)*sqrtFACoer_r-betay_fL;
+	    vzrL = (vzrL + betaz_fL)*sqrtFACoer_r-betaz_fL;
+	    er = FAC;
+	  }
+
+	  double el = sqrt(1.0-er);
+	  double au0r1 = er/el/(1.0+el);
+	  double u0r = (au0r1+1.0)/al;
+
+	  double uxr = u0r*vxrL; 
+	  double uyr = u0r*vyrL;
+	  double uzr = u0r*vzrL;
+
+	  er = psi4*(gxx_fL*SQR(vxlL + betax_fL) +
+		     2.0*gxy_fL*(vxlL + betax_fL)*(vylL + betay_fL) +
+		     2.0*gxz_fL*(vxlL + betax_fL)*(vzlL + betaz_fL) +
+		     gyy_fL*SQR(vylL + betay_fL) +
+		     2.0*gyz_fL*(vylL + betay_fL)*(vzlL + betaz_fL) +
+		     gzz_fL*SQR(vzlL + betaz_fL) )/al/al;
+
+	  // *** Check for superluminal velocity ***                                                                                                                             
+	  if (er > 1.0) {
+	    double sqrtFACoer_l = sqrt(FAC/er);
+	    vxlL = (vxlL + betax_fL)*sqrtFACoer_l-betax_fL;
+	    vylL = (vylL + betay_fL)*sqrtFACoer_l-betay_fL;
+	    vzlL = (vzlL + betaz_fL)*sqrtFACoer_l-betaz_fL;
+	    er = FAC;
+	  }
+
+	  el = sqrt(1.0-er);
+	  double au0l1 = er/el/(1.0+el);
+	  double u0l = (au0l1+1.0)/al;
+	  
+	  double uxl = u0l*vxlL;
+          double uyl = u0l*vylL;
+          double uzl = u0l*vzlL;
+
+	  double Ftaur, Ftaul, tau_radr, tau_radl;
+          double u_xl, u_yl, u_zl;
+          double u_xr, u_yr, u_zr;
+
+
+          u_xl = u0l*psi4*( gxx_fL*(vxlL+betax_fL) + gxy_fL*(vylL+betay_fL) +
+                            gxz_fL*(vzlL+betaz_fL) );
+          u_yl = u0l*psi4*( gxy_fL*(vxlL+betax_fL) + gyy_fL*(vylL+betay_fL) +
+                            gyz_fL*(vzlL+betaz_fL) );
+          u_zl = u0l*psi4*( gxz_fL*(vxlL+betax_fL) + gyz_fL*(vylL+betay_fL) +
+                            gzz_fL*(vzlL+betaz_fL) );
+
+          u_xr = u0r*psi4*( gxx_fL*(vxrL+betax_fL) + gxy_fL*(vyrL+betay_fL) +
+                            gxz_fL*(vzrL+betaz_fL) );
+          u_yr = u0r*psi4*( gxy_fL*(vxrL+betax_fL) + gyy_fL*(vyrL+betay_fL) +
+                            gyz_fL*(vzrL+betaz_fL) );
+          u_zr = u0r*psi4*( gxz_fL*(vxrL+betax_fL) + gyz_fL*(vyrL+betay_fL) +
+                            gzz_fL*(vzrL+betaz_fL) );
+
+          //Lunan: Use F^alpha u_alpha = 0, we can get                                                                                                                                     
+          // F_rad0 = - (F_radx*u_x + F_rady*u_y + F_radz*u_z)/u_0                                                                                                                         
+          //        = - (F_radx*v_x + F_rady*v_y + F_radz*v_z)                                                                                                                                      
+          //double u_0r = -(1.0 + uxr*u_xr + uyr*u_yr + uzr*u_zr)/u0r;
+          //double u_0l = -(1.0 + uxl*u_xl + uyl*u_yl + uzl*u_zl)/u0l;
+	  
+	  double u_0l = -1.0-alpha_fL - al*au0l1 + u_xl*betax_fL + u_yl*betay_fL + u_zl*betaz_fL;
+	  double u_0r = -1.0-alpha_fL - al*au0r1 + u_xr*betax_fL + u_yr*betay_fL + u_zr*betaz_fL;
+
+          F_rad0rL = - (F_radxrL*u_xr + F_radyrL*u_yr + F_radzrL*u_zr)/u_0r;
+          F_rad0lL = - (F_radxlL*u_xl + F_radylL*u_yl + F_radzlL*u_zl)/u_0l;
+
+
+          double F_rad_xlL, F_rad_ylL, F_rad_zlL, F_rad_0lL;
+          double F_rad_xrL, F_rad_yrL, F_rad_zrL, F_rad_0rL;
+
+          F_rad_xlL = psi4*( gxx_fL*(F_radxlL+F_rad0lL*betax_fL) + gxy_fL*(F_radylL+F_rad0lL*betay_fL) +
+                             gxz_fL*(F_radzlL+F_rad0lL*betaz_fL) );
+          F_rad_ylL = psi4*( gxy_fL*(F_radxlL+F_rad0lL*betax_fL) + gyy_fL*(F_radylL+F_rad0lL*betay_fL) +
+                             gyz_fL*(F_radzlL+F_rad0lL*betaz_fL) );
+          F_rad_zlL = psi4*( gxz_fL*(F_radxlL+F_rad0lL*betax_fL) + gyz_fL*(F_radylL+F_rad0lL*betay_fL) +
+                             gzz_fL*(F_radzlL+F_rad0lL*betaz_fL) );
+
+          F_rad_xrL = psi4*( gxx_fL*(F_radxrL+F_rad0rL*betax_fL) + gxy_fL*(F_radyrL+F_rad0rL*betay_fL) +
+                             gxz_fL*(F_radzrL+F_rad0rL*betaz_fL) );
+          F_rad_yrL = psi4*( gxy_fL*(F_radxrL+F_rad0rL*betax_fL) + gyy_fL*(F_radyrL+F_rad0rL*betay_fL) +
+                             gyz_fL*(F_radzrL+F_rad0rL*betaz_fL) );
+          F_rad_zrL = psi4*( gxz_fL*(F_radxrL+F_rad0rL*betax_fL) + gyz_fL*(F_radyrL+F_rad0rL*betay_fL) +
+                             gzz_fL*(F_radzrL+F_rad0rL*betaz_fL) );
+
+          F_rad_0rL = - (F_rad_xrL*uxr + F_rad_yrL*uyr + F_rad_zrL*uzr)/u0r;
+          F_rad_0lL = - (F_rad_xlL*uxl + F_rad_ylL*uyl + F_rad_zlL*uzl)/u0l;
+ 
+	
+          // Find flux for S_rad_i (alpha*psi6*R^j_i = alpha*psi6*((P_rad + E_rad)*u^j*u_i + F_rad^j*u_i + F_rad_i*u^j) + P_rad * g^j_i )                    
+          // g^j_i = \gamma^j_i - alpha^{-2}*beta^j*beta_i = \delta^j_i - alpha^{-2}*beta^j*beta_j                                                              
+          double Fxr, Fxl;
+          double Fyr, Fyl;
+          double Fzr, Fzl;
+
+          double beta_x_fL = psi4* (betax_fL * gxx_fL + betay_fL * gxy_fL + betaz_fL * gxz_fL);
+          double beta_y_fL = psi4* (betax_fL * gxy_fL + betay_fL * gyy_fL + betaz_fL * gyz_fL);
+          double beta_z_fL = psi4* (betax_fL * gxz_fL + betay_fL * gyz_fL + betaz_fL * gzz_fL);
+
+	  double S_radxr, S_radxl,S_radyr, S_radyl,S_radzr, S_radzl;
+
+
+	  //Use closure scheme to compute P_rad
+	  double v02lL, v02rL;
+	  double cplusl,cminusl;
+	  double cplusr,cminusr;	    
+
+
+	  if (rad_closure_scheme ==0)
+            {
+	      v02lL = 1.0/3.0;
+	      v02rL = 1.0/3.0;
+
+	      if (flux_direction==1) {
+		find_cp_cm_rad2(cplusl,cminusl,v02lL,u0l,
+				vxlL,alpha_fL,betax_fL,psim4,gupxx_fL);
+		find_cp_cm_rad2(cplusr,cminusr,v02rL,u0r,
+				vxrL,alpha_fL,betax_fL,psim4,gupxx_fL);
+	      } else if (flux_direction==2) {
+		find_cp_cm_rad2(cplusl,cminusl,v02lL,u0l,
+				vylL,alpha_fL,betay_fL,psim4,gupyy_fL);
+		find_cp_cm_rad2(cplusr,cminusr,v02rL,u0r,
+				vyrL,alpha_fL,betay_fL,psim4,gupyy_fL);
+	      } else if (flux_direction==3){
+		find_cp_cm_rad2(cplusl,cminusl,v02lL,u0l,
+				vzlL,alpha_fL,betaz_fL,psim4,gupzz_fL);
+		find_cp_cm_rad2(cplusr,cminusr,v02rL,u0r,
+				vzrL,alpha_fL,betaz_fL,psim4,gupzz_fL);
+	      }
+
+	      double cmaxL = 0.0;
+	      if(cmaxL < cplusl) cmaxL = cplusl;
+	      if(cmaxL < cplusr) cmaxL = cplusr;
+
+	      double cminL = 0.0;
+	      if(cminL > cminusl) cminL = cminusl;
+	      if(cminL > cminusr) cminL = cminusr;
+	      cminL *= -1;
+
+	      P_radrL = E_radrL/3.0;
+	      P_radlL = E_radlL/3.0;
+
+	      if (flux_direction==1) {
+		Ftaur = al*al*psi6*((E_radrL + P_radrL)*u0r*uxr + F_rad0rL*uxr + u0r*F_radxrL) + psi6*P_radrL*betax_fL;
+		Ftaul = al*al*psi6*((E_radlL + P_radlL)*u0l*uxl + F_rad0lL*uxl + u0l*F_radxlL) + psi6*P_radlL*betax_fL;
+	      } else  if (flux_direction==2) {
+		Ftaur = al*al*psi6*((E_radrL + P_radrL)*u0r*uyr + F_rad0rL*uyr + u0r*F_radyrL) + psi6*P_radrL*betay_fL;
+		Ftaul = al*al*psi6*((E_radlL + P_radlL)*u0l*uyl + F_rad0lL*uyl + u0l*F_radylL) + psi6*P_radlL*betay_fL;
+	      } else if  (flux_direction==3) {
+		Ftaur = al*al*psi6*((E_radrL + P_radrL)*u0r*uzr + F_rad0rL*uzr + u0r*F_radzrL) + psi6*P_radrL*betaz_fL;
+		Ftaul = al*al*psi6*((E_radlL + P_radlL)*u0l*uzl + F_rad0lL*uzl + u0l*F_radzlL) + psi6*P_radlL*betaz_fL;
+	      }
+
+	      tau_radr =  al*al*psi6*((E_radrL + P_radrL)*u0r*u0r + 2.0*F_rad0rL*u0r)-psi6*P_radrL;
+	      tau_radl =  al*al*psi6*((E_radlL + P_radlL)*u0l*u0l + 2.0*F_rad0lL*u0l)-psi6*P_radlL;
+
+
+	      tau_rad_flux[index] =  (cminL*Ftaur + cmaxL*Ftaul - cminL*cmaxL*(tau_radr-tau_radl) )/(cmaxL + cminL);
+
+	      if (flux_direction==1) {
+		tau_rad_flux_diag[index] = (cminL*Ftaur + cmaxL*Ftaul - cminL*cmaxL*(tau_radr-tau_radl) )/(cmaxL + cminL);
+	      }
+
+
+	      if (flux_direction==1) {
+		Fxr = al*psi6*((E_radrL + P_radrL)*u_xr*uxr + F_radxrL*u_xr + uxr*F_rad_xrL + P_radrL);
+		Fxl = al*psi6*((E_radlL + P_radlL)*u_xl*uxl + F_radxlL*u_xl + uxl*F_rad_xlL + P_radlL);
+		Fyr = al*psi6*((E_radrL + P_radrL)*u_yr*uxr + F_radxrL*u_yr + uxr*F_rad_yrL );
+		Fyl = al*psi6*((E_radlL + P_radlL)*u_yl*uxl + F_radxlL*u_yl + uxl*F_rad_ylL );
+		Fzr = al*psi6*((E_radrL + P_radrL)*u_zr*uxr + F_radxrL*u_zr + uxr*F_rad_zrL );
+		Fzl = al*psi6*((E_radlL + P_radlL)*u_zl*uxl + F_radxlL*u_zl + uxl*F_rad_zlL );
+	      } else  if (flux_direction==2) {
+		Fxr = al*psi6*((E_radrL + P_radrL)*u_xr*uyr + F_radyrL*u_xr + uyr*F_rad_xrL );
+		Fxl = al*psi6*((E_radlL + P_radlL)*u_xl*uyl + F_radylL*u_xl + uyl*F_rad_xlL );
+		Fyr = al*psi6*((E_radrL + P_radrL)*u_yr*uyr + F_radyrL*u_yr + uyr*F_rad_yrL + P_radrL);
+		Fyl = al*psi6*((E_radlL + P_radlL)*u_yl*uyl + F_radylL*u_yl + uyl*F_rad_ylL + P_radlL);
+		Fzr = al*psi6*((E_radrL + P_radrL)*u_zr*uyr + F_radyrL*u_zr + uyr*F_rad_zrL );
+		Fzl = al*psi6*((E_radlL + P_radlL)*u_zl*uyl + F_radylL*u_zl + uyl*F_rad_zlL );
+	      } else if  (flux_direction==3) {
+		Fxr = al*psi6*((E_radrL + P_radrL)*u_xr*uzr + F_radzrL*u_xr + uzr*F_rad_xrL );
+		Fxl = al*psi6*((E_radlL + P_radlL)*u_xl*uzl + F_radzlL*u_xl + uzl*F_rad_xlL );
+		Fyr = al*psi6*((E_radrL + P_radrL)*u_yr*uzr + F_radzrL*u_yr + uzr*F_rad_yrL );
+		Fyl = al*psi6*((E_radlL + P_radlL)*u_yl*uzl + F_radzlL*u_yl + uzl*F_rad_ylL );
+		Fzr = al*psi6*((E_radrL + P_radrL)*u_zr*uzr + F_radzrL*u_zr + uzr*F_rad_zrL + P_radrL);
+		Fzl = al*psi6*((E_radlL + P_radlL)*u_zl*uzl + F_radzlL*u_zl + uzl*F_rad_zlL + P_radlL);
+	      }
+
+	      S_radxr =  al*psi6*((E_radrL + P_radrL)*u0r*u_xr + F_rad0rL*u_xr + u0r*F_rad_xrL);
+	      S_radxl =  al*psi6*((E_radlL + P_radlL)*u0l*u_xl + F_rad0lL*u_xl + u0l*F_rad_xlL);
+	      S_radyr =  al*psi6*((E_radrL + P_radrL)*u0r*u_yr + F_rad0rL*u_yr + u0r*F_rad_yrL);
+	      S_radyl =  al*psi6*((E_radlL + P_radlL)*u0l*u_yl + F_rad0lL*u_yl + u0l*F_rad_ylL);
+	      S_radzr =  al*psi6*((E_radrL + P_radrL)*u0r*u_zr + F_rad0rL*u_zr + u0r*F_rad_zrL);
+	      S_radzl =  al*psi6*((E_radlL + P_radlL)*u0l*u_zl + F_rad0lL*u_zl + u0l*F_rad_zlL);
+
+
+	      S_radx_flux[index] = (cminL*Fxr + cmaxL*Fxl - cminL*cmaxL*(S_radxr-S_radxl) )/(cmaxL + cminL);
+	      S_rady_flux[index] = (cminL*Fyr + cmaxL*Fyl - cminL*cmaxL*(S_radyr-S_radyl) )/(cmaxL + cminL);
+	      S_radz_flux[index] = (cminL*Fzr + cmaxL*Fzl - cminL*cmaxL*(S_radzr-S_radzl) )/(cmaxL + cminL);
+	      //	      cmax[index] = cmaxL;
+	      //	      cmin[index] = cminL;
+            }
+          else{  // M1 closure: Minerbo closure scheme
+
+	  double zetar, zetal;
+	  double zetar_temp = sqrt(fabs(F_rad_0rL*F_rad0rL + F_rad_xrL*F_radxrL +  F_rad_yrL*F_radyrL +  F_rad_zrL*F_radzrL )/SQR(E_radrL));
+	  double zetal_temp = sqrt(fabs(F_rad_0lL*F_rad0lL + F_rad_xlL*F_radxlL +  F_rad_ylL*F_radylL +  F_rad_zlL*F_radzlL )/SQR(E_radlL));
+	  //	  double zeta_cut= Erad_atm_cut*1.5;
+	  double zeta_cut = 1.0e-40;
+
+	  if (E_radrL <= zeta_cut){
+	    zetar = 1.0;
+	  } else {
+	    zetar =  zetar_temp;
+	  }	
+    
+	  if (zetar > 1.0){
+	    zetar = 1.0;
+	  }
+
+	  double chir = 1.0/3.0 + SQR(zetar)*(6.0-2.0*zetar+6.0*SQR(zetar))/15.0;	  
+	  double Fasqr = fabs(F_rad_0rL*F_rad0rL + F_rad_xrL*F_radxrL +  F_rad_yrL*F_radyrL +  F_rad_zrL*F_radzrL);
+       
+	  if (E_radlL <= zeta_cut){
+	    zetal = 1.0;
+	  }
+	  else {
+	    zetal =  zetal_temp;
+	  }
+	  
+	  if (zetal > 1.0){
+	    zetal = 1.0;
+	  }
+	    
+	  double chil = 1.0/3.0 + SQR(zetal)*(6.0-2.0*zetal+6.0*SQR(zetal))/15.0;
+	  double Fasql =fabs( F_rad_0lL*F_rad0lL + F_rad_xlL*F_radxlL +  F_rad_ylL*F_radylL +  F_rad_zlL*F_radzlL);
+	  
+	  FaFar[index] = F_rad_0rL*F_rad0rL + F_rad_xrL*F_radxrL +  F_rad_yrL*F_radyrL +  F_rad_zrL*F_radzrL;
+	  FaFal[index] = F_rad_0lL*F_rad0lL + F_rad_xlL*F_radxlL +  F_rad_ylL*F_radylL +  F_rad_zlL*F_radzlL;
+
+	  double v02lL_thick = 1.0/3.0;
+	  double v02rL_thick = 1.0/3.0;
+	  
+	  double v02lL_thin,v02rL_thin;
+	  
+	  if (flux_direction==1){
+	    //	    if(Fasql>0.0){
+	    if(1==0){
+	      v02lL_thin = SQR(F_radxlL)/(Fasql);
+	      v02rL_thin = SQR(F_radxrL)/(Fasqr);
+	    }
+	    else{
+	      v02lL_thin = 1.0;
+	      v02rL_thin = 1.0;
+	    }
+	    
+	    v02lL = (3.0*chil -1.0)/2.0*v02lL_thin + v02lL_thick*1.5*(1.0-chil);
+	    v02rL = (3.0*chir -1.0)/2.0*v02rL_thin + v02rL_thick*1.5*(1.0-chir); 
+
+	    v02l[index] = v02lL;
+	    v02r[index] = v02rL;
+	    
+	    find_cp_cm_rad2(cplusl,cminusl,v02lL,u0l,
+			    vxlL,alpha_fL,betax_fL,psim4,gupxx_fL);
+	    find_cp_cm_rad2(cplusr,cminusr,v02rL,u0r,
+			    vxrL,alpha_fL,betax_fL,psim4,gupxx_fL);
+	    
+	  }
+	  else if (flux_direction==2) {	    
+	    //	    if(Fasql>0.0){
+	    if(1==0){
+	      v02lL_thin = SQR(F_radylL)/(Fasql);
+	      v02rL_thin = SQR(F_radyrL)/(Fasqr);              
+	    }
+	    else{
+	      v02lL_thin = 1.0;
+	      v02rL_thin = 1.0;
+	    }
+	    	  
+	    v02lL = (3.0*chil -1.0)/2.0*v02lL_thin + v02lL_thick*1.5*(1.0-chil);
+	    v02rL = (3.0*chir -1.0)/2.0*v02rL_thin + v02rL_thick*1.5*(1.0-chir);
+	    
+	    find_cp_cm_rad2(cplusl,cminusl,v02lL,u0l,
+			    vylL,alpha_fL,betay_fL,psim4,gupyy_fL);
+	    find_cp_cm_rad2(cplusr,cminusr,v02rL,u0r,
+			    vyrL,alpha_fL,betay_fL,psim4,gupyy_fL);
+	  }
+	  else if (flux_direction==3) {
+	    //	    if(Fasql>0.0){
+	    if(1==0){
+	      v02lL_thin = SQR(F_radzlL)/(Fasql);
+	      v02rL_thin = SQR(F_radzrL)/(Fasqr);	                    
+	    }
+	    else{
+	      v02lL_thin = 1.0;
+	      v02rL_thin = 1.0;
+	    }	
+	   
+	    v02lL = (3.0*chil -1.0)/2.0*v02lL_thin + v02lL_thick*1.5*(1.0-chil);
+	    v02rL = (3.0*chir -1.0)/2.0*v02rL_thin + v02rL_thick*1.5*(1.0-chir);
+	    
+	    find_cp_cm_rad2(cplusl,cminusl,v02lL,u0l,
+			    vzlL,alpha_fL,betaz_fL,psim4,gupzz_fL);
+	    find_cp_cm_rad2(cplusr,cminusr,v02rL,u0r,
+			    vzrL,alpha_fL,betaz_fL,psim4,gupzz_fL);
+	  }
+	  
+	  // cmaxL = max(0.0,cplusl,cplusr)                                   
+	  double cmaxL = 0.0;
+	  if(cmaxL < cplusl) cmaxL = cplusl;
+	  if(cmaxL < cplusr) cmaxL = cplusr;
+	  
+	  // cminL = -min(0.0,cminusl,cminusr) 
+	  double cminL = 0.0;
+	  if(cminL > cminusl) cminL = cminusl;
+	  if(cminL > cminusr) cminL = cminusr;
+	  cminL *= -1;
+ 
+	  cmax[index] = cmaxL;                                                                                                                                
+	  cmin[index] = cminL;      
+	  
+	  compute_M1(P_radxxrL, F_radxrL, F_radxrL, Fasqr, E_radrL, gupxx_fL, betax_fL, betax_fL, alpha_fL, uxr, uxr, chir, psim4, Erad_atm_cut);
+	  compute_M1(P_radyyrL, F_radyrL, F_radyrL, Fasqr, E_radrL, gupyy_fL, betay_fL, betay_fL, alpha_fL, uyr, uyr, chir, psim4, Erad_atm_cut);
+	  compute_M1(P_radzzrL, F_radzrL, F_radzrL, Fasqr, E_radrL, gupzz_fL, betaz_fL, betaz_fL, alpha_fL, uzr, uzr, chir, psim4, Erad_atm_cut);
+	  compute_M1(P_radxyrL, F_radxrL, F_radyrL, Fasqr, E_radrL, gupxy_fL, betax_fL, betay_fL, alpha_fL, uxr, uyr, chir, psim4, Erad_atm_cut);
+	  compute_M1(P_radxzrL, F_radxrL, F_radzrL, Fasqr, E_radrL, gupxz_fL, betax_fL, betaz_fL, alpha_fL, uxr, uzr, chir, psim4, Erad_atm_cut);
+	  compute_M1(P_radyzrL, F_radyrL, F_radzrL, Fasqr, E_radrL, gupyz_fL, betay_fL, betaz_fL, alpha_fL, uyr, uzr, chir, psim4, Erad_atm_cut);
+	  
+	  compute_M1(P_radxxlL, F_radxlL, F_radxlL, Fasql, E_radlL, gupxx_fL, betax_fL, betax_fL, alpha_fL, uxl, uxl, chil, psim4, Erad_atm_cut);
+	  compute_M1(P_radyylL, F_radylL, F_radylL, Fasql, E_radlL, gupyy_fL, betay_fL, betay_fL, alpha_fL, uyl, uyl, chil, psim4, Erad_atm_cut);
+	  compute_M1(P_radzzlL, F_radzlL, F_radzlL, Fasql, E_radlL, gupzz_fL, betaz_fL, betaz_fL, alpha_fL, uzl, uzl, chil, psim4, Erad_atm_cut);
+	  compute_M1(P_radxylL, F_radxlL, F_radylL, Fasql, E_radlL, gupxy_fL, betax_fL, betay_fL, alpha_fL, uxl, uyl, chil, psim4, Erad_atm_cut);
+	  compute_M1(P_radxzlL, F_radxlL, F_radzlL, Fasql, E_radlL, gupxz_fL, betax_fL, betaz_fL, alpha_fL, uxl, uzl, chil, psim4, Erad_atm_cut);
+	  compute_M1(P_radyzlL, F_radylL, F_radzlL, Fasql, E_radlL, gupyz_fL, betay_fL, betaz_fL, alpha_fL, uyl, uzl, chil, psim4, Erad_atm_cut);
+	  
+	  double P_rad0xrL = - (P_radxxrL * u_xr + P_radxyrL * u_yr + P_radxzrL * u_zr)/u_0r;
+	  double P_rad0xlL = - (P_radxxlL * u_xl + P_radxylL * u_yl + P_radxzlL * u_zl)/u_0l;
+	  double P_rad0yrL = - (P_radxyrL * u_xr + P_radyyrL * u_yr + P_radyzrL * u_zr)/u_0r;
+	  double P_rad0ylL = - (P_radxylL * u_xl + P_radyylL * u_yl + P_radyzlL * u_zl)/u_0l;
+	  double P_rad0zrL = - (P_radxzrL * u_xr + P_radyzrL * u_yr + P_radzzrL * u_zr)/u_0r;
+	  double P_rad0zlL = - (P_radxzlL * u_xl + P_radyzlL * u_yl + P_radzzlL * u_zl)/u_0l;
+	  
+	  if (flux_direction==1) {
+	    Ftaur = al*al*psi6*(E_radrL*u0r*uxr + F_rad0rL*uxr + u0r*F_radxrL+ P_rad0xrL);
+	    Ftaul = al*al*psi6*(E_radlL*u0l*uxl + F_rad0lL*uxl + u0l*F_radxlL+ P_rad0xlL);
+	  } else  if (flux_direction==2) {
+	    Ftaur = al*al*psi6*(E_radrL*u0r*uyr + F_rad0rL*uyr + u0r*F_radyrL+ P_rad0yrL);
+	    Ftaul = al*al*psi6*(E_radlL*u0l*uyl + F_rad0lL*uyl + u0l*F_radylL+ P_rad0ylL);	    
+	  } else if  (flux_direction==3) {
+	    Ftaur = al*al*psi6*(E_radrL*u0r*uzr + F_rad0rL*uzr + u0r*F_radzrL+ P_rad0zrL);
+	    Ftaul = al*al*psi6*(E_radlL*u0l*uzl + F_rad0lL*uzl + u0l*F_radzlL+ P_rad0zlL);
+	  }
+	  double P_rad00r= - (P_rad0xrL * u_xr + P_rad0yrL * u_yr + P_rad0zrL * u_zr)/u_0r;
+	  double P_rad00l= - (P_rad0xlL * u_xl + P_rad0ylL * u_yl + P_rad0zlL * u_zl)/u_0l;
+	  
+	  tau_radr =  al*al*psi6*(E_radrL*u0r*u0r + 2.0*F_rad0rL*u0r + P_rad00r);
+	  tau_radl =  al*al*psi6*(E_radlL*u0l*u0l + 2.0*F_rad0lL*u0l + P_rad00l);
+	  
+	  
+	  tau_rad_flux[index] =  (cminL*Ftaur + cmaxL*Ftaul - cminL*cmaxL*(tau_radr-tau_radl) )/(cmaxL + cminL);
+	  if (flux_direction==1) {
+	    tau_rad_flux_diag[index] = (cminL*Ftaur + cmaxL*Ftaul - cminL*cmaxL*(tau_radr-tau_radl) )/(cmaxL + cminL);
+	  }
+
+	  
+	  //compute P^i_j for S_rad_i flux
+	  double P_radx_xr = psi4*(P_radxxrL*gxx_fL + P_radxyrL*gxy_fL + P_radxzrL*gxz_fL) + P_rad0xrL*beta_x_fL;
+	  double P_rady_yr = psi4*(P_radxyrL*gxy_fL + P_radyyrL*gyy_fL + P_radyzrL*gyz_fL) + P_rad0yrL*beta_y_fL; 
+	  double P_radz_zr = psi4*(P_radxzrL*gxz_fL + P_radyzrL*gyz_fL + P_radzzrL*gzz_fL) + P_rad0zrL*beta_z_fL; 
+	  double P_radx_yr = psi4*(P_radxxrL*gxy_fL + P_radxyrL*gyy_fL + P_radxzrL*gyz_fL) + P_rad0xrL*beta_y_fL; 
+	  double P_radx_zr = psi4*(P_radxxrL*gxz_fL + P_radxyrL*gyz_fL + P_radxzrL*gzz_fL) + P_rad0xrL*beta_z_fL;  
+	  double P_rady_zr = psi4*(P_radxyrL*gxz_fL + P_radyyrL*gyz_fL + P_radyzrL*gzz_fL) + P_rad0yrL*beta_z_fL;  
+	  double P_rady_xr = psi4*(P_radxyrL*gxx_fL + P_radyyrL*gxy_fL + P_radyzrL*gxz_fL) + P_rad0yrL*beta_x_fL;
+	  double P_radz_xr = psi4*(P_radxzrL*gxx_fL + P_radyzrL*gxy_fL + P_radzzrL*gxz_fL) + P_rad0zrL*beta_x_fL;
+	  double P_radz_yr = psi4*(P_radxzrL*gxy_fL + P_radyzrL*gyy_fL + P_radzzrL*gyz_fL) + P_rad0zrL*beta_y_fL;
+	  
+	  
+	  double P_radx_xl = psi4*(P_radxxlL*gxx_fL + P_radxylL*gxy_fL + P_radxzlL*gxz_fL) + P_rad0xlL*beta_x_fL;
+	  double P_rady_yl = psi4*(P_radxylL*gxy_fL + P_radyylL*gyy_fL + P_radyzlL*gyz_fL) + P_rad0ylL*beta_y_fL;
+	  double P_radz_zl = psi4*(P_radxzlL*gxz_fL + P_radyzlL*gyz_fL + P_radzzlL*gzz_fL) + P_rad0zlL*beta_z_fL;
+	  double P_radx_yl = psi4*(P_radxxlL*gxy_fL + P_radxylL*gyy_fL + P_radxzlL*gyz_fL) + P_rad0xlL*beta_y_fL;
+	  double P_radx_zl = psi4*(P_radxxlL*gxz_fL + P_radxylL*gyz_fL + P_radxzlL*gzz_fL) + P_rad0xlL*beta_z_fL;
+	  double P_rady_zl = psi4*(P_radxylL*gxz_fL + P_radyylL*gyz_fL + P_radyzlL*gzz_fL) + P_rad0ylL*beta_z_fL;
+	  double P_rady_xl = psi4*(P_radxylL*gxx_fL + P_radyylL*gxy_fL + P_radyzlL*gxz_fL) + P_rad0ylL*beta_x_fL;
+	  double P_radz_xl = psi4*(P_radxzlL*gxx_fL + P_radyzlL*gxy_fL + P_radzzlL*gxz_fL) + P_rad0zlL*beta_x_fL;
+	  double P_radz_yl = psi4*(P_radxzlL*gxy_fL + P_radyzlL*gyy_fL + P_radzzlL*gyz_fL) + P_rad0zlL*beta_y_fL;
+	  
+	  
+	  if (flux_direction==1) {
+	    Fxr = al*psi6*(E_radrL*u_xr*uxr + F_radxrL*u_xr + uxr*F_rad_xrL + P_radx_xr);
+	    Fxl = al*psi6*(E_radlL*u_xl*uxl + F_radxlL*u_xl + uxl*F_rad_xlL + P_radx_xl);
+	    Fyr = al*psi6*(E_radrL*u_yr*uxr + F_radxrL*u_yr + uxr*F_rad_yrL + P_radx_yr);
+	    Fyl = al*psi6*(E_radlL*u_yl*uxl + F_radxlL*u_yl + uxl*F_rad_ylL + P_radx_yl);
+	    Fzr = al*psi6*(E_radrL*u_zr*uxr + F_radxrL*u_zr + uxr*F_rad_zrL + P_radx_zr);
+	    Fzl = al*psi6*(E_radlL*u_zl*uxl + F_radxlL*u_zl + uxl*F_rad_zlL + P_radx_zl);
+	  } else  if (flux_direction==2) {
+	    Fxr = al*psi6*(E_radrL*u_xr*uyr + F_radyrL*u_xr + uyr*F_rad_xrL + P_rady_xr);
+	    Fxl = al*psi6*(E_radlL*u_xl*uyl + F_radylL*u_xl + uyl*F_rad_xlL + P_rady_xl);
+	    Fyr = al*psi6*(E_radrL*u_yr*uyr + F_radyrL*u_yr + uyr*F_rad_yrL + P_rady_yr);
+	    Fyl = al*psi6*(E_radlL*u_yl*uyl + F_radylL*u_yl + uyl*F_rad_ylL + P_rady_yl);
+	    Fzr = al*psi6*(E_radrL*u_zr*uyr + F_radyrL*u_zr + uyr*F_rad_zrL + P_rady_zr);
+	    Fzl = al*psi6*(E_radlL*u_zl*uyl + F_radylL*u_zl + uyl*F_rad_zlL + P_rady_zl);
+	  } else if  (flux_direction==3) {
+	    Fxr = al*psi6*(E_radrL*u_xr*uzr + F_radzrL*u_xr + uzr*F_rad_xrL + P_radz_xr);
+	    Fxl = al*psi6*(E_radlL*u_xl*uzl + F_radzlL*u_xl + uzl*F_rad_xlL + P_radz_xl);
+	    Fyr = al*psi6*(E_radrL*u_yr*uzr + F_radzrL*u_yr + uzr*F_rad_yrL + P_radz_yr);
+	    Fyl = al*psi6*(E_radlL*u_yl*uzl + F_radzlL*u_yl + uzl*F_rad_ylL + P_radz_yl);
+	    Fzr = al*psi6*(E_radrL*u_zr*uzr + F_radzrL*u_zr + uzr*F_rad_zrL + P_radz_zr);
+	    Fzl = al*psi6*(E_radlL*u_zl*uzl + F_radzlL*u_zl + uzl*F_rad_zlL + P_radz_zl);
+	  }
+	  
+	  double P_rad0_xr = -(P_radx_xr*u_xr + P_rady_xr*u_yr + P_radz_xr*u_zr)/u_0r;
+	  double P_rad0_yr = -(P_radx_yr*u_xr + P_rady_yr*u_yr + P_radz_yr*u_zr)/u_0r;
+	  double P_rad0_zr = -(P_radx_zr*u_xr + P_rady_zr*u_yr + P_radz_zr*u_zr)/u_0r;
+	  
+	  double P_rad0_xl = -(P_radx_xl*u_xl + P_rady_xl*u_yl + P_radz_xl*u_zl)/u_0l;
+	  double P_rad0_yl = -(P_radx_yl*u_xl + P_rady_yl*u_yl + P_radz_yl*u_zl)/u_0l;
+	  double P_rad0_zl = -(P_radx_zl*u_xl + P_rady_zl*u_yl + P_radz_zl*u_zl)/u_0l;
+	  
+	  
+	  S_radxr =  al*psi6*(E_radrL*u0r*u_xr + F_rad0rL*u_xr + u0r*F_rad_xrL + P_rad0_xr);      
+	  S_radxl =  al*psi6*(E_radlL*u0l*u_xl + F_rad0lL*u_xl + u0l*F_rad_xlL + P_rad0_xl);
+	  S_radyr =  al*psi6*(E_radrL*u0r*u_yr + F_rad0rL*u_yr + u0r*F_rad_yrL + P_rad0_yr);
+	  S_radyl =  al*psi6*(E_radlL*u0l*u_yl + F_rad0lL*u_yl + u0l*F_rad_ylL + P_rad0_yl);
+	  S_radzr =  al*psi6*(E_radrL*u0r*u_zr + F_rad0rL*u_zr + u0r*F_rad_zrL + P_rad0_zr);
+	  S_radzl =  al*psi6*(E_radlL*u0l*u_zl + F_rad0lL*u_zl + u0l*F_rad_zlL + P_rad0_zl);
+	  
+	  S_radx_flux[index] = (cminL*Fxr + cmaxL*Fxl - cminL*cmaxL*(S_radxr-S_radxl) )/(cmaxL + cminL);
+	  S_rady_flux[index] = (cminL*Fyr + cmaxL*Fyl - cminL*cmaxL*(S_radyr-S_radyl) )/(cmaxL + cminL);
+	  S_radz_flux[index] = (cminL*Fzr + cmaxL*Fzl - cminL*cmaxL*(S_radzr-S_radzl) )/(cmaxL + cminL);
+
+	  /*
+	  if ( fabs(X[index]) < 0.03 && fabs(Y[index]) < 0.03 && fabs(Z[index]) < 0.03){
+	    printf("=============================================================================================\n");
+	    printf("Inside flux_rad.C, check S_radx_flux=%e, S_rady_flux=%e, S_radz_flux=%e, \n", S_radx_flux[index], S_rady_flux[index], S_radz_flux[index]);
+	    printf("flux_direction = %d \n", flux_direction);
+	    printf("Inside S_radx_flux, Fxr=%e, Fxl=%e, S_radxr=%e, S_radxl=%e \n", Fxr, Fxl, S_radxr, S_radxl);
+	    printf("Inside S_radz_flux, Fzr=%e, Fzl=%e, S_radzr=%e, S_radzl=%e \n", Fzr, Fzl, S_radzr, S_radzl);
+	    printf("At (x,y,z) = %e %e %e, %d %d %d\n", X[index],Y[index],Z[index],i,j,k);
+	  }
+	  */
+
+	  }
+	}    
+}    
+
+
+
+
+
+extern "C" void CCTK_FCALL CCTK_FNAME(flux_rad_cpp)
+  (int *flux_direction, const cGH **cctkGH,int *ext,double *X,double *Y,double *Z,
+   double *tau_rad_flux,double *tau_rad_flux_diag,
+   double *S_radx_flux, double *S_rady_flux, double *S_radz_flux,
+   double *E_radr, double *E_radl,
+   double *F_radxr, double *F_radxl,
+   double *F_radyr, double *F_radyl,
+   double *F_radzr, double *F_radzl,
+   double *FaFar, double *FaFal,
+   double *Pr, double *Pl,
+   double *rho_br, double *rho_bl,
+   double *Bxr, double *Bxl, double *Byr, double *Byl, double *Bzr, double *Bzl,
+   double *v02r, double *v02l,
+   double *vxr, double *vxl, double *vyr, double *vyl, double *vzr, double *vzl,
+   double *gxx_f, double *gxy_f, double *gxz_f, double *gyy_f, double *gyz_f, double *gzz_f,
+   double *gupxx_f, double *gupyy_f, double *gupzz_f,double *gupxy_f, double *gupxz_f, double *gupyz_f,
+   double *cmax,double *cmin,
+   double *betax_f, double *betay_f, double *betaz_f,
+   double *alpha_f, double *phi_f,
+   int &pow_axi,int &Symmetry, int &rad_closure_scheme,
+   int *enable_OS_collapse,
+   int *neos, int *ergo_star, double *ergo_sigma, double *rho_tab, double *P_tab, double *eps_tab, double *k_tab, double *gamma_tab,double *gamma_th, double *Erad_atm_cut)
+
+{
+  flux_rad_cpp
+    (*flux_direction, *cctkGH,ext,X,Y,Z,
+     tau_rad_flux,tau_rad_flux_diag,
+     S_radx_flux, S_rady_flux, S_radz_flux,
+     E_radr, E_radl, 
+     F_radxr,F_radxl, 
+     F_radyr, F_radyl,
+     F_radzr, F_radzl,
+     FaFar, FaFal,
+     Pr, Pl,
+     rho_br, rho_bl,
+     Bxr, Bxl, Byr, Byl, Bzr, Bzl,
+     v02r, v02l,
+     vxr,vxl,vyr,vyl,vzr,vzl,
+     gxx_f, gxy_f, gxz_f, gyy_f, gyz_f, gzz_f,
+     gupxx_f, gupyy_f, gupzz_f,gupxy_f, gupxz_f, gupyz_f,
+     cmax,cmin,
+     betax_f, betay_f, betaz_f, 
+     alpha_f, phi_f, 
+     pow_axi,Symmetry, rad_closure_scheme,
+     *enable_OS_collapse,
+     *neos, *ergo_star, *ergo_sigma, rho_tab, P_tab, eps_tab, k_tab, gamma_tab, *gamma_th, *Erad_atm_cut);
+}
+
+
+
+
+void flux_hll_cpp_frad(int *ext,double &Ur,double &Ul,double &Fr,double &Fl,double &F,double &cmax,double &cmin) {
+  F = (cmin*Fr + cmax*Fl - cmin*cmax*(Ur-Ul) )/(cmax + cmin);
+
+  //   In the above line of code, this means that F=NaN, which leads to instability.
+  //if(cmax+cmin==0) F=0;
+}
+
+
+
+void compute_M1(double &Pij,double &Fi,double &Fj,double &Fasq,double &E,double &gupij, double &shifti, double &shiftj, double &lapse, double &ui, double &uj, double &chi, double &psim4, double &Erad_atm_cut) {
+  double Pij_thin;
+  if (E<Erad_atm_cut){
+    Pij=0.0;
+  }else{
+    if(Fasq<=0.0){
+      Pij_thin = 0.0;
+    } else{
+      //Pij_thin = (psim4*gupij+ui*uj)*E*gij*Fi*Fj/SQR(FaFa)/psim4;
+      Pij_thin = E*Fi*Fj/Fasq;
+    } 
+    double Pij_thick = (psim4*gupij-shifti*shiftj/SQR(1.0+lapse)+ui*uj)*E/3.0;
+    Pij = Pij_thin*(3.0*chi -1.0)/2.0 + Pij_thick*1.5*(1.0-chi);
+  }
+}
+
+
+inline void find_cp_cm_rad2(double &cplus,double &cminus,double &v02,double &u0,
+                            double &vi,double &lapse,double &shifti,double &psim4,double &gupii) {
+  //Find cplus, cminus:                                                                                                                                                                                    
+  double a = SQR(u0) * (1.0-v02) + v02/SQR(1.0+lapse);
+  double b = 2.0* ( shifti/SQR(1.0+lapse) * v02 - SQR(u0) * vi * (1.0-v02) );
+  double c = SQR(u0*vi) * (1.0-v02) - v02 * ( psim4*gupii -
+                                              SQR(shifti/(1.0+lapse)) );
+  double detm = b*b - 4.0*a*c;
+  if(detm < 0.0) detm = 0.0;
+  detm = sqrt(detm);
+
+
+  cplus = 0.5*(detm-b)/a;
+  cminus = -0.5*(detm+b)/a;
+  if (cplus < cminus) {
+    double cp = cminus;
+    cminus = cplus;
+    cplus = cp;
+  }
+
+}
+

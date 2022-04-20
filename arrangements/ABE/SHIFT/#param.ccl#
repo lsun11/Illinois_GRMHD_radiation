@@ -1,0 +1,150 @@
+# Parameter definitions for the thorn shift
+
+shares: BSSN
+USES KEYWORD bssn_enable_shift_upwind
+USES KEYWORD enable_lower_order_at_boundaries
+USES KEYWORD Xcenter
+USES KEYWORD Ycenter
+USES KEYWORD Zcenter
+USES KEYWORD use_trans_fish_phys_new
+
+shares: grid
+
+USES KEYWORD type 
+USES KEYWORD domain
+USES KEYWORD quadrant_direction
+USES KEYWORD bitant_plane
+
+shares: bssn
+
+#########################################################
+# Timestepping (MoL) stuff
+shares: MethodOfLines
+
+USES CCTK_INT MoL_Num_Evolved_Vars
+USES CCTK_INT MoL_Num_Constrained_Vars
+USES CCTK_INT MoL_Num_SaveAndRestore_Vars
+
+restricted:
+
+CCTK_INT shift_MaxNumEvolvedVars "The maximum number of evolved variables used by shift" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Evolved_Vars
+{
+  6:6           :: "Just 6: shift^i and shift^i,t"
+} 6
+
+CCTK_INT shift_MaxNumConstrainedVars "The maximum number of constrained variables used by shift" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Constrained_Vars
+{
+  1:1           :: "The Analytic-Numerical gridfunction"
+} 1
+#########################################################
+
+restricted:
+
+INT Spatial_Gauge "Type of spatial gauge to use"
+{
+  0:7 :: "From 0 to 7"
+} 0
+
+private:
+
+INT punc_shift_bc_radial_falloff_power "Assumed shift falloff exponent at outer boundary: beta^i ~ r^(-shift_bc_radial_falloff_power).  Set to 1 for systems with net linear momentum, 2 for no net linear mom."
+{
+ 0:* :: "Positive or zero"
+} 1
+
+INT shift_bc_type "Set to 0 for FALLOFF BCs, 1 for FREEZE (frozen) BCs"
+{
+ 0:* :: "Positive or zero"
+} 0
+
+
+REAL eta "eta parameter for hb puncture shift" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive or zero"
+} 2.0
+
+##################################################################################################
+INT eta_falloff_enable "Enable position-dependent eta, with (some reasonable) parameters (assuming ADM mass=1) defined below?  0=no 1=spatial 2=spatial&temporal" STEERABLE=ALWAYS
+{
+ 0:2 :: "0=no 1=yes, fixed-in-time spatially-varied eta, as defined by eta_falloff_radius,eta_falloff_dr,eta_final_value below.  2=spatial & temporally varying eta using arXiv:1009:0292 prescription"
+} 0
+
+REAL eta_falloff_radius "radius beyond which eta starts to fall off to eta_final_value" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive or zero"
+} 20.0
+
+REAL eta_falloff_dr "radius beyond which eta starts to fall off to eta_final_value" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive or zero"
+} 5.0
+
+REAL eta_final_value "eta parameter for hb puncture shift" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive or zero"
+} 0.25
+##################################################################################################
+
+
+REAL time_to_switch_to_eta_final_value "When t>=time_to_switch_to_eta_final_value, eta=eta_final_value.  t=code units, of course." STEERABLE=ALWAYS
+{
+ 0:* :: "Positive or zero"
+} 200000000000.0
+
+
+
+
+REAL hyper_b1 "b1 parameter for hyperbolic shift"
+{
+ *:* :: "Anything"
+} 0.0
+
+REAL hyper_b2 "b2 parameter for hyperbolic shift"
+{
+ *:* :: "Anything"
+} 0.0
+
+REAL hyper_b3 "b3 parameter for hyperbolic shift"
+{
+ *:* :: "Anything"
+} 0.0
+
+INT hbpunc_advect_enable "Use advection terms in puncture shift evolution? 0 for no, 1==shibata upwinding, 2==usual upwinding"  STEERABLE = ALWAYS
+{
+ 0:2 :: "Zero (disable), One (old Shibata-based upwinding scheme), or Two (usual upwinding scheme)"
+} 0
+
+INT hbpuncture_shift_convert_Gammai_fisheye_to_physical "Convert \Gamma^i to physical coordinates before updating the shift?"
+{
+ 0:1 :: "Zero (disable), One (enable approx. fish->phys transformation)"
+} 1
+
+INT firstorder_shift_convert_Gammai_fisheye_to_physical "Convert \Gamma^i to physical coordinates before updating the shift?"
+{
+ 0:1 :: "Zero (disable), One (enable exact [at infinite resolution] fish->phys transf.)"
+} 1
+
+REAL hyper_phi_init "initial phi param for hyperbolic shift"
+{
+ *:* :: "Anything"
+} 10.0
+
+REAL hyper_psi6_init "DO NOT BOTHER SETTING.  hyper_psi6_init=exp(6.0*hyper_phi_init)"
+{
+ *:* :: "Anything"
+} 1.0
+
+REAL hyper_Rscale "R scale for hyperbolic shift"
+{
+ *:* :: "Anything"
+} 10.0
+
+INT hyper_Integration_Order "Integration order parameter in hyperbolic shift"
+{
+ 0:* :: "Positive"
+} 2
+
+STRING shift_interp_operator "Name of interpolation operator to use" STEERABLE = ALWAYS
+{
+  ".+" :: "A valid name for a registered interpolation operator"
+} "uniform cartesian"

@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn em_evolve_ct
+
+# Source files in this directory
+SRCS =  flux_rad.C driver_advect_rad.F90 advect_rad_tau_ct.C \
+	tau_rad_curvature.C  source_rad.C advect_rad_S_ct.C primitives_rad.C\
+
+#	flux_rad_nue.C driver_advect_rad_nue.F90 advect_rad_tau_ct_nue.C \
+#        tau_rad_curvature_nue.C  source_rad_nue.C advect_rad_S_ct_nue.C primitives_rad_nue.C

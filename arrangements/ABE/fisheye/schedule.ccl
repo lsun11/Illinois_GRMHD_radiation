@@ -1,0 +1,32 @@
+# Schedule definitions for thorn fisheye
+STORAGE:	fisheye::fisheye_vars
+STORAGE:	BSSN::phi_derivs,BSSN::BSSN_diag_restrict,BSSN::BSSN_gupij,BSSN::BSSN_vars[3],BSSN::BSSN_matter,BSSN::BSSN_aux_restrict2,BSSN::BSSN_AH
+STORAGE:	lapse::lapse_vars[3],lapse::lapse_derivatives
+STORAGE:	shift::shift_vars[3]
+
+#schedule Setup_Fisheye_Coords at BASEGRID after setup_global_coords
+schedule Setup_Fisheye_Coords at BASEGRID
+{
+  STORAGE:	fisheye::fisheye_vars
+  LANG:		C
+} "Setup fisheye coordinates, if desired."
+
+schedule Setup_Fisheye_Coords as fish_postregrid_update0 at CCTK_POSTRESTRICT after MoL_PostStep
+{
+  OPTIONS:	LEVEL,loop-local
+  STORAGE:	fisheye::fisheye_vars
+  SYNC:		BSSN::BSSN_gupij,BSSN::BSSN_vars,lapse::lapse_vars,shift::shift_vars
+#  SYNC: 	BSSN::phi_derivs,BSSN::BSSN_gupij,BSSN::BSSN_vars,BSSN::BSSN_matter,BSSN::BSSN_AH,lapse::lapse_vars,lapse::lapse_derivatives,shift::shift_vars
+#  SYNC: 	BSSN::phi_derivs,BSSN::BSSN_diag_restrict,BSSN::BSSN_gupij,BSSN::BSSN_vars,BSSN::BSSN_matter,BSSN::BSSN_aux_restrict2,BSSN::BSSN_AH,lapse::lapse_vars,lapse::lapse_derivatives,shift::shift_vars
+  LANG:		C
+} "Setup fisheye coordinates, if desired."
+
+schedule Setup_Fisheye_Coords as fish_postregrid_update at CCTK_POSTREGRID after MoL_PostStep
+{
+#  OPTIONS:	LEVEL,loop-local
+  STORAGE:	fisheye::fisheye_vars
+  SYNC:		BSSN::BSSN_gupij,BSSN::BSSN_vars,lapse::lapse_vars,shift::shift_vars
+#  SYNC: 	BSSN::phi_derivs,BSSN::BSSN_gupij,BSSN::BSSN_vars,BSSN::BSSN_matter,BSSN::BSSN_AH,lapse::lapse_vars,lapse::lapse_derivatives,shift::shift_vars
+#  SYNC: 	BSSN::phi_derivs,BSSN::BSSN_diag_restrict,BSSN::BSSN_gupij,BSSN::BSSN_vars,BSSN::BSSN_matter,BSSN::BSSN_aux_restrict2,BSSN::BSSN_AH,lapse::lapse_vars,lapse::lapse_derivatives,shift::shift_vars
+  LANG:		C
+} "Setup fisheye coordinates, if desired."

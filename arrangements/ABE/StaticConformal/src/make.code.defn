@@ -1,0 +1,10 @@
+# Main make.code.defn file for thorn StaticConformal
+# $Header: /cactus/CactusEinstein/StaticConformal/src/make.code.defn,v 1.4 2004/08/20 13:51:57 hawke Exp $
+
+# Source files in this directory
+SRCS = Initialise.c ConfPhys.c
+#SRCS = Initialise.c Evolve.c ConfPhys.c
+
+# Subdirectories containing source files
+SUBDIRS = 
+

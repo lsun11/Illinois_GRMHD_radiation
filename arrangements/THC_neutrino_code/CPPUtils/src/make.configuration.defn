@@ -1,0 +1,4 @@
+ALL_UTILS += cpputils_test_dot \
+             cpputils_test_gemv \
+             cpputils_test_regfalsi \
+             cpputils_test_tensor

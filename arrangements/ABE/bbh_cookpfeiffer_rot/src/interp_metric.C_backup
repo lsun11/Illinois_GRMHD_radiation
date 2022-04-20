@@ -1,0 +1,160 @@
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <sys/time.h>
+#include <sstream>
+#include <time.h>
+#include <ctype.h>
+#include <iostream>
+#include <sstream> 
+#include <string>
+#include <unistd.h>
+#include <cmath>
+#include <iomanip> 
+#include <fstream> 
+#include <stdlib.h>
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Parameters.h"
+#include "utilities.h"
+using namespace std;
+
+void polint(double xa[], double ya[], int n, double x, double *y, double *dy);
+void polin2(double x1a[], double x2a[], double **ya, int m, int n, double x1, double x2, double *y, double *dy);
+void polin3(double x1a[], double x2a[], double x3a[], double ***ya, int m, int n, int l, double x1, double x2, double x3, double *y, double *dy);
+void interpolate(double *xco, double *yco, double *zco, double *var, int nx, int ny, int nz, double x1, double x2, double x3, double &val, int order);
+void locate(double *xx, unsigned long n, double x, long& j);
+  
+extern "C" void CCTK_FCALL CCTK_FNAME(interp_metric)
+  (const cGH **cctkGH,double *radmin1,double *radmax1,int *Nlograd,int *Ncostheta,int *Nphi,
+   double *lograd_arr1,double *costheta_arr1,double *phi_arr1,
+   double *K_rr_rot,double *K_rth_rot,double *K_rp_rot,double *K_thth_rot,double *K_thp_rot, double *K_pp_rot, 
+   double *shiftr_rot,double *shiftth_rot,double *shiftp_rot,double *phi_rot,double *lapm1_rot,
+   double *kxx,double *kxy,double *kxz,double *kyy,double *kyz,double *kzz,
+   double *shiftx,double *shifty,double *shiftz,double *phi,double *lapse,
+   double *X,double *Y,double *Z,
+   double *xmin,double *ymin,double *zmin,
+   double *dx,double *dy,double *dz,int *ext);
+
+extern "C" void interp_metric(const cGH *cctkGH,double radmin1,double radmax1,int Nlograd,int Ncostheta,int Nphi,
+			      double *lograd_arr1,double *costheta_arr1,double *phi_arr1,
+			      double *K_rr_rot,double *K_rth_rot,double *K_rp_rot,double *K_thth_rot,double *K_thp_rot,double *K_pp_rot,
+			      double *shiftr_rot,double *shiftth_rot,double *shiftp_rot,double *phi_rot,double *lapm1_rot,
+			      double *kxx,double *kxy,double *kxz,double *kyy,double *kyz,double *kzz,
+			      double *shiftx,double *shifty,double *shiftz,double *phi,double *lapse,
+			      double *X,double *Y,double *Z,
+			      double xmin,double ymin,double zmin,
+			      double dx,double dy,double dz,int *ext) {
+  
+  int nx = ext[0];
+  int ny = ext[1];
+  int nz = ext[2];
+
+  double PI=acos(-1.0);
+
+  double costhetamin=0.0;
+  double costhetamax=1.0;
+  double phimin=0.0;
+  double phimax=2.0*PI;
+
+  double logradmin1=log(radmin1);
+  double logradmax1=log(radmax1);
+  for (int k = 0; k < nz; k++) for (int j = 0; j < ny; j++) for (int i = 0; i < nx; i++) {
+    int index=CCTK_GFINDEX3D(cctkGH,i,j,k);
+    
+    double radL=sqrt(X[index]*X[index]+
+		     Y[index]*Y[index]+
+		     Z[index]*Z[index])+1e-20;
+    double rad_cylL=sqrt(X[index]*X[index]+Y[index]*Y[index])+1e-20;
+    double logradL=log(radL);
+    double costhetaL=Z[index]/radL;
+    double phiL=acos(X[index]/rad_cylL)*((Y[index] > 0.0)-0.5)*2.0+2.0*PI*(Y[index]<=0.0);   
+    int lograd_index=(logradL-logradmin1)/(logradmax1-logradmin1)*Nlograd;
+    int costheta_index=(costhetaL-costhetamin)/(costhetamax-costhetamin)*Ncostheta;
+    int phi_index=(phiL-phimin)/(phimax-phimin)*Nphi;
+    int interp_index = costheta_index+Ncostheta*(phi_index+Nphi*lograd_index);
+    if ((i==16)&&(j==16)&&(k==9)) {
+      cout << "X[index]: " << X[index] << endl;
+      cout << "Y[index]: " << Y[index] << endl;
+      cout << "Z[index]: " << Z[index] << endl;
+      cout <<  "*****************" << endl;
+      cout <<  "logradL: " << logradL << endl;
+      cout <<  "lograd_index: " << lograd_index << endl;
+      cout <<  "lograd_arr1(lograd_index): " << lograd_arr1[interp_index] << endl;
+      // cout <<  "lograd_arr1(lograd_index+1): " << lograd_arr1[interp_index] << endl;
+      cout <<  "*****************" << endl;
+      cout <<  "costhetaL: " << costhetaL << endl;
+      cout <<  "costheta_index: " << costheta_index << endl;
+      cout <<  "costheta_arr1(costheta_index): " << costheta_arr1[interp_index] << endl;
+      //cout <<  "costheta_arr1(costheta_index+1): " << costheta_arr1[interp_index] << endl;
+      cout <<  "*****************" << endl;
+      cout <<  "phiL: " << phiL << endl;
+      cout <<  "phi_index: " << phi_index << endl;
+      cout <<  "phi_arr1(phi_index): " << phi_arr1[interp_index] << endl;
+      //cout <<  "phi_arr1(phi_index+1): " << phi_arr1[interp_index] << endl;
+      cout <<  "*****************" << endl;
+    }
+    
+    double xxmin = 0.0;
+    double yymin = 0.0;
+    double zzmin = 0.0;
+    
+    double deltax = 1.0;
+    double deltay = 1.0;
+    double deltaz = 1.0;
+    
+    int nnx = 100;
+    int nny = 100;
+    int nnz = 100;
+    int ntotal = nx*ny*nz;
+    
+    double x_arr[nx];
+    double y_arr[ny];
+    double z_arr[nz];
+    double function_arr[ntotal]
+      ;
+    for(int k=0; k<nnz; k++){
+      z_arr[k]=zzmin+deltaz*k;
+      for(int j=0; j<nny; j++){
+	y_arr[j]=yymin+deltay*j;
+	for(int i=0; i<nnx; i++){
+	  x_arr[i]=xxmin+deltax*i;
+	  function_arr[i+nnx*(j+nny*k)]=x_arr[i]*y_arr[j]*z_arr[k];
+	  //function_arr[i+nx*(j+ny*k)]=5.0;
+	}
+      }
+    }
+    int order = 2;  
+    
+    double x_int, y_int, z_int;
+    x_int=25.5;
+    y_int=25.5;
+    z_int=25.5;
+    
+    double function_val;
+     
+    interpolate(x_arr,y_arr,z_arr,function_arr,nx,ny,nz,x_int,y_int,z_int,function_val,order);
+
+    cout <<"function_val: " << function_val << endl;
+  }
+}
+
+extern "C" void CCTK_FCALL CCTK_FNAME(interp_metric)
+  (const cGH **cctkGH,double *radmin1,double *radmax1,int *Nlograd,int *Ncostheta,int *Nphi,
+   double *lograd_arr1,double *costheta_arr1,double *phi_arr1,
+   double *K_rr_rot,double *K_rth_rot,double *K_rp_rot,double *K_thth_rot,double *K_thp_rot,double *K_pp_rot,
+   double *shiftr_rot,double *shiftth_rot,double *shiftp_rot,double *phi_rot,double *lapm1_rot,
+   double *kxx,double *kxy,double *kxz,double *kyy,double *kyz,double *kzz,
+   double *shiftx,double *shifty,double *shiftz,double *phi,double *lapse,
+   double *X,double *Y,double *Z,
+   double *xmin,double *ymin,double *zmin,
+   double *dx,double *dy,double *dz,int *ext)
+{  
+  interp_metric(*cctkGH,*radmin1,*radmax1,*Nlograd,*Ncostheta,*Nphi,
+		lograd_arr1,costheta_arr1,phi_arr1,
+		K_rr_rot,K_rth_rot,K_rp_rot,K_thth_rot,K_thp_rot,K_pp_rot,
+		shiftr_rot,shiftth_rot,shiftp_rot,phi_rot,lapm1_rot,
+		kxx,kxy,kxz,kyy,kyz,kzz,shiftx,shifty,shiftz,phi,lapse,
+		X,Y,Z,*xmin,*ymin,*zmin,*dx,*dy,*dz,ext);
+}
+

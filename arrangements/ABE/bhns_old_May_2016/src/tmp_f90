@@ -1,0 +1,4 @@
+!        call bhns_reset_rho_b_atm(cctkGH,cctk_lsh,X,Y,Z,temp2,rho_b,P,atm_type,&
+!             x_NS_CoM_coord,y_NS_CoM_coord,bhns_rhob_fac,rad_rhob_fac, &
+!             bhns_rhob_max,rhobatm_falloff_power,rhob_o_b2)
+

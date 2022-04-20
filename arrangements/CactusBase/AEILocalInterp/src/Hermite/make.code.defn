@@ -1,0 +1,15 @@
+# make.code.defn file for Lagrange polynomial interpolation
+# $Header: /numrelcvs/AEIThorns/AEILocalInterp/src/Hermite/make.code.defn,v 1.1.1.1 2003/07/06 11:16:13 jthorn Exp $
+
+# Source files in this directory
+SRCS =                  \
+       1d.cube.order2.c \
+       1d.cube.order3.c \
+       1d.cube.order4.c \
+                        \
+       2d.cube.order2.c \
+       2d.cube.order3.c \
+                        \
+       3d.cube.order2.c \
+       3d.cube.order3.c \
+		# end of list

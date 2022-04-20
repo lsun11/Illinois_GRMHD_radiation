@@ -1,0 +1,10 @@
+# make.code.defn file for thorn bbhlorene
+
+# Source files in this directory
+SRCS =  disk_moncrief_matter_id.F90 \
+	disk_moncrief_matter_global_1.F90 \
+	disk_moncrief_matter_local_1.F90 \
+	diagnostics.F90 \
+	disk_moncrief_matter_global_2.F90 \
+	disk_moncrief_matter_local_2.F90 
+	

@@ -1,0 +1,8 @@
+# Configuration definitions for thorn CartGrid3D
+# $Header: /cactusdevcvs/CactusEinstein/ADMMacros/configuration.ccl,v 1.1 2004/04/28 17:24:52 hawke Exp $
+
+PROVIDES ADMMacros
+{
+  SCRIPT
+  LANG
+}

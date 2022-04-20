@@ -1,0 +1,18 @@
+# Interface definition for thorn shocktests
+
+implements: cylindrical2d
+inherits: grid
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+
+USES INCLUDE: Symmetry.h
+USES INCLUDE: Cartoon2D.h
+
+protected:
+
+private:

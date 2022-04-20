@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src
+END
+make.code.deps
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src/make.code.deps
+END
+detect.sh
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src/detect.sh
+END
+make.code.defn
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src/make.code.defn
+END
+build.sh
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src/build.sh
+END
+make.configuration.deps
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src/make.configuration.deps
+END
+make.configuration.defn
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/projects/ExternalLibraries/HDF5/!svn/ver/141/branches/ET_2017_06/src/make.configuration.defn
+END

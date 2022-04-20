@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn ov_star
+# $Header:$
+
+# Source files in this directory
+SRCS =  setup_global_coord_arrays.F90 interpolate_pointset.F90 interp_center.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

@@ -1,0 +1,54 @@
+# Interface definition for thorn gw_extraction
+
+implements: gw_extraction
+inherits: grid
+friend: diagnostics_vacuum
+
+USES INCLUDE: Symmetry.h
+
+protected:
+REAL gw_moment_arrays TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=nmodes_ZM
+{
+  momentsr,momentsi,momentsr_old,momentsi_old,
+  odd_momentsr,odd_momentsi,odd_momentsr_old,odd_momentsi_old, 
+  int_momentsr,int_momentsi
+} "surface integration arrays"
+
+
+# From the Schnetter (discussion with Ian Hinder, Sep '06):
+#If you want to calculate norms or interpolate or look at reasonable I/O
+# of quantities, it is almost always necessary to calculate them in  
+# the evol bin, and to allocate three time levels for them.  Only then  
+# can you prolongate the mesh refinement boundaries, which requires  
+# interpolation in time.
+
+# Ian Hinder says:
+#> When the
+#> interpolator asks Carpet for points, does Carpet ignore the contents
+#> of buffer zones, both when inner and outer buffer zones are being
+#> used?
+# Schnetter says:
+#It ignores outer buffer zones, but not inner buffer zones.
+
+# Zach says: 
+#  When you use PsiKadelia, you need to make sure that the refinement
+#  levels crossed by a given extraction radius are ALL updated at the
+#  timestep immediately preceeding Psi4 calculation.  I.e., if you 
+#  are extracting waves on the N-1th & Nth refinement levels (where 
+#  level N=0 is the finest level), you will need to extract waves 
+#  every 2^N timesteps, N>=5 AND NO MORE FREQUENTLY THAN THAT.  
+#
+#  We need 3 timelevels for our gridfunctions, since we need to do 
+#  interpolation on those gridfunctions over the extraction radius
+#  sphere.  Carpet interpolation does not handle single timelevel
+#  gridfunctions properly near refinement boundaries!  You can check
+#  this by performing interpolation over a 1 timelevel gridfunction,
+#  over a surface that crosses refinement boundaries, and then compare
+#  the result to that where the finer refinement level is removed.  If
+#  the gridfunction contains derivatives, the former result will not 
+#  converge, but the latter one will.
+#
+real Psi4_gw type = GF timelevels=3
+{
+	psi0re,psi0im
+} "Weyl scalars"

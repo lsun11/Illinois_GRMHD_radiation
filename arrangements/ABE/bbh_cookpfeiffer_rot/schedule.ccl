@@ -1,0 +1,37 @@
+# Schedule definitions for thorn bbh_cookpfeiffer_rot
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::BSSN_matter,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::phi_derivs,BSSN::BSSN_diag_restrict,BSSN::metric_spher_pol_1,BSSN::metric_spher_pol_2,BSSN::metric_spher_pol_3
+STORAGE: lapse::lapse_vars[3],lapse::lapse_derivatives
+STORAGE: shift::shift_vars[3]
+STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::bh_posns diagnostics_vacuum::volIntegrals
+#STORAGE: diagnostics_vacuum::M_ADM
+
+schedule bbh_cookpfeiffer_rot_read_inputfile_driver at CCTK_INITIAL as bbh_metric_readinfiles before lapse_intitialdata
+{
+  LANG:		FORTRAN
+} "Read initial Psi from input file"
+
+schedule set_metric_rotation_id at CCTK_INITIAL as metric_id after bbh_metric_readinfiles
+{
+  LANG:		FORTRAN
+  SYNC:		BSSN::BSSN_vars[3]
+} "Set up bbh_cookpfeiffer_rot initial data."
+
+#schedule bbh_cookpfeiffer_rot_read_inputfile_driver at CCTK_POST_RECOVER_VARIABLES as bbh_metric_readinfiles_checkpoint before AHFinderDirect_import_mask
+#{
+#  LANG:         FORTRAN
+#} "Read initial Psi from input file"
+
+#schedule set_metric_rotation_id at CCTK_POST_RECOVER_VARIABLES as metric_id_checkpoint after bbh_metric_readinfiles_checkpoint before AHFinderDirect_import_mask
+#{
+#  LANG:         FORTRAN
+#  SYNC:         BSSN::BSSN_vars[3]
+#} "Set up bbh_cookpfeiffer_rot initial data."
+
+
+schedule bbh_cookpfeiffer_rot_diagnostics at CCTK_ANALYSIS as poststep
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"

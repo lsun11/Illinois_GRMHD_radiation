@@ -1,0 +1,101 @@
+#include "cctk.h"
+#include "cctk_Parameters.h"
+#include "cctk_Arguments.h"
+
+#include <stdio.h>
+#include <math.h>
+#include <iostream>
+#include <iomanip>
+//#include <sstream>                                                                                                                  
+#include <stdlib.h>
+#include <string.h>
+#include <fstream>
+#include "nrutil.h"
+
+#include "Symmetry.h"
+
+#include "rad.h"
+
+extern "C" void radiationshock_readfiles(CCTK_ARGUMENTS)
+{
+  using namespace std;
+  DECLARE_CCTK_ARGUMENTS;
+  DECLARE_CCTK_PARAMETERS;
+
+  //double *x, *rho0, *P, *ux, *E, *F, *tau;
+  printf ("Start Reading Radiation Shock ID!!!! \n");
+  //int NS = 200;
+  
+  double *x_ra, *rho0_ra, *P_ra, *ux_ra, *E_ra, *F_ra, *tau_ra;
+
+  x_ra = new double[NS];
+  rho0_ra = new double[NS];
+  P_ra = new double[NS];
+  ux_ra = new double[NS];
+  E_ra = new double[NS];
+  F_ra = new double[NS];
+  tau_ra = new double[NS];
+
+
+  ifstream inputFile;
+  inputFile.open("rad_shock_input.dat");
+
+  int i = 0;
+
+  while(!inputFile.eof())
+    {
+      inputFile >> x_ra[i] >> rho0_ra[i] >> P_ra[i] >> ux_ra[i]
+		>> E_ra[i] >> F_ra[i] >> tau_ra[i];
+      ++i;
+    }
+
+  inputFile.close();
+
+  int istart = 0;
+  int jstart = 0;
+  int kstart = 0;
+  int iend = cctk_lsh[0];
+  int jend = cctk_lsh[1];
+  int kend = cctk_lsh[2];
+
+
+
+  //  printf(" rho0_ra[0]=%.16g,  rho0_ra[1]=%.16g,  rho0_ra[4]=%.16g,  rho0_ra[15]=%.16g, rho0_ra[50]=%.16g, rho0_ra[100]=%.16g\n", 
+  //	 rho0_ra[0], rho0_ra[1],rho0_ra[4],rho0_ra[15],rho0_ra[50],rho0_ra[100]);                                                                           
+
+
+
+  int pos_index;
+
+for (int k=kstart; k<kend; k++) for (int j=jstart; j<jend; j++) for (int i=istart; i<iend; i++) {
+	  int vindex = CCTK_GFINDEX3D(cctkGH,i,j,k);
+
+	  pos_index = getClosestIndex(x_ra, x_ra+NS-1, x[vindex]);
+
+
+	  rho_b[vindex] = rho0_ra[pos_index];
+	  P[vindex] = P_ra[pos_index]; 
+          vx[vindex] = ux_ra[pos_index]/sqrt(1.0+ux_ra[pos_index]*ux_ra[pos_index]);
+          E_rad[vindex] = E_ra[pos_index];
+          F_radx[vindex] = F_ra[pos_index];
+          tau[vindex] = tau_ra[pos_index];
+	  
+	  //  printf ("pos_index=%d, rho0_ra[pos_index]=%.16g", pos_index, rho0_ra[pos_index]);
+	  //printf ("rho_b=%.16g \n", rho_b[vindex]);
+	  //printf ("P=%.16g \n", P[vindex]);
+    } 
+
+  /*
+  int j;  
+  for (j=0; j<NS-1; j++)
+    {
+      printf(" %.16g \n", rho0_ra[j]);
+}
+  */
+
+
+
+  printf ("End Reading Radiation Shock ID!!!! \n");
+
+}
+

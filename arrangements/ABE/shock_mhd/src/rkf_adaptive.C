@@ -1,0 +1,152 @@
+void rk45(double *x, double *delta, int nX,
+          double t, double dt, auxvars &param, 
+          void (*derivsRK)(double *, double, auxvars, double*));
+
+// Adaptive stepsize Runge-Kutta method based on the Fehlberg algorithm 
+// (see Numerical Recipe). 
+// t:   independent variable (e.g. time)
+// tau: integrate from t to t+tau.
+// x[]: on input, dependent variables at t. On output, it returns the
+//      dependent variables at t+tau. Note that the first element is x[1], not x[0],
+//      offset adopted to be consistent with other Runge-Kutta integrators
+//      available online.
+// nX:  Number of elements in dependent variables x[]. 
+//
+// derivsRK(x,t,param,derivs): user supplied derivative function.
+// param: struct containing extra parameters needed for the derivsRK function
+// 
+// dts: suggested time step, will be modified on output.
+// abserr: requested absolute error of integration.
+// relerr: requested relative error of integration.
+// flag: return 1 if the required accuracy is achieved, 0 if not.
+// xerr[]: estimated integration error based on the difference between rk4 and rk5 result. 
+//        The array should have the same dimension as x[].
+// maxstep: Maximum number of (internally defined) steps for integration.
+// 
+void rkf_adaptive(double *x, int nX, double t, double tau, auxvars &param, double &dts, 
+                  double abserr, double relerr, int &flag, double *xerr, 
+                  void (*derivsRK)(double *, double, auxvars, double*), 
+                  int maxstep=10000) 
+{
+  flag = 1;
+  abserr = fabs(abserr); relerr = fabs(relerr);
+  double hsmall = 0.01*tau/maxstep;
+  double sgn, dt;
+  if (tau > 0.0) {
+    dt = fabs(dts);
+    sgn = 1.0;
+  } else {
+    dt = -fabs(dts);
+    sgn = -1.0;
+  }
+  if (fabs(dt) < fabs(hsmall) || fabs(dt) > fabs(tau)) dt = tau;
+  double ti = 0.0; // offsetted value of the independent variable.
+  double *xnew, *err;
+  xnew = new double[nX+1]; err = new double[nX+1];
+  for (int i=1; i<=nX; i++) xerr[i] = 0.0; // Initialize xerr
+  int maxtry=100;
+  // Start integrating...
+  int j;
+  for (j=0; j < maxtry; j++) {
+    for (int i=1; i<=nX; i++) xnew[i]=x[i]; // Initialize xnew
+    rk45(xnew,err,nX,t+ti,dt,param,derivsRK);
+    // Find maximum error
+    double errrat = 1.e-20;
+    double corfac = tau/(dt+hsmall);
+    for (int i=1; i<=nX; i++) {
+       double d = corfac*fabs(err[i])/(abserr + relerr*fabs(xnew[i]));
+       if (d > errrat) errrat = d;
+    }
+    // Modify dts and dt
+    if (errrat > 1.0 && j < maxtry-1) {
+      // required accuracy not reached yet, need to decrease stepsize and try again.
+      dts = 0.98*dt*pow(errrat,-0.25);
+      dt = dts;
+    } else {
+   // required accuracy has been reached, accept this step and update ti, x[] and xerr[]
+      ti += dt;
+      for (int i=1; i<=nX; i++) { x[i] = xnew[i]; xerr[i] += err[i]; }
+      double rat = 0.98*pow(errrat,-0.2);
+      dts = dt*rat;
+      if (rat > 1.2) dt = dts;
+      // If this is the final iteration and errat>1, the solver fails to converge.
+      if (j==maxtry-1 && errrat > 1.0) flag=0;
+    }
+    if (sgn*(ti+dt) > sgn*tau || j==maxtry-2) dt = tau-ti;
+    if (fabs(ti-tau) < fabs(tau)*1.e-13) break;
+  }
+  delete[] xnew; 
+  delete[] err;
+}
+  
+// Single 5th order Runge-Kutta step.
+// t: independent variable (e.g. time)
+// x[]: on input, dependent variables at t. On output, it returns the 
+//      dependent variables at t+dt. Note that the first element is x[1], not x[0], 
+//      offset adopted to be consistent with other Runge-Kutta integrators 
+//      available online.
+// dt: step size
+// delta[]: xnew_rk5[]-xnew_rk4[] is the different between the 
+//          5th- and 4th-order Runge-Kutta method, which is an estimate for the 
+//          integration error. 
+// nX: Number of elements in dependent variable x. 
+// derivsRK(x,t,param,derivs): user supplied derivative function.
+// param: struct containing extra parameters needed for the derivsRK function.
+// 
+void rk45(double *x, double *delta, int nX, 
+          double t, double dt, auxvars &param, 
+          void (*derivsRK)(double *, double, auxvars, double*))
+{
+  const double a2=0.2, a3=0.3, a4=0.6, a5=1.0, a6=0.875;
+  const double b21=0.2, b31=0.075, b32=0.225, b41=0.3, b42=-0.9, b43=1.2;
+  const double b51=-0.2037037037037037037, b52=2.5, b53=-2.59259259259259259259;
+  const double b54=1.29629629629629629629, b61=0.02949580439814814814;
+  const double b62=0.341796875, b63=0.0415943287037037037;
+  const double b64=0.40034541377314814814, b65=0.061767578125;
+  const double c1 = 0.09788359788359788359, c3=0.40257648953301127214;
+  const double c4=0.21043771043771043771, c6=0.28910220214568040654;
+  // const double c1s=0.10217737268518518518, c3s=0.38390790343915343915;
+  // const double c4s=0.24459273726851851851, c5s=0.01932198660714285714, c6s=0.25;
+  const double dc1=-0.00429377480158730159, dc3=0.01866858609385783299;
+  const double dc4=-0.0341550268308080808, dc5=-0.01932198660714285714;
+  const double dc6=0.03910220214568040654;
+// 
+  double *k1, *k2, *k3, *k4, *k5, *k6, *xtmp;
+  k1 = new double[nX+1];
+  k2 = new double[nX+1];
+  k3 = new double[nX+1];
+  k4 = new double[nX+1];
+  k5 = new double[nX+1];
+  k6 = new double[nX+1];
+  xtmp = new double[nX+1];
+
+
+  derivsRK(x,t,param,k1);
+  //  printf("--------start step k1---------- x[1]=%.16g, x[2]=%.16g,x[3]=%.16g,t=%.16g,dt=%.16g,k1[1]=%.16g,k1[2]=%.16g,k1[3]=%.16g \n!!!!", x[1],x[2],x[3],t,dt,k1[1],k1[2],k1[3]);
+  for (int i=1; i<=nX; i++) xtmp[i] = x[i]+b21*dt*k1[i];
+  derivsRK(xtmp,t+a2*dt,param,k2);
+  // printf("--------start step k2---------- xtmp[1]=%.16g, xtmp[2]=%.16g,xtmp[3]=%.16g,t=%.16g,dt=%.16g,k2[1]=%.16g,k2[2]=%.16g,k2[3]=%.16g \n!!!!", xtmp[1],xtmp[2],xtmp[3],t,dt,k2[1],k2[2],k2[3]);
+  for (int i=1; i<=nX; i++) xtmp[i] = x[i]+dt*(b31*k1[i]+b32*k2[i]);
+  derivsRK(xtmp,t+a3*dt,param,k3);
+  //printf("--------start step k3---------- xtmp[1]=%.16g, xtmp[2]=%.16g,xtmp[3]=%.16g,t=%.16g,dt=%.16g,k3[1]=%.16g,k3[2]=%.16g,k3[3]=%.16g \n!!!!", xtmp[1],xtmp[2],xtmp[3],t,dt,k3[1],k3[2],k3[3]);
+  for (int i=1; i<=nX; i++) xtmp[i] = x[i]+dt*(b41*k1[i]+b42*k2[i]+b43*k3[i]);
+  derivsRK(xtmp,t+a4*dt,param,k4);
+  //printf("--------start step k4---------- xtmp[1]=%.16g, xtmp[2]=%.16g,xtmp[3]=%.16g,t=%.16g,dt=%.16g,k4[1]=%.16g,k4[2]=%.16g,k4[3]=%.16g \n!!!!", xtmp[1],xtmp[2],xtmp[3],t,dt,k4[1],k4[2],k4[3]);
+  for (int i=1; i<=nX; i++) xtmp[i] = x[i]+dt*(b51*k1[i]+b52*k2[i]+b53*k3[i]+b54*k4[i]);
+  derivsRK(xtmp,t+a5*dt,param,k5);
+  //printf("--------start step k4---------- xtmp[1]=%.16g, xtmp[2]=%.16g,xtmp[3]=%.16g,t=%.16g,dt=%.16g,k5[1]=%.16g,k5[2]=%.16g,k5[3]=%.16g \n!!!!", xtmp[1],xtmp[2],xtmp[3],t,dt,k5[1],k5[2],k5[3]);
+  for (int i=1; i<=nX; i++) xtmp[i] = x[i]+dt*(b61*k1[i]+b62*k2[i]+b63*k3[i]+b64*k4[i]+b65*k5[i]);
+  derivsRK(xtmp,t+a6*dt,param,k6);
+  //printf("--------start step k4---------- xtmp[1]=%.16g, xtmp[2]=%.16g,xtmp[3]=%.16g,t=%.16g,dt=%.16g,k6[1]=%.16g,k6[2]=%.16g,k6[3]=%.16g \n!!!!", xtmp[1],xtmp[2],xtmp[3],t,dt,k6[1],k6[2],k6[3]);
+  for (int i=1; i<=nX; i++) {
+     x[i] += dt*(c1*k1[i]+c3*k3[i]+c4*k4[i]+c6*k6[i]);
+     delta[i] = dt*(dc1*k1[i]+dc3*k3[i]+dc4*k4[i]+dc5*k5[i]+dc6*k6[i]);
+  }
+  delete [] k1;
+  delete [] k2;
+  delete [] k3;
+  delete [] k4;
+  delete [] k5;
+  delete [] k6;
+  delete [] xtmp;
+}

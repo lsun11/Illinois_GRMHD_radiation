@@ -1,0 +1,35 @@
+# Main make.code.defn file for thorn bhns
+
+# Source files in this directory
+SRCS = diagnostics.F90 compute_b2.C diagnostics_local.F90 diagnostics_local2.F90   \
+       diagnostics_global0.F90 get_ah_radius_in_dirn.C sanitycheck_restore_Aij.F90 \
+       read_inputfile_lowlevel.C read_inputfile_lowlevel_SpEC_bhns.C read_inputfile_lowlevel_bhspin.C read_inputfile_driver.F90 \
+	initialdata_part1-readinputfiles_bhns.C initialdata_part1b_setup_Aijs_Gammais_bhns.F90 compute_magnetar_bhns.F90 sanitycheck_restore_Aij_bhns.F90 diagnostics_bhns.F90 initialdata_part2_global-compute_rho_b_atm_bhns.F90 initialdata_local.F90 initialdata_local2.F90 initialdata_global2.F90 initialdata_global.F90 \
+	\
+	driver_setup_emfields_part1_Pmax.F90 \
+	driver_setup_emfields_part2-local-setBi.F90 \
+	driver_setup_emfields_part2p5-local-consrv.F90 \
+	driver_setup_emfields_part3-global-Integrate_compute_avgbetam1.F90 \
+	driver_setup_emfields_part4-local-rescaleB_set_conservs.F90 \
+	\
+	fill_in_bh_Afields_part1_interpolate_to_spheres.F90 bhns_fill_Ai_BH_interior.C fill_in_bh_Afields_part2_fill_interior.F90 compute_B_from_A.F90 \
+	\
+	driver_setup_emfields_part2-local-setBi_after_checkpoint.F90 driver_setup_emfields_part2p5-local-consrv_after_checkpoint.F90 \
+	\
+	diagnostics_Trace_Particles.F90 diagnostics_Trace_Particles_u_0_local.F90 \
+	\
+	regridder_io_lowlevel_v2_faster_but_more_memory_intensive.C \
+	regrid_read_inputfile_lowlevel.C regridder_writer_driver.F90 regridder_reader_driver.F90 regridder_reader_driver-part2_primitives_etc.F90 \
+	regridder_unstagger_lowlevel.C regridder_unstagger_driver.F90 \
+	\
+	interp_driver_carp.F90 reset_rho_b_atm.C driver_CoM_v.F90 check_for_nans.F90 \
+	compute_alpha.F90 compute_alpha_IO.C  surface_dens_1d.F90 surface_dens_1d_IO.C \
+        read_inputfile_lowlevel_lorene2.C  calculate_u_0_PoPcold_lowlevel.C calculate_u_0_PoPcold_driver.F90 \
+        read_inputfile_lowlevel_Cocal.C bhns_checksum.C initialdata_velperturbation.F90 compute_u_i.F90 \
+	diagnostics_Trace_Particles_circle.F90	read_inputfile_lowlevel_bhdisk_Cocal.C
+
+#       regridder_io_lowlevel.C
+
+# interp_driver_carp.C
+#	\
+#	compute_B_from_A-bhns.F90

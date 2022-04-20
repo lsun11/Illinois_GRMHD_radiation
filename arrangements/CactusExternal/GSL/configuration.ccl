@@ -1,0 +1,8 @@
+# Configuration definitions for thorn GSL
+
+PROVIDES GSL
+{
+  SCRIPT GSL.sh
+  LANG bash
+  OPTIONS GSL_DIR GSL_LIBS
+}

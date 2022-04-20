@@ -1,0 +1,94 @@
+# Schedule definitions for thorn disk_powerlaw
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::BSSN_matter,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::phi_derivs,BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::volIntegrals diagnostics_mhd::volIntegrals_mhd
+STORAGE: excision::excision_int_gfs
+STORAGE: disk_powerlaw::disk_powerlaw_M0dot_BH, disk_powerlaw::disk_powerlaw_last_data,mhd_evolve::mhd_temps
+
+
+# Setup hydro initial data
+#schedule disk_powerlaw_matter_id at CCTK_INITIAL as matter_id after metric_id_part2 after shift_intitialdata
+schedule disk_powerlaw_matter_id at CCTK_INITIAL as matter_id after metric_id 
+{
+  LANG:       FORTRAN
+  OPTIONS:    LOCAL
+} "Set up the powerlaw disk solution as initial data"
+
+#schedule disk_powerlaw_matter_local_1 at CCTK_INITIAL as matter_local_1 after matter_id
+#{
+#  LANG:       FORTRAN
+#} "Set up the powerlaw disk solution as initial data, local 1"
+
+schedule GROUP disk_powerlaw_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+{
+} "Finish up initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+
+schedule disk_powerlaw_compute_rho_b_atm in disk_powerlaw_postid as first_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Compute rho_b_atm"
+
+schedule disk_powerlaw_setup_remaining_matter_quantities in disk_powerlaw_postid as second_postid after first_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Set up remaining matter quantities"
+
+schedule disk_powerlaw_compute_P_max in disk_powerlaw_postid as third_postid after second_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Compute P_max"
+
+#if (em_evolve_enable==1){
+schedule disk_powerlaw_setup_emfields in disk_powerlaw_postid as fourth_postid after third_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+  SYNC:  mhd_evolve::em_Ax,mhd_evolve::em_Ay,mhd_evolve::em_Az, mhd_evolve::mhd_primitives
+  SYNC: mhd_evolve::mhd_conservatives,mhd_evolve::em_conservativey,mhd_evolve::em_conservativez
+} "Set up emfields"
+#}
+
+schedule disk_powerlaw_compute_rhostar_tau_max in disk_powerlaw_postid as fifth_postid after fourth_postid after third_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Compute rho_star_max, tau_max"
+
+schedule disk_powerlaw_recompute_primitives in disk_powerlaw_postid as sixth_postid after fifth_postid
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Recompute primitives"
+
+if (1==1){
+schedule driver_spatial_derivs at CCTK_ANALYSIS after poststep as spatial_derivs
+{
+  LANG:         FORTRAN
+  SYNC:         phi_derivs
+  SYNC:         BSSN_aux_restrict2
+  SYNC:         mhd_temps
+  SYNC:         lapse_derivatives
+} "compute spatial derivatives"
+
+schedule disk_powerlaw_diagnostics at CCTK_ANALYSIS after poststep after spatial_derivs as poststep_hydro
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"
+} else{
+schedule disk_powerlaw_diagnostics at CCTK_ANALYSIS after poststep as poststep_hydro
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL
+} "Evaluate diagnostic integrals"
+}
+

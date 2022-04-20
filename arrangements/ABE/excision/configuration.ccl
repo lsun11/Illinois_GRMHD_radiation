@@ -1,0 +1,10 @@
+# Configuration definition for thorn excision
+# SHeader: $
+PROVIDES excision
+{
+  SCRIPT
+  LANG
+}
+
+# A list of thorns
+REQUIRES CartGrid3D

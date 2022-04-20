@@ -1,0 +1,26 @@
+# Interface definition for thorn excision
+
+implements: excision
+
+friend: bssn
+friend: lapse
+friend: shift
+
+inherits: grid
+
+protected:
+
+#ahmskf masks out AH region, NOT assuming spherical symmetry (i.e., incorporating l>1 mode contribs)
+#mskf masks out spherical region at 2.0 * excision_radius
+#hcmskf masks out spherical region at 1.0 * excision_radius
+
+# Zach says: None of these gridfunctions are used anymore!
+#cctk_real excision_gfs type = GF
+#{
+#  mskf,ahmskf,hcmskf
+#} "grid functions needed for excision"
+
+cctk_int excision_int_gfs type = GF
+{
+  excision_zone_gf
+} "integer grid functions needed for excision"

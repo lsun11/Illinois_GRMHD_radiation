@@ -1,0 +1,7 @@
+# Schedule definitions for thorn LocalInterp
+# $Header: /cactusdevcvs/CactusBase/LocalInterp/schedule.ccl,v 1.3 2003/07/08 10:15:40 tradke Exp $
+
+Schedule LocalInterp_Startup at STARTUP after Driver_Startup
+{
+LANG:C
+} "register LocalInterp's interpolation operators"

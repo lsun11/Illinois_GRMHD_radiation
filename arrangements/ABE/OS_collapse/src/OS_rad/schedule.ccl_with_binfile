@@ -1,0 +1,189 @@
+# Schedule definitions for thorn OS_rad
+# $Header:$
+STORAGE: BSSN::BSSN_vars[2],BSSN::phi_derivs,BSSN::BSSN_aux_restrict2,BSSN::BSSN_diag_restrict,BSSN::BSSN_AH,lapse::lapse_evolve[2],lapse::lapse_derivatives[2],lapse::lapse_evolve_tilde,shift::shift_evolve[2],shift::shift_evolve_tilde,mhd_evolve::mhd_vars[2],mhd_evolve::mhd_vs,mhd_evolve::mhd_sync_nablas,mhd_evolve::mhd_sync_rho_br_rho_bl,mhd_evolve::mhd_sync_metric_facevals,mhd_evolve::mhd_sync_d0_quantities,mhd_evolve::mhd_sync_hydro_fwdbck_quantities,mhd_evolve::mhd_sync_lr_hydro_quantities,mhd_evolve::mhd_sync_lr_B_quantities,mhd_evolve::mhd_nosync,mhd_evolve::eos_params1,mhd_evolve::eos_params2,mhd_evolve::mhdscalar,gw_extraction::gw_moment_arrays, rad_evolve::rad_vars, rad_evolve::conserved_rad_vars[2],rad_evolve::rad_nosync,rad_evolve::opacity,rad_evolve::rad_constant OS_rad::analytic,OS_rad::particle_tracer,mhd_evolve::mhd_v_ps,OS_rad::convergence
+
+if(binfile_restart==0) {
+
+#read in os initial data
+schedule OS_rad_initialdata at CCTK_INITIAL as first_initialdata
+{
+	STORAGE:       	BSSN::BSSN_vars[2]
+        STORAGE:       	lapse::lapse_evolve[2]
+        STORAGE:       	shift::shift_evolve[2]
+        STORAGE:       	mhd_evolve::mhd_vars[2]
+        STORAGE:       	mhd_evolve::mhd_vs
+        STORAGE:       	mhd_evolve::eos_params1
+        STORAGE:       	mhd_evolve::eos_params2
+	LANG:		C
+} "read in os initial data"
+
+#finalize os initial data
+schedule OS_rad_finalize_initialdata at CCTK_INITIAL as second_initialdata after first_initialdata
+{
+  	STORAGE:        BSSN::BSSN_vars[2]
+        STORAGE:        BSSN::BSSN_AH
+	STORAGE:        lapse::lapse_evolve[2]
+        STORAGE:        shift::shift_evolve[2]
+        STORAGE:        mhd_evolve::mhd_vars[2]
+        STORAGE:        mhd_evolve::mhd_vs
+        STORAGE:        mhd_evolve::eos_params1
+        STORAGE:        mhd_evolve::eos_params2
+	STORAGE:       	rad_evolve::rad_vars
+  	STORAGE:       	rad_evolve::conserved_rad_vars[2]
+	STORAGE:       	rad_evolve::rad_nosync
+	STORAGE:       	rad_evolve::opacity
+  	STORAGE:       	rad_evolve::rad_constant 
+	LANG:           FORTRAN
+} "finalize os initial data"
+}
+
+if(binfile_restart==1) {
+
+	schedule OS_rad_restart_binfile_checkpoint at CCTK_INITIAL before sanitycheck_restore_Aij
+{
+	  STORAGE:       BSSN::BSSN_vars[2]
+	  STORAGE:       BSSN::BSSN_AH
+	  STORAGE:       lapse::lapse_evolve[2]
+	  STORAGE:       shift::shift_evolve[2]
+	  STORAGE:       mhd_evolve::mhd_vars[2]
+	  STORAGE:       mhd_evolve::mhd_vs
+	  STORAGE:       mhd_evolve::eos_params1
+	  STORAGE:       mhd_evolve::eos_params2
+	  STORAGE:       mhd_evolve::mhdscalar
+	  STORAGE:       rad_evolve::rad_vars
+          STORAGE:       rad_evolve::conserved_rad_vars[2]
+ 	  STORAGE:       rad_evolve::rad_nosync
+	  STORAGE:       rad_evolve::opacity
+  	  STORAGE:       rad_evolve::rad_constant
+	  STORAGE:       excision::excision_int_gfs
+	  STORAGE:       excision::excision_gfs
+	  LANG:          FORTRAN
+	} "setup excision region"
+}
+
+schedule OS_rad_copy_to_prev_timelevel at CCTK_INITIAL as third_initialdata after second_initialdata
+{
+  STORAGE:       BSSN::BSSN_vars[2]
+  STORAGE:       lapse::lapse_evolve[2]
+  STORAGE:       shift::shift_evolve[2]
+  STORAGE:       mhd_evolve::mhd_vars[2]
+  STORAGE:       mhd_evolve::mhd_vs
+  STORAGE:       mhd_evolve::eos_params1
+  STORAGE:       mhd_evolve::eos_params2
+  STORAGE:       mhd_evolve::mhd_v_ps
+  STORAGE:       OS_rad::particle_tracer
+  LANG:          FORTRAN
+} "Copy to previous timelevel"
+
+
+if (os_maximal==1) {
+	
+schedule os_maximal_updaters at CCTK_INITIAL as lapse_shift_max_init after shift_initialdata before postid
+{
+  STORAGE:	lapse::lapse_evolve[2]
+  STORAGE:	lapse::lapse_evolve_tilde
+  STORAGE:	OS_rad::analytic
+  LANG:         C
+} "read in analytic solution for maximal lapse and shift"
+
+schedule os_maximal_updaters at CCTK_EVOL as lapse_shift_max_pred after shift_predict before pred_emf
+{
+  STORAGE:	lapse::lapse_evolve[2]
+  STORAGE:	lapse::lapse_evolve_tilde
+  STORAGE:	OS_rad::analytic
+  LANG:         C
+} "read in analytic solution for maximal lapse and shift"
+
+schedule os_maximal_updaters at CCTK_EVOL as lapse_shift_max_corr1 after shift_correct1 before corr1_emf
+{
+  STORAGE:	lapse::lapse_evolve[2]
+  STORAGE:	lapse::lapse_evolve_tilde
+  STORAGE:	OS_rad::analytic
+  LANG:         C
+} "read in analytic solution for maximal lapse and shift"
+
+schedule os_maximal_updaters at CCTK_EVOL as lapse_shift_max_corr2 after shift_correct2 before corr2_emf
+{
+  STORAGE:	lapse::lapse_evolve[2]
+  STORAGE:	lapse::lapse_evolve_tilde
+  STORAGE:	OS_rad::analytic
+  LANG:         C
+} "read in analytic solution for maximal lapse and shift"
+
+}
+
+schedule OS_rad_sanitycheck_restore_Aij at CCTK_ANALYSIS as sanitycheck_restore_Aij
+{
+  STORAGE:       BSSN::BSSN_vars[2]
+  STORAGE:       BSSN::phi_derivs
+  STORAGE:       BSSN::BSSN_aux_restrict
+  STORAGE:       BSSN::BSSN_aux_restrict2
+  LANG:          FORTRAN
+} "Sanity check, Restore Aij"
+
+
+#I'll put this back later
+#schedule particle_tracer at CCTK_ANALYSIS as tracer after sanitycheck_restore_Aij
+#{
+#  STORAGE:       mhd_evolve::mhd_vs
+#  STORAGE:       mhd_evolve::mhd_v_ps
+#  STORAGE:       mhd_evolve::mhd_nosync
+#  STORAGE:       OS_rad::particle_tracer
+#  LANG:          FORTRAN
+#} "do particle tracer stuff"
+
+#schedule OS_rad_diag_integrals at CCTK_ANALYSIS as poststep after tracer
+#{
+#  STORAGE:       BSSN::BSSN_vars[2]
+#  STORAGE:       BSSN::phi_derivs
+#  STORAGE:       BSSN::BSSN_aux_restrict
+#  STORAGE:       BSSN::BSSN_aux_restrict2
+#  STORAGE:       BSSN::BSSN_diag_restrict
+#  STORAGE:       BSSN::BSSN_AH
+#  STORAGE:       lapse::lapse_evolve[2]
+#  STORAGE:       lapse::lapse_derivatives[2]
+#  STORAGE:       lapse::lapse_evolve_tilde
+#  STORAGE:       shift::shift_evolve[2]
+#  STORAGE:       shift::shift_evolve_tilde
+#  STORAGE:       mhd_evolve::mhd_vars[2]
+#  STORAGE:       mhd_evolve::mhd_vs
+#  STORAGE:       mhd_evolve::mhd_sync_nablas
+#  STORAGE:       mhd_evolve::mhd_sync_rho_br_rho_bl
+#  STORAGE:       mhd_evolve::mhd_sync_metric_facevals
+#  STORAGE:       mhd_evolve::mhd_sync_d0_quantities
+#  STORAGE:       mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+#  STORAGE:       mhd_evolve::mhd_sync_lr_hydro_quantities
+#  STORAGE:       mhd_evolve::mhd_sync_lr_B_quantities
+#  STORAGE:       mhd_evolve::mhd_nosync
+#  STORAGE:       mhd_evolve::eos_params1
+#  STORAGE:       mhd_evolve::eos_params2
+#  STORAGE:       rad_evolve::rad_vars
+#  STORAGE:       rad_evolve::conserved_rad_vars[2]
+#  STORAGE:       rad_evolve::rad_nosync
+#  STORAGE:       rad_evolve::opacity
+#  STORAGE:       rad_evolve::rad_constant
+#  STORAGE:       gw_extraction::gw_moment_arrays
+#  STORAGE:       interpolation::Xglobal_coord_array
+#  STORAGE:       interpolation::Yglobal_coord_array
+#  STORAGE:       interpolation::Zglobal_coord_array
+#  STORAGE:       interpolation::Xlocal_coord_array
+#  STORAGE:       interpolation::Ylocal_coord_array
+#  STORAGE:       interpolation::Zlocal_coord_array
+#  LANG:          FORTRAN
+#} "Evaluate diagnostic integrals"
+
+if(excision_enable == 0)
+{
+  schedule binfile_check_do_checkpoint at CCTK_ANALYSIS after poststep
+  {
+    STORAGE:       BSSN::BSSN_vars[2]
+    STORAGE:       lapse::lapse_evolve[2]
+    STORAGE:       shift::shift_evolve[2]
+    STORAGE:       mhd_evolve::mhd_vars[2]
+    STORAGE:       mhd_evolve::mhd_vs
+    STORAGE:       mhd_evolve::eos_params1
+    STORAGE:       mhd_evolve::eos_params2
+    STORAGE:       mhd_evolve::mhdscalar
+    LANG:          FORTRAN
+  } "Has minimum lapse dropped below lapse_regrid?  If so, dump binfile checkpoint & exit"
+}

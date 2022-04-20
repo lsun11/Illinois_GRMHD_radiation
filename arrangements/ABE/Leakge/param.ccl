@@ -1,0 +1,79 @@
+# Parameter definitions for thorn THC_LeakageBase
+
+SHARES: THC_Core
+USES BOOLEAN verbose
+
+SHARES: HydroBase
+USES KEYWORD evolution_method
+USES KEYWORD prolongation_type
+USES INT timelevels
+
+RESTRICTED:
+
+KEYWORD neu_abs_type "Method to be used to compute the neutrino absorption rates" STEERABLE=recover
+{
+    "None" :: "No absorption"
+} "None"
+
+CCTK_INT num_sph_grids "Number of spherical grids to use for the initial optical depth calculation"
+{
+    1:2 :: "Only one or two"
+} 1
+
+CCTK_REAL center_grid1[3] "Center of the first grid [x,y,z]"
+{
+    *:* :: "Any number"
+} 0.0
+
+CCTK_REAL center_grid2[3] "Center of the second grid [x,y,z]"
+{
+    *:* :: "Any number"
+} 0.0
+
+CCTK_REAL rmax "Maximum radius (used to compute the initial optical depth)"
+{
+    (0:* :: "Any positive number"
+} 20.0
+
+CCTK_INT nrad "Number of radial points on the grid used to compute the initial optical depth"
+{
+    2:* :: "Any positive number"
+} 200
+
+CCTK_INT ntheta "Number of theta  points on the grid used to compute the initial optical depth"
+{
+    3:* :: "It should be at least 3 because we also need points on the poles"
+} 32
+
+CCTK_INT nphi "Number of phi  points on the grid used to compute the initial optical depth"
+{
+    2:* :: "It should be at least 2 because we also need a point in 2 pi"
+} 64
+
+CCTK_REAL density_cutoff "Density cut-off for the leakage"
+{
+    0:* :: "Any non-negative number"
+} 0.0
+
+CCTK_REAL DiffFact "Diffusion factor (the default comes from O'Connor & Ott 2010)"
+{
+    (0:* :: "Any positive number"
+} 6.0
+
+STRING interpolator "Interpolator" STEERABLE=always
+{
+  "" :: "must be a registered interpolator"
+} "Lagrange polynomial interpolation"
+
+STRING interpolator_options "Options for the interpolator" STEERABLE=always
+{
+  "" :: "must be a valid options specification"
+} "order=1"
+
+BOOLEAN store_free_rates "Store the free emission rates into grid functions"
+{
+} "no"
+
+BOOLEAN store_neu_luminosity "Store the neutrino luminosity as computed on the volume"
+{
+} "no"

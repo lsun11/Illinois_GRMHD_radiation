@@ -1,0 +1,6 @@
+# Interface definition for thorn LocalInterp
+# $Header: /cactusdevcvs/CactusBase/LocalInterp/interface.ccl,v 1.1.1.1 2002/02/27 14:28:18 jthorn Exp $
+
+implements: LocalInterp
+
+# this thorn doesn't define or use any Cactus grid variables

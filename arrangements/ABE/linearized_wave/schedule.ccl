@@ -1,0 +1,56 @@
+# Schedule definitions for thorn linearized_wave
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::phi_derivs,BSSN::BSSN_AH,BSSN::BSSN_matter,BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3],lapse::lapse_derivatives
+STORAGE: shift::shift_vars[3]
+STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::bh_posns
+
+STORAGE: linearized_wave_analytic
+#STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::phi_derivs,BSSN::BSSN_rhs,BSSN::BSSN_diag_restrict,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::BSSN_matter
+#STORAGE: lapse::lapse_vars[3],lapse::lapse_derivatives
+#STORAGE: shift::shift_vars[3]
+#STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+
+# Prints out a banner stating the runtype
+schedule ABE_linearizedwave_Startup at STARTUP
+{
+  LANG: C
+} "Register banner"
+
+# Checks that amp & width are within bounds
+schedule LinearizedWave_CheckParameters at CCTK_PARAMCHECK
+{
+  LANG: C
+} "Check parameters"
+
+# Setup Initial Data
+schedule lin_wave_initialdata at CCTK_INITIAL as first_initialdata before lapse_initialdata
+{
+  LANG:		FORTRAN
+  SYNC:		BSSN::BSSN_vars[3]
+} "Initial data for linearized wave evolver"
+
+schedule lw_sanitycheck_restore_Aij at CCTK_ANALYSIS as sanitycheck_restore_Aij
+{
+  LANG:          FORTRAN
+} "Sanity check, Restore Aij"
+
+schedule lw_diagnostics_local at CCTK_ANALYSIS before poststep after sanitycheck_restore_Aij as poststep_local
+{
+  LANG:		FORTRAN
+  SYNC:		BSSN::BSSN_vars[3]
+} "Diagnostics: compute local quantities"
+
+schedule lw_diagnostics at CCTK_ANALYSIS as poststep after sanitycheck_restore_Aij after poststep_local
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"
+
+### TEST ###
+#schedule lw_movingbox_update_center at CCTK_ANALYSIS after poststep after sanitycheck_restore_Aij
+#{
+#  LANG:         FORTRAN
+#  OPTIONS:      GLOBAL
+#} "Update center location of moving box"

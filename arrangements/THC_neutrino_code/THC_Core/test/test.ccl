@@ -1,0 +1,34 @@
+ABSTOL  1e-8
+
+TEST blast_wave
+{
+    ABSTOL 1e-6 eps.x.asc
+    NPROCS 1
+}
+
+TEST refluxing
+{
+    NPROCS 2
+}
+
+TEST sod_artvisc
+{
+    NPROCS 2
+}
+
+TEST sod_tracer
+{
+    NPROCS 2
+}
+
+TEST strong_shock
+{
+    ABSTOL 1e-7 rho
+    ABSTOL 1e-7 vel[0]
+    NPROCS 1
+}
+
+TEST ultrarelativistic_sod
+{
+    NPROCS 1
+}

@@ -1,0 +1,14 @@
+# Main make.code.defn file for thorn bhns
+
+# Source files in this directory
+SRCS = statpunc_bondi_diagnostics.F90 sanitycheck_restore_Aij.F90 \
+	statpunc_bondi_id_driver.F90 \
+	statpunc_bondi_initialdata_local.F90 \
+	statpunc_bondi_initialdata_local2.F90 \
+	statpunc_bondi_initialdata_global2.F90 \
+	statpunc_bondi_initialdata_global.F90 \
+	mb_get_rho0.F90 nr.F90 nrtype.F90 nrutil.F90 rtbis.F90 zbrak.F90 \
+	initialdata_part1.F90 initialdata_part2.F90 \
+	funcv_bisect_step.F90 kset_c.F90 \
+	stationary_puncture_id_nonasymptoticisotropic.F90  \
+	kset_c_arborder_nogz.C trans_fish_phys_vector.F90

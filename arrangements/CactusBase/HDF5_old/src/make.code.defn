@@ -1,0 +1,8 @@
+# Main make.code.defn file for thorn HDF5
+# $Header: /cactusdevcvs/AlphaThorns/HDF5/src/make.code.defn,v 1.1.1.1 2004/04/13 18:34:41 yye00 Exp $
+
+# Source files in this directory
+SRCS = 
+
+# Subdirectories containing source files
+SUBDIRS = 

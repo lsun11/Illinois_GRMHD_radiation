@@ -1,0 +1,29 @@
+# Interface definition for thorn movingbox
+
+implements: movingbox
+inherits: grid
+inherits: CarpetRegrid2 SphericalSurface
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: mhd_evolve
+friend: diagnostics_vacuum
+
+USES INCLUDE: Symmetry.h
+
+protected:
+
+REAL volIntegrals_movingbox TYPE=scalar
+{
+  Box1X_VolInt, Box1Y_VolInt, Box1Z_VolInt, Box1denom_VolInt,Box1X_VolInt1,Box1Y_VolInt1,Box1Z_VolInt1,Box1denom_VolInt1,Box1X_VolInt2,Box1Y_VolInt2,Box1Z_VolInt2,Box1denom_VolInt2,mass_star1,mass_star2
+} "Quantities that keep track of the locations of the matter refinement boxes."
+
+
+private:
+
+# We use multiple gf's here... should make this more efficient!
+cctk_real diag_movingbox_gf type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+  box_x,box_y,box_z,box_denom
+} "Integrands"

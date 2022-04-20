@@ -1,0 +1,19 @@
+# Main make.code.defn file for thorn em_evolve_ct
+
+# Source files in this directory
+SRCS = 	InitSymBound.C \
+	\
+	apply_bcs_emfields_v2.F90 evolve_ct.F90 \
+	\
+	driver_emfields_fluxes_induction1D_v2.F90  cmax_cmin_hybrid.C flux_induction.C flux_ct2.C advect_b_ct.C \
+	convert_B_Btilde.F90 convert_Bil_Bir_to_Btildeil_Btildeir.C driver_constrained_transport.F90 driver_advect_b.F90 \
+	\
+	hyperbolic_divergence_cleaning.F90 update_boundary_Blagrangemultiplier.F90 \
+	\
+	driver_flux_induction_Aevolution.F90 flux_hll2d.C driver_flux_induction_Aevolution_ppm.F90 \
+	\
+	field_line_tracer.C
+
+#	\
+#	predict_emfields_ctv2.F90 \
+#	cplus_cminus.C find_v02_hybrid.C flux_ct.C

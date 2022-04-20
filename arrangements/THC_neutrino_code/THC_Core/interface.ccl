@@ -1,0 +1,75 @@
+# Interface definition for thorn THC_Core
+IMPLEMENTS:     THC_Core
+INHERITS:       Grid HydroBase HRSCCore Time TmunuBase
+
+INCLUDE HEADER: thc_macro.hh IN thc_macro.hh
+INCLUDE HEADER: thc_sph_grid.h IN thc_sph_grid.h
+
+# Boundary conditions
+CCTK_INT FUNCTION Boundary_SelectVarForBC(                                     \
+        CCTK_POINTER_TO_CONST IN cctkGH,                                       \
+        CCTK_INT IN faces,                                                     \
+        CCTK_INT IN boundary_width,                                            \
+        CCTK_INT IN table_handle,                                              \
+        CCTK_STRING IN var_name,                                               \
+        CCTK_STRING IN bc_name                                                 \
+    )
+USES FUNCTION Boundary_SelectVarForBC
+
+# MoL
+CCTK_INT FUNCTION MoLRegisterEvolved(                                          \
+        CCTK_INT IN EvolvedIndex,                                              \
+        CCTK_INT IN RHSIndex                                                   \
+    )
+USES FUNCTION MoLRegisterEvolved
+
+CCTK_INT FUNCTION MoLRegisterConstrained(                                      \
+        CCTK_INT IN ConstrainedIndex                                           \
+    )
+USES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION MoLRegisterSaveAndRestore(                                   \
+        CCTK_INT IN SandRIndex                                                 \
+    )
+USES FUNCTION MoLRegisterSaveAndRestore
+
+USES INCLUDE: finite_difference.h
+USES INCLUDE: hrscc.hh
+USES INCLUDE: eos_thermal.h
+USES INCLUDE: global_eos.h
+USES INCLUDE: Symmetry.h
+USES INCLUDE: utils.hh
+
+PUBLIC:
+
+CCTK_REAL zvec[3] TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="U" Interpolator="matter"' "w_lorentz v^i"
+
+CCTK_REAL dens TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="Scalar" TensorWeight=+1.0 Interpolator="matter"' "Densitized baryonic mass density"
+
+CCTK_REAL densxn TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="Scalar" TensorWeight=+1.0 Interpolator="matter"' "Densitized neutron mass density"
+CCTK_REAL densxp TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="Scalar" TensorWeight=+1.0 Interpolator="matter"' "Densitized proton mass density"
+
+CCTK_REAL scon[3] TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="D" TensorWeight=+1.0 Interpolator="matter"' "Densitized momentum flux"
+
+CCTK_REAL tau TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="Scalar" TensorWeight=+1.0 Interpolator="matter"' "Densitized internal energy"
+
+CCTK_REAL csound TYPE=GF TAGS='Prolongation="None"' "Sound speed"
+CCTK_REAL volform TYPE=GF TAGS='TensorTypeAlias="Scalar" TensorWeight=+1.0 Prolongation="None"' "Square root of the spatial metric determinant"
+
+PRIVATE:
+
+CCTK_INT bitmask TYPE=GF TAGS='Prolongation="None"' "Local bitmask"
+
+CCTK_REAL rhs_dens TYPE=GF TAGS='Prolongation="None"' "dens right hand side"
+CCTK_REAL rhs_densxn TYPE=GF TAGS='Prolongation="None"' "dens_n right hand side"
+CCTK_REAL rhs_densxp TYPE=GF TAGS='Prolongation="None"' "dens_p right hand side"
+CCTK_REAL rhs_scon[3] TYPE=GF TAGS='Prolongation="None"' "scon[3] right hand side"
+CCTK_REAL rhs_tau TYPE=GF TAGS='Prolongation="None"' "tau right hand side"
+
+CCTK_REAL densgain TYPE=GF TIMELEVELS=3 TAGS='ProlongationParameter="HydroBase::prolongation_type" TensorTypeAlias="Scalar" TensorWeight=+1.0 Interpolator="matter"' "Mass gained/lost to the atmosphere"
+CCTK_REAL c2a_densgain TYPE=GF TAGS='Prolongation="None"' "Mass gained/lost to the atmosphere due to the cons_to_all"
+CCTK_REAL c2a_densgain_db[max_num_substeps] TYPE=GF TAGS='Prolongation="None"' "densgain right hand side"
+CCTK_REAL rhs_densgain TYPE=GF TAGS='Prolongation="None"' "densgain right hand side"
+
+# This is real because the reduction of INT grid function is broken in the Curie release of the ET
+CCTK_REAL c2a_nbiter TYPE=GF  TAGS='Prolongation="None"' "Number of iterations used in the cons_to_all routine"

@@ -1,0 +1,9 @@
+# Main make.code.defn file for thorn WaveMoL
+# $Header: /cactusdevcvs/CactusExamples/WaveMoL/src/make.code.defn,v 1.1.1.1 2004/06/26 14:49:02 hawke Exp $
+
+# Source files in this directory
+SRCS = WaveMoL.c InitSymBound.c Startup.c WaveMoLRegister.c
+
+# Subdirectories containing source files
+SUBDIRS = 
+

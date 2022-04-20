@@ -1,0 +1,107 @@
+
+
+   ! Notice that the code has already read the rns ID   
+   if (nperturb.ne.0) then
+      write(6,*) "****************************** ADDING A PERTURBATION **************************************"
+      write(6,*) "nperturb=", nperturb
+      write(6,*) "ampl_perturb=", ampl_perturb
+      write(6,*) "radi_perturb=", radi_perturb
+      
+      do k=1,ext(3)
+         do j=1,ext(2)
+            do i=1,ext(1)
+               rr = x(i,j,k)*x(i,j,k) + y(i,j,k)*y(i,j,k)
+               ww = x(i,j,k)*x(i,j,k) - y(i,j,k)*y(i,j,k)
+               re2= radi_perturb*radi_perturb
+               if (nperturb==4 .or. nperturb==3)  rho_b(i,j,k) = rho_b(i,j,k)*(1.0d0 + ampl_perturb*ww/re2)
+               
+               if (rr .ne. 0) then
+                  phia = atan2(y(i,j,k), x(i,j,k))
+                  if (y(i,j,k)<0)    phia = 2.0d0*pai + phia
+                  
+                  !            if ( dabs(x(i,j,k))<=2.0 .and. dabs(y(i,j,k))<=2.0 .and. dabs(z(i,j,k))<=1.0   )  write(6,'(a6,1p,10e20.10)')  "x,y,z=", x(i,j,k), y(i,j,k), z(i,j,k), phia, ww, re2
+                  
+                  if (nperturb==1)  rho_b(i,j,k) = rho_b(i,j,k)*(1.0d0-ampl_perturb + ampl_perturb*cos(2.0d0*phia))
+                  if (nperturb==2)  rho_b(i,j,k) = rho_b(i,j,k)*(1.0d0-ampl_perturb + ampl_perturb*cos(Omega_value*phia))
+               end if
+            end do
+         end do
+      end do
+      P=K_poly*rho_b**(gamma_th)
+   end if
+
+
+if(1==0) then
+   if ((use_new_bhns_initial_data.ne.5).and.((nperturb==5 .or. nperturb==3))) then
+      write(6,*) "****************************** ADDING A PERTURBATION IN VELOCITY ***********************"
+      write(6,*) "nperturb=", nperturb
+      write(6,*) "lambda_perturb=", lambda_perturb
+      write(6,*) "a2oa1_perturb=", a2oa1_perturb
+      
+      do k=1,ext(3)
+         do j=1,ext(2)
+            do i=1,ext(1)
+               vx(i,j,k) = vx(i,j,k) + y(i,j,k)*lambda_perturb/a2oa1_perturb
+               vy(i,j,k) = vy(i,j,k) - x(i,j,k)*lambda_perturb*a2oa1_perturb
+            end do
+         end do
+      end do
+   end if
+end if
+
+
+
+
+    write(6,*) "=============", neos
+      write(6,*) "======= neos, k_tab, gamma_tab, rho_tab, P_tab, eps_tab ======"
+      do ia=1, neos+2
+         write(6,'(i4,1p,5e18.10)') neos, k_tab(ia), gamma_tab(ia), rho_tab(ia), P_tab(ia), eps_tab(ia)
+      end do
+   
+
+      neos = neos+1
+      do ia=1, neos+1
+         loc_gamma(ia) = abi(ia)   !  abi(0) at surface
+         loc_kappa(ia) = abc(ia)
+      enddo
+      
+	do ia=1, neos
+        ! Transition densities, pressures
+	  loc_rho(ia) = rhoi(ia)
+          loc_pre(ia) = loc_kappa(ia)*(loc_rho(ia)**loc_gamma(ia))
+       enddo
+       
+       !loc_pre(neos+1) =  loc_kappa(neos)*(loc_rho(neos+1)**loc_gamma(neos))
+       
+       loc_eps(1) = loc_pre(1)/loc_rho(1)/(loc_gamma(1)-1.0d0)
+       !       print  *,"loc_eps1,2 = before loop",loc_eps(1),loc_eps(2), neos
+       
+       do ia=2,neos
+          ! Transition specific internal energies
+          loc_eps(ia) = loc_eps(ia-1) + (loc_pre(ia)/loc_rho(ia) - loc_pre(ia-1)/loc_rho(ia-1))/(loc_gamma(ia)-1.0d0)
+       enddo
+
+!     print *,"after loop", loc_eps(1), loc_eps(2),neos
+     write(6,*) "======= neos, loc_kappa, loc_gamma, loc_rho, loc_pre, loc_eps ======"
+     do ia=1, neos+2
+        write(6,'(i4,1p,5e18.10)') neos, loc_kappa(ia), loc_gamma(ia), loc_rho(ia), &
+              loc_pre(ia), loc_eps(ia)
+     end do
+
+     gamma_tab = loc_gamma
+     k_tab     = loc_kappa
+     P_tab     = loc_pre
+     rho_tab   = loc_rho
+     eps_tab   = loc_eps
+     
+     print *, "Diagnostic for piecewise polytropes."
+     write(6,'(2a18)') "Gamma", "Kappa"
+     do ia=1, n1
+        write(6,'(1p,2e18.10)') gamma_tab(ia), k_tab(ia) 
+     enddo
+     write(6,'(3a18)') "rho0", "P", "epsilon"
+     do ia=1, n2
+        write(6,'(1p,3e18.10)') rho_tab(ia), P_tab(ia), eps_tab(ia)                               
+     enddo
+  
+

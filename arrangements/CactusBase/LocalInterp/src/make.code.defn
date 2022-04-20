@@ -1,0 +1,5 @@
+# Main make.code.defn file for thorn LocalInterp
+# $Header: /cactusdevcvs/CactusBase/LocalInterp/src/make.code.defn,v 1.7 2003/07/08 10:15:40 tradke Exp $
+
+# Source files in this directory
+SRCS = Startup.c Operator.c Interpolate.c

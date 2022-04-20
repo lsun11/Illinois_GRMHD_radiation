@@ -1,0 +1,105 @@
+# Parameter definitions for thorn bbh_cookpfeiffer_rot
+# $Header:$
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+shares: IO
+USES KEYWORD out_every
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+USES KEYWORD scaledsurf
+USES KEYWORD nsurf
+USES KEYWORD arithsurf
+USES KEYWORD rsurf2
+
+shares: gw_extraction
+USES KEYWORD radius_GW
+USES KEYWORD theta_GW
+USES KEYWORD phi_GW
+
+shares: bssn
+USES KEYWORD radmin_rot_interp_1
+USES KEYWORD radmax_rot_interp_1
+USES KEYWORD radmin_rot_interp_2
+USES KEYWORD radmax_rot_interp_2
+USES KEYWORD radmin_rot_interp_3
+USES KEYWORD radmax_rot_interp_3
+USES KEYWORD Nlograd_rot_interp     
+USES KEYWORD Ntheta_rot_interp
+USES KEYWORD Nphi_rot_interp
+#USES KEYWORD set_omega_test
+#USES KEYWORD omega_test
+USES KEYWORD xbh1_initial
+USES KEYWORD xbh2_initial
+USES KEYWORD rah1_initial
+USES KEYWORD rah2_initial
+USES KEYWORD ah_excision_fac
+USES KEYWORD binary_orb_freq
+	
+private:
+# 10 sep.  BigM = 2.25063034050914
+# 13 sep.  BigM = 2.17334078210651
+
+REAL BigM "ADM Mass at t=0.  MUST SET THIS FOR DIAGNOSTICS"
+{
+ 0:* :: "Positive"
+} 2.25063034050914
+
+#REAL initial_coord_sep "coordinate separation radius at t=0.  MUST SET THIS FOR Xbh1, Xbh2's!"
+#{
+# 0:* :: "Positive"
+#} 5.0
+
+INT use_cookpfeiffer_lapseshift "Should I use the Cook-Pfeiffer lapse & shift? (no=0; yes=1) WARNING: you'll get a LOT of eccentricity -> bad Psi4 if you say yes!"
+{
+ 0:* :: "Positive"
+} 0
+
+REAL x_offset "Parameter necessary for setting up initial data"
+{
+ *:* :: "Real"
+} 0.0
+
+INT fill_excision_enable "Should I fill an excision zone? (no=0; yes=1)"
+{
+ 0:* :: "Positive"
+} 0
+
+REAL excis_radius "Excision Radius, used only if fill_excision_enable=1"
+{
+ 0:* :: "Positive"
+} 0.5
+
+real moncrief_radius_GW[100] "Radii at which to measure GW's" STEERABLE=recover
+{
+  0:* :: "zero or any positive number"
+} 1.0
+
+INT moncrief_gw_num_radii "How many radii will to measure GW's"
+{ 
+ 1:10 :: "Positive int <= 10"
+} 1
+
+INT rotate_refinement_boxes "do you want to rotate the refinement boxes analytically?" STEERABLE=ALWAYS
+ {
+ 0:1 :: "zero or one"
+ } 1
+
+restricted:
+
+INT genID_cmdline_output_enable "Output initial data commandline?"
+{
+ 0:1 :: "Zero (no) or One (yes)"
+} 0                                                                                                                                                   
+
+#REAL half_binary_separation "Binary separation / 2"
+#{
+# 0:* :: "Positive"
+#} 0.0
+     

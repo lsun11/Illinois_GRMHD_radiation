@@ -1,0 +1,279 @@
+# Parameter definitions for the thorn bssn
+
+shares: IO
+USES KEYWORD out_every
+
+shares: lapse
+USES KEYWORD slicing_type
+shares: shift
+USES KEYWORD Spatial_Gauge
+
+shares: excision
+USES KEYWORD C_ko
+
+shares: grid
+ USES KEYWORD domain
+ USES KEYWORD bitant_plane
+
+# Needed for ADM Mass computation when bc_type = 7
+shares: diagnostics_vacuum
+USES KEYWORD ntot
+USES KEYWORD N_phi
+USES KEYWORD N_theta
+USES KEYWORD sym_factor
+USES KEYWORD dcostheta
+USES KEYWORD dphi
+USES KEYWORD surf_radius
+USES KEYWORD rbr
+USES KEYWORD drbdr
+USES KEYWORD ddrbddr
+
+shares: diagnostics_mhd
+USES KEYWORD Nphi_points
+
+#########################################################
+# Timestepping (MoL) stuff
+shares: MethodOfLines
+
+USES CCTK_INT MoL_Num_Evolved_Vars
+USES CCTK_INT MoL_Num_Constrained_Vars
+USES CCTK_INT MoL_Num_SaveAndRestore_Vars
+
+restricted:
+
+CCTK_INT BSSN_MaxNumEvolvedVars "The maximum number of evolved variables used by BSSN" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Evolved_Vars
+{
+  18:18           :: "18 evolved BSSN variables: Gamma^i, phi, chi (optional), trK, g_{ij}, and A_{ij}"
+} 18
+
+CCTK_INT BSSN_MaxNumConstrainedVars "The maximum number of constrained variables used by BSSN" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Constrained_Vars
+{
+  1:1           :: "The Analytic-Numerical gridfunction"
+} 1
+#########################################################
+
+global:
+INT cowling_enable "Enable Cowling (turn off BSSN and lapse+shift evolution)"  STEERABLE = ALWAYS
+{
+  0:1 :: "Either 0 (no) or 1 (yes)"
+} 0
+
+INT rot_metric "Assume helical Killing vector and rotate metric.  Used for BHBH.  You need to set ROTATING METRIC PARAMETERS below." STEERABLE = ALWAYS
+{
+  0:1 :: "Either 0 (no) or 1 (yes)"
+} 0
+
+INT bssn_enable "Allows one to disable BSSN only, allowing lapse and shift to evolve" STEERABLE = ALWAYS
+{
+  0:1 :: "Either 0 (no) or 1 (yes)"
+} 1
+
+INT Symmetry "Symmetry"
+{
+  0:4 :: "From 0 to 4"
+} 1
+
+INT iter_count "iteration count: keeps track of which MoL ministep we are currently on"
+{
+  0:100 :: "From 0 to 100 (for safety)"
+} 0
+
+INT number_of_mol_ministeps "You MUST set this parameter to the number of MoL ministeps for given time integration order"
+{
+ -1:100 :: "If you don't set this parameter, it defaults to -1, prompting checkparams to give an error message."
+} -1
+
+INT trA_detg_enforce "0 == off, 1 == old technique (call on edppdet, epdde2, and epdtra (never epdtr2)); 2 == new technique (better)"
+{
+ 0:2 :: "Either zero (off), one (old Hwei-Jang technique), or two (new technique)"
+} 1
+
+restricted:
+INT zero_out_matter_source_terms "After Carpet moves the grid, matter source terms in vacuum simulations (e.g., BHBH) are not set on entire grid, causing memory errors which lead to crashes.  Definitiely enable this (=1) if doing vacuum BHBH+AMR evolutions" STEERABLE=ALWAYS
+{
+ 0:1 :: "0=no, 1=yes"
+} 0
+
+INT bssn_enable_shift_upwind "enable shift upwinding?  (zero == no and one == yes)" STEERABLE=ALWAYS
+{
+ 0:2 :: "either zero (no upwinding), one (mixed 1st/2nd order), or two (4th order)"
+} 0
+
+INT enable_lower_order_at_boundaries "Drop to lower order at boundaries?  Will fill in all zones except the outermost gridpoint on all levels, if finite differencing set to 4th order!"
+{
+ 0:1 :: "Either 0 (no) or 1 (yes)"
+} 0
+
+INT use_trans_fish_phys_new "Use new, optimized fisheye<->physical transformation in update_boundary AND shift outer boundary BC's?"
+{
+ 0:1 :: "Either 0 (no) or 1 (yes)"
+} 0
+
+#############################################################################################################
+# Xcenter, Ycenter, and Zcenter ARE OLD PARAMETERS, UNUSED NOW. 
+#    YOU'LL ONLY FIND THEM IN UPDATE_BOUNDARY.F90 IN BSSN, LAPSE, AND SHIFT THORNS, BUT ALWAYS COMMENTED OUT.
+
+REAL Xcenter "X coordinate of the center of mass"
+{
+  : :: "No restriction"
+} 0.0
+
+REAL Ycenter "Y coordinate of the center of mass"
+{
+  : :: "No restriction"
+} 0.0
+
+REAL Zcenter "Z coordinate of the center of mass"
+{
+  : :: "No restriction"
+} 0.0
+#############################################################################################################
+
+
+################################################
+################################################
+# ROTATING METRIC PARAMETERS: USED FOR BHBH ONLY
+################################################
+
+### These parameters determine the structure of the 3 spherical grids used to store metric data when rotating instead of evolving. Grid 1 and 2 are centered on the two BHs, while grid three is a large grid centered at the origin.
+
+INT Nlograd_rot_interp "number of points along lograd in interpolation grid.  Used when rotating metric instead of evolving."
+ {
+  0:* :: "Any positive number"
+ } 20
+INT Ntheta_rot_interp "number of points along theta in interpolation grid.  Used when rotating metric instead of evolving."
+ {
+  0:* :: "Any positive number"
+ } 20
+INT Nphi_rot_interp "number of points along phi in interpolation grid.  Used when rotating metric instead of evolving."
+ {
+  0:* :: "Any positive number"
+ } 20
+REAL radmin_rot_interp_1 "minimum radius in first interpolation grid."
+ {
+  0:* :: "Any positive number"
+ } 0.01
+REAL radmax_rot_interp_1 "maximum radius in first interpolation grid."
+ {
+  0:* :: "Any positive number"
+ } 100.0
+REAL radmin_rot_interp_2 "minimum radius in second interpolation grid."
+ {
+  0:* :: "Any positive number" 
+ } 0.01 
+REAL radmax_rot_interp_2 "maximum radius in second interpolation grid." 
+ {
+  0:* :: "Any positive number" 
+ } 100.0
+REAL radmin_rot_interp_3 "minimum radius in third interpolation grid." 
+ {
+  0:* :: "Any positive number" 
+ } 0.01
+REAL radmax_rot_interp_3 "maximum radius in third interpolation grid." 
+ {
+  0:* :: "Any positive number" 
+ } 100.0
+
+REAL xbh1_initial "initial x coordinate of bh1"
+ {
+  *:* :: "any real"
+ } 0.0
+
+REAL xbh2_initial "initial x coordinate of bh2"
+ {
+  *:* :: "any real"
+ } 0.0
+
+REAL y_offset "id will by shifted by this amount in y direction"
+ {
+  *:* :: "any real"
+ } 0.0
+ 
+REAL rah1_initial "initial horizon radius of BH1"
+ {
+  0:* :: "Positive"
+ } 0.0
+
+REAL rah2_initial "initial horizon radius of BH2" 
+ {
+  0:* :: "Positive"
+ } 0.0
+
+REAL ah_excision_fac "fraction of ah which is excised in cp initial data" 
+ {
+  0:* :: "Positive real" 
+ } 0.89  
+
+REAL binary_orb_freq "what is the orbital frequency of the binary?" 
+ {
+  0:* :: "any positive number" 
+ } 0.0
+
+
+REAL binary_orb_freq "what is the orbital frequency of the binary?"
+ {
+  0:* :: "any positive number"
+ } 0.0
+
+REAL rotation_phase "you can add a phase if you like" STEERABLE=ALWAYS
+ {
+ 0:* :: "any positive number"
+ } 0.0
+
+
+
+# END OF ROTATING METRIC PARAMETERS (USED FOR BHBH)
+###################################################
+###################################################
+
+private:
+
+REAL cH1 "cH1 parameter for using ham. constraint to correct phi_rhs.  See Eq. 19 in Duez et al. Phys.Rev. D67 (2003) 024004" STEERABLE = ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.04
+
+INT Gammai_enforcement_type "Method used ot enforce \tilde{\Gamma}^i = - \tilde{\gamma}^{ij}_{,j}" STEERABLE = ALWAYS
+{
+ 0:3 :: "0=disabled, 1=arXiv:gr-qc/0401076 (Duez, Shapiro, Yo) method, 2=arXiv:gr-qc/0701123 (Marronetti et al.) <- this one seems to be best for reducing eccentricity in compact binaries, when coupled with puncture gauge conditions"
+} 2
+
+INT enable_second_order_inside_ah "Enable 2nd order differencing inside AH (assumes puncture is at origin, coordinate radius >0.25)" STEERABLE = ALWAYS
+{
+ 0:1 :: "0=off 1=on"
+} 0
+
+INT bc_type "Boundary Condition Type: WAVELIKE = 0, FALLOFF = 1, QE = 2, EXTRAP = 3, COPY = 4, QUAD = 5, EXTRAPR = 6, MoR = 7"
+{
+ 0:7 :: "Between zero and 7"
+} 0
+
+INT gambound "Falloff power law index for \tilde{Gamma}"
+{
+ 0:2 :: "Between zero and 2"
+} 0
+
+INT phi_cap_enable "Should I set a cap (ceiling) on phi?  Also sets a corresponding cap on psi!" STEERABLE = ALWAYS
+{
+ 0:1 :: "Either 0 (no) or 1 (yes)"
+} 0
+
+REAL phi_cap "Value for phi cap (ceiling)" STEERABLE = ALWAYS
+{
+ 0:* :: "Anything positive"
+} 4.0
+
+INT chi_evolution_enable "Evolve chi instead of phi?  WARNING: BETA VERSION."
+{
+ 0:1 :: "0=no, 1=yes"
+} 0
+
+REAL chi_exponent "chi = exp(chi_exponent * phi)."
+{
+ *:0 :: "Anything negative.  You'll probably get instabilities if you choose a positive number."
+} -1.0
+
+INT chi_floor_enable "Artificially impose floor on chi?  If enabled, value will be based on phi_cap! (see above)" STEERABLE = ALWAYS
+{
+ 0:1 :: "0=no, 1=yes"
+} 1

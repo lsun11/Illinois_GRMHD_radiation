@@ -1,0 +1,9 @@
+# Main make.code.defn file for thorn IDScalarWaveMoLC
+# $Header: /cactusdevcvs/CactusExamples/IDWaveMoL/src/make.code.defn,v 1.1.1.1 2004/06/26 14:49:20 hawke Exp $
+
+# Source files in this directory
+SRCS = InitialData.c CheckParameters.c
+
+# Subdirectories containing source files
+SUBDIRS = 
+

@@ -1,0 +1,40 @@
+# Schedule definitions for thorn cylindrical2d
+
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::em_rhsx, mhd_evolve::em_rhsy, mhd_evolve::em_rhsz
+STORAGE: mhd_evolve::mhd_temps
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+#STORAGE: mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: gw_extraction::gw_moment_arrays
+STORAGE: diagnostics_vacuum::volIntegrals,diagnostics_mhd::volIntegrals_mhd
+
+# Setup Initial Data
+
+schedule cylindrical2d_initialdata_local at CCTK_INITIAL as cy_initialdata after shift_initialdata
+{
+  LANG:		FORTRAN
+} "Set up initial data for cylindrical2d star evolver"
+
+schedule cylindrical2d_initialdata_global in ABE_PostInitial after second_initialdata as third_initialdata before postid
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set rho_b_atm, etc."
+
+schedule cylindrical2d_recompute_primitives in CCTK_POSTPOSTINITIAL after cylindrical2d_initialdata_global
+{
+  LANG:         FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Recompute primitives"
+
+schedule cylindrical2d_compute_b2_u0 at CCTK_ANALYSIS as compute_b2_u0 after sanitycheck_restore_Aij
+{
+  LANG:         FORTRAN
+} "Compute b^2 (store in Pr) and u0 for data output"

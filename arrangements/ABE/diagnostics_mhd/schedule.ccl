@@ -1,0 +1,376 @@
+# Schedule definitions for thorn diagnostics_mhd
+
+STORAGE: BSSN::BSSN_vars[3], BSSN::BSSN_gupij, BSSN::BSSN_matter, BSSN::BSSN_AH, BSSN::BSSN_aux_restrict2, BSSN::phi_derivs, BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::em_conservativex[3],mhd_evolve::em_conservativey[3],mhd_evolve::em_conservativez[3]
+STORAGE: mhd_evolve::em_Ax[3],mhd_evolve::em_Ay[3],mhd_evolve::em_Az[3]
+STORAGE: mhd_evolve::em_rhsx, mhd_evolve::em_rhsy, mhd_evolve::em_rhsz
+STORAGE: mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs,mhd_evolve::mhd_temps, mhd_evolve::mhd_conservatives[3]
+STORAGE: mhd_evolve::rad_conservatives[3],  mhd_evolve::micphys_conservatives[3], mhd_evolve::rad_conservatives_rhs, mhd_evolve::rad_primitives, mhd_evolve::rad_pressure, mhd_evolve::micphys_conservatives_rhs, mhd_evolve::microphys_primitives
+STORAGE: mhd_evolve::em_Blagrangemultiplier[3], mhd_evolve::em_Blagrangemultiplier_rhs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+#STORAGE: mhd_evolve::mhd_sync_hydro_fwdbck_quantities
+STORAGE: fisheye::fisheye_vars
+STORAGE: excision::excision_int_gfs
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::diag_vacuum_gf diagnostics_vacuum::volIntegrals diagnostics_vacuum::bh_posns diagnostics_mhd::volIntegrals_mhd 
+
+#diagnostics_mhd::mag_diags
+
+
+#############################################################################################
+# EVALUATE VOLUME INTEGRALS:
+######################
+# KINETIC ENERGY:
+######################
+schedule kinetic_energy_T_integrand at CCTK_ANALYSIS as T_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in kinetic energy integrand"
+schedule Integrate_vol_integrand_mhd as T_integrate at CCTK_ANALYSIS after T_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate kinetic energy T, output to T_VolInt"
+
+
+######################
+# INTERNAL ENERGY:
+######################
+schedule minternal_hybrid_integrand at CCTK_ANALYSIS as minternal_integrand  after T_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in internal energy volume integrand"
+schedule Integrate_vol_integrand_mhd as minternal_integrate at CCTK_ANALYSIS after minternal_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate internal energy, output to Minternal_VolInt"
+
+schedule fluid_energy_integrand at CCTK_ANALYSIS as fluid_energy_integrand after minternal_integrate before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in fluid energy (internal + kinetic + GW potential) volume integrand"
+schedule Integrate_vol_integrand_mhd as fluid_energy_integrate at CCTK_ANALYSIS after fluid_energy_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate fluid energy (internal + kinetic + GW potential), output to Tfluid0_0_VolInt, Tfluid0_0_outsideBH_VolInt"
+
+if(em_evolve_enable==1) {
+
+######################
+# ELECTROMAGNETIC ENERGY:
+######################
+schedule em_energy_integrand at CCTK_ANALYSIS as em_energy_integrand after fluid_energy_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in EM energy volume integrand"
+schedule Integrate_vol_integrand_mhd as em_energy_integrate at CCTK_ANALYSIS after em_energy_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate EM energy, output to em_energy_VolInt"
+
+schedule mag_energies_integrand at CCTK_ANALYSIS as mag_energies_integrand after em_energy_integrate before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in mag energies volume integrand" 
+schedule Integrate_vol_integrand_mhd as mag_energies_integrate at CCTK_ANALYSIS after mag_energies_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate mag energies, output to half_b2_u0_VolInt, Tem0_0_VolInt, half_b2_u0_outsideBH_VolInt, Tem0_0_outsideBH_VolInt" 
+
+schedule em_energy2_integrand at CCTK_ANALYSIS as em_energy2_integrand after mag_energies_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in EM energy volume integrand (alt. formulation)"
+schedule Integrate_vol_integrand_mhd as em_energy2_integrate at CCTK_ANALYSIS after em_energy2_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate EM energy (alt. formulation), output to em_energy2_VolInt"
+
+
+######################
+# B_{\phi} INTEGRAL:
+######################
+schedule b_phi_integrand at CCTK_ANALYSIS as b_phi_integrand after rad_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in b_phi integrand"
+schedule Integrate_vol_integrand_mhd as b_phi_integrate at CCTK_ANALYSIS after b_phi_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate b_phi, output to b_phi_VolInt"
+
+######################
+# MONOPOLE INTEGRAL:
+######################
+schedule monopole_integrand at CCTK_ANALYSIS as monopole_integrand after b_phi_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in Center of Mass integrand"
+schedule Integrate_vol_integrand_mhd as monopole_integrate at CCTK_ANALYSIS after monopole_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate CoM integrands, output to Comx_VolInt, Comy_VolInt, and Comz_VolInt"
+
+}
+
+
+if(rad_evolve_enable==1) {
+######################
+# RADIATION ENERGY:
+######################
+schedule radiation_energy_integrand at CCTK_ANALYSIS as rad_integrand after em_energy2_integrate before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in radiation energy integrand"
+
+schedule Integrate_vol_integrand_mhd as rad_integrate at CCTK_ANALYSIS after rad_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate raditioan energy Erad, output to rad_VolInt"
+}
+
+######################
+# CENTER OF MASS INTEGRALS:
+######################
+schedule CoM_integrand at CCTK_ANALYSIS as CoM_integrand after monopole_integrate after minternal_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in Center of Mass integrand"
+schedule Integrate_vol_integrand_mhd as CoM_integrate at CCTK_ANALYSIS after CoM_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate CoM integrands, output to Comx_VolInt, Comy_VolInt, and Comz_VolInt"
+
+
+######################
+# Azimuthal density decomposition integrals:
+######################
+schedule meq0_integrand at CCTK_ANALYSIS as meq0_integrand after CoM_integrate after minternal_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in m=0 density integrand"
+schedule Integrate_vol_integrand_mhd as meq0_integrate at CCTK_ANALYSIS after meq0_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate meq0 integrand, output to density_modes_r[0]"
+
+schedule meq12_integrand at CCTK_ANALYSIS as meq12_integrand after meq0_integrate after minternal_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in m=1,m=2 density integrand"
+
+schedule Integrate_vol_integrand_mhd as meq12_integrate at CCTK_ANALYSIS after meq12_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate m=1,m=2 integrand, output to density_modes_r[1],density_modes_i[1],density_modes_r[2],density_modes_i[2]"
+
+schedule meq34_integrand at CCTK_ANALYSIS as meq34_integrand after meq12_integrate after minternal_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in m=3,m=4 density integrand"
+
+schedule Integrate_vol_integrand_mhd as meq34_integrate at CCTK_ANALYSIS after meq34_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate m=3,m=4 integrand, output to density_modes_r[3],density_modes_i[3],density_modes_r[4],density_modes_i[4]"
+
+schedule meq56_integrand at CCTK_ANALYSIS as meq56_integrand after meq34_integrate after minternal_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in m=5,m=6 density integrand"
+
+schedule Integrate_vol_integrand_mhd as meq56_integrate at CCTK_ANALYSIS after meq34_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate m=5,m=6 integrand, output to density_modes_r[5],density_modes_i[5],density_modes_r[6],density_modes_i[6]"
+
+
+if(luminosity_diagnostics==1){
+############################
+# Luminosity
+############################ 
+schedule bremsstrahlung_qei_integrand at CCTK_ANALYSIS as brem_qei_integrand after CoM_integrate before M0_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in bremsstrahlung qei integrand"
+schedule Integrate_vol_integrand_mhd as brem_qei_integrate at CCTK_ANALYSIS after brem_qei_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate bremsstrahlung qei integrand, output to brem_qei_VolInt"
+schedule bremsstrahlung_qee_integrand at CCTK_ANALYSIS as brem_qee_integrand after brem_qei_integrate before M0_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in bremsstrahlung qee luminosity integrand"
+schedule Integrate_vol_integrand_mhd as brem_qee_integrate at CCTK_ANALYSIS after brem_qee_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate bremsstrahlung qee integrand, output to brem_qee_VolInt"
+schedule synchrotron_integrand at CCTK_ANALYSIS as synch_integrand after brem_qee_integrate before M0_integrand before poststep 
+{
+        LANG:           FORTRAN 
+        OPTIONS:        GLOBAL,loop-local 
+} "Fill in synchrotron luminosity integrand" 
+schedule Integrate_vol_integrand_mhd as synch_integrate at CCTK_ANALYSIS after synch_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN 
+        OPTIONS:        GLOBAL
+} "Integrate synchrotron integrand, output to synch_VolInt" 
+######################
+}
+if(const_rad_surf_diagnostics==1){
+######################
+schedule rest_mass_4surf_integrand at CCTK_ANALYSIS as M0_4surf_integrand after synch_integrate before M0_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in rest mass 4surf integrand"
+schedule Integrate_vol_integrand_mhd as M0_4surf_integrate at CCTK_ANALYSIS after M0_4surf_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate rest mass 4surf integrand, output to rest_mass_4surf_VolInt"
+schedule fluid_energy_4surf_integrand at CCTK_ANALYSIS as fluid_E_4surf_integrand after M0_4surf_integrate before M0_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in fluid energy 4surf integrand"
+schedule Integrate_vol_integrand_mhd as fluid_E_4surf_integrate at CCTK_ANALYSIS after fluid_E_4surf_integrand before M0_integrand before poststep
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate fluid energy 4surf integrand, output to fluid_energy_4surf_VolInt" 
+schedule fluid_J_4surf_integrand at CCTK_ANALYSIS as J_4surf_integrand after fluid_E_4surf_integrate before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in fluid J 4surf integrand"
+schedule Integrate_vol_integrand_mhd as J_4surf_integrate at CCTK_ANALYSIS after J_4surf_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate fluid J 4surf integrand, output to fluid_J_4surf_VolInt" 
+schedule minternal_hybrid_4surf_integrand at CCTK_ANALYSIS as minternal_4surf_integrand after J_4surf_integrate before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL,loop-local
+} "Fill in minternal 4surf integrand"
+schedule Integrate_vol_integrand_mhd as minternal_4surf_integrate at CCTK_ANALYSIS after minternal_4surf_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL
+} "Integrate cold minternal 4surf integrand, output to minternal_4surf_VolInt" 
+schedule minternal_cold_hybrid_4surf_integrand at CCTK_ANALYSIS as minternal_cold_4surf_integrand after minternal_4surf_integrate before M0_integrand before poststep 
+{
+        LANG:           FORTRAN 
+        OPTIONS:        GLOBAL,loop-local 
+} "Fill in minternal 4surf integrand"
+schedule Integrate_vol_integrand_mhd as minternal_cold_4surf_integrate at CCTK_ANALYSIS after minternal_cold_4surf_integrand before M0_integrand before poststep 
+{
+        LANG:           FORTRAN
+        OPTIONS:        GLOBAL 
+} "Integrate cold minternal 4surf integrand, output to minternal_4surf_VolInt"
+######################
+}
+
+######################
+# REST MASS: THESE ROUTINES MUST BE CALLED LAST, SINCE rest_mass_inside_AH_integrand() RESETS THE MASK FUNCTION, WHICH OUTPUTS EXACTLY WHICH POINTS ARE INSIDE THE HORIZON.
+######################
+schedule rest_mass_integrand at CCTK_ANALYSIS as M0_integrand after CoM_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in rest mass volume integrand"
+schedule Integrate_vol_integrand_mhd as M0_integrate at CCTK_ANALYSIS after M0_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate rest mass, output to M0_VolInt"
+
+schedule rest_mass_inside_AH_integrand at CCTK_ANALYSIS as M0_AH_integrand after M0_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in rest mass inside AH volume integrand"
+schedule Integrate_vol_integrand_mhd as M0_AH_integrate at CCTK_ANALYSIS after M0_AH_integrand before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate rest mass inside AH, output to M0_AH_VolInt"
+
+if (escape_mass_diag == 1){
+schedule escaping_rest_mass_30M_integrand at CCTK_ANALYSIS as M0_escape_integrand_30M after M0_AH_integrate before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in escaping rest mass integrand"
+schedule Integrate_vol_integrand_mhd as M0_escape_integrate_30M at CCTK_ANALYSIS after M0_escape_integrand_30M before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate mass of escaping matter, output to M0_escape30M"
+
+schedule escaping_rest_mass_50M_integrand at CCTK_ANALYSIS as M0_escape_integrand_50M after M0_escape_integrate_30M
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in escaping rest mass integrand"
+schedule Integrate_vol_integrand_mhd as M0_escape_integrate_50M at CCTK_ANALYSIS after M0_escape_integrand_50M before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate mass of escaping matter, output to M0_escape50M"
+
+schedule escaping_rest_mass_70M_integrand at CCTK_ANALYSIS as M0_escape_integrand_70M after M0_escape_integrate_50M
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in escaping rest mass integrand"
+schedule Integrate_vol_integrand_mhd as M0_escape_integrate_70M at CCTK_ANALYSIS after M0_escape_integrand_70M before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate mass of escaping matter, output to M0_escape70M"
+
+schedule escaping_rest_mass_100M_integrand at CCTK_ANALYSIS as M0_escape_integrand_100M after M0_escape_integrate_70M
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL,loop-local
+} "Fill in escaping rest mass integrand"
+schedule Integrate_vol_integrand_mhd as M0_escape_integrate_100M at CCTK_ANALYSIS after M0_escape_integrand_100M before poststep
+{
+	LANG:		FORTRAN
+	OPTIONS:	GLOBAL
+} "Integrate mass of escaping matter, output to M0_escape100M"
+}

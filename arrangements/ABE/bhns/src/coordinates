@@ -1,0 +1,2 @@
+             pomega2 = (xp-x_NS_CoM_coord)**2 + (yp-y_NS_CoM_coord)**2 + hdX*1.d-13
+             pomega2b = (xp-x_NS_CoM_coord2)**2 + (yp-y_NS_CoM_coord2)**2 + hdX*1.d-13

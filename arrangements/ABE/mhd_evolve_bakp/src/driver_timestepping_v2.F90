@@ -1,0 +1,541 @@
+!-------------------------------------------------------
+!    :: Driver routine for MHD timestepping, v2.0 ::
+! (i.e., computing RHS's of all conservative variables)
+!-------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine mhd_timestepping_v2(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3) :: ext
+  real*8                :: dX,dY,dZ,b2bt,fac
+  integer               :: index,ierr,handle,dummy
+  CCTK_REAL             :: reduction_value
+  integer               :: AXISYM,i,j,k
+  integer               :: i1,j1,k1
+  parameter(AXISYM = 4)
+
+  ext = cctk_lsh
+
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+!!$  !---------------------------------------
+!!$  ! CHECK FOR NANS
+!!$  do k=1,cctk_lsh(3)
+!!$     do j=1,cctk_lsh(2)
+!!$        do i=1,cctk_lsh(1)
+!!$           if(isnan(Bztilde(i,j,k))) then
+!!$              write(*,*) "ts: found a NAN in Bztilde at",i,j,k
+!!$              stop
+!!$           end if
+!!$           if(isnan(Bytilde(i,j,k))) then
+!!$              write(*,*) "ts: found a NAN in Bytilde at",i,j,k
+!!$              stop
+!!$           end if
+!!$           if(isnan(Bxtilde(i,j,k))) then
+!!$              write(*,*) "ts: found a NAN in Bxtilde at",i,j,k,cctk_lsh
+!!$              stop
+!!$           end if
+!!$        end do
+!!$     end do
+!!$  end do
+!!$  !---------------------------------------
+
+  !The following lines are needed at the beginning of each timestep:
+  if(iter_count==1) then
+     ! Note that h_p == [h from previous timeSTEP, not previous MoL step].  h_p MUST be set for primitive solver.
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              h_p(i,j,k) = h(i,j,k)
+           end do
+        end do
+     end do
+     !$omp end parallel do
+
+     ! In the MHD code, rho_b and P are NOT updated on the boundaries in Axisymmetry.  
+     !   As a result, the maximum value of these quantities may occur at the boundary and not change!
+     !   Here we correct for this problem by zeroing out the boundary values of rho_b and P.
+     if(Symmetry==AXISYM) then
+        if(Z(1,1,1).lt.0.D0) then
+           rho_b(:,:,1) = rho_b(:,:,2)
+           P(:,:,1) = P(:,:,2)
+        end if
+        if(X(1,1,1).lt.0.D0) then
+           rho_b(1,:,:) = rho_b(2,:,:)
+           P(1,:,:) = P(2,:,:)
+        end if
+     end if
+
+     ! Also, rho_b_max, P_max, and rhos_max must also be set for primitive solver!
+     call CCTK_VarIndex(index,"mhd_evolve::rho_b")
+     call CCTK_ReductionHandle(handle,"maximum")
+     if (handle .gt. 0) then
+        call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+        if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+           !        print *,"1: Maximum value of rho_b is ",reduction_value
+        end if
+     else
+        call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+     end if
+     rho_b_max = reduction_value  
+     call CCTK_VarIndex(index,"mhd_evolve::P")
+     call CCTK_ReductionHandle(handle,"maximum")
+     if (handle .gt. 0) then
+        call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+        if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+           !        print *,"1: Maximum value of P is ",reduction_value
+        end if
+     else
+        call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+     end if
+     P_max = reduction_value  
+     call CCTK_VarIndex(index,"mhd_evolve::rho_star")
+     call CCTK_ReductionHandle(handle,"maximum")
+     if (handle .gt. 0) then
+        call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+        if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+           !        print *,"1: Maximum value of rho_star is ",reduction_value
+        end if
+     else
+        call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+     end if
+     rhos_max = reduction_value  
+  end if
+
+  ! Initialize right hand sides to zero.  You should probably not do this when debugging... 
+  !        I.e., you should add poisoning (Carpet::poison_new_timelevels,poison_new_memory = yes)
+  !        and make SURE that the unset values are appearing ONLY in ghostzones.
+  !$omp parallel do
+  do k=1,cctk_lsh(3)
+     do j=1,cctk_lsh(2)
+        do i=1,cctk_lsh(1)
+           rho_star_rhs(i,j,k) = 0.D0
+           tau_rhs(i,j,k) = 0.D0
+           mhd_st_x_rhs(i,j,k) = 0.D0
+           mhd_st_y_rhs(i,j,k) = 0.D0
+           mhd_st_z_rhs(i,j,k) = 0.D0
+
+           Bxtilde_or_Ax_rhs(i,j,k) = 0.D0
+           Bytilde_or_Ay_rhs(i,j,k) = 0.D0
+           Bztilde_or_Az_rhs(i,j,k) = 0.D0
+        end do
+     end do
+  end do
+  !$omp end parallel do
+
+  m = 1
+  call reconstruction_v2(CCTK_PASS_FTOF)
+  call mhd_flux_and_rhs1D_v2(CCTK_PASS_FTOF)
+  if(em_evolve_enable==1) then
+     if (constrained_transport_scheme==3) then 
+        !call compute_B_from_A(CCTK_PASS_FTOF)
+        call flux_induction_Aevolution_step1(CCTK_PASS_FTOF)
+     elseif(reconstruct_Bitildes_instead_of_Bis==0) then
+        call flux_induction_1D_v2(CCTK_PASS_FTOF)
+     else
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 !Note that reconstruction functions require Bx,By,Bz as input.
+                 ! Here, we trick them by inserting Bxtilde,Bytilde, and Bztilde instead (we need to advect tildes here!)
+                 Bx(i,j,k) = Bxtilde(i,j,k)
+                 By(i,j,k) = Bytilde(i,j,k)
+                 Bz(i,j,k) = Bztilde(i,j,k)
+              end do
+           end do
+        end do
+        !$omp end parallel do
+        call reconstruction_v2(CCTK_PASS_FTOF)
+        call flux_induction_1D_v2(CCTK_PASS_FTOF)
+
+        ! Notice that we set B^i = tildeB^i above.
+        b2bt = -1.D0
+        call convert_b(ext,Bx,By,Bz,phi,b2bt)
+     end if
+  end if
+  
+  if (rad_evolve_enable==1) then
+     call radfields_fluxes(CCTK_PASS_FTOF)
+  end if
+
+
+  if (Symmetry .ne. AXISYM) then
+     m = 2
+     call reconstruction_v2(CCTK_PASS_FTOF)
+     call mhd_flux_and_rhs1D_v2(CCTK_PASS_FTOF)
+
+     if(em_evolve_enable==1) then
+	if (constrained_transport_scheme==3) then
+           call flux_induction_Aevolution_step2(CCTK_PASS_FTOF)
+        elseif(reconstruct_Bitildes_instead_of_Bis==0) then
+           call flux_induction_1D_v2(CCTK_PASS_FTOF)
+        else 
+           !$omp parallel do
+           do k=1,cctk_lsh(3)
+              do j=1,cctk_lsh(2)
+                 do i=1,cctk_lsh(1)
+                    !Note that reconstruction functions require Bx,By,Bz as input.
+                    ! Here, we trick them by inserting Bxtilde,Bytilde, and Bztilde instead (we need to advect tildes here!)
+                    Bx(i,j,k) = Bxtilde(i,j,k)
+                    By(i,j,k) = Bytilde(i,j,k)
+                    Bz(i,j,k) = Bztilde(i,j,k)
+                 end do
+              end do
+           end do
+           !$omp end parallel do
+           call reconstruction_v2(CCTK_PASS_FTOF)
+           call flux_induction_1D_v2(CCTK_PASS_FTOF)
+
+           ! Notice that we set B^i = tildeB^i above.
+           b2bt = -1.D0
+           call convert_b(ext,Bx,By,Bz,phi,b2bt)
+        end if
+     end if
+  end if
+
+  if (rad_evolve_enable==1) then
+     call radfields_fluxes(CCTK_PASS_FTOF)
+  end if
+
+
+
+  m = 3
+  call reconstruction_v2(CCTK_PASS_FTOF)
+  call mhd_flux_and_rhs1D_v2(CCTK_PASS_FTOF)
+  if(em_evolve_enable==1) then
+     if (constrained_transport_scheme==3) then
+	call flux_induction_Aevolution_step3(CCTK_PASS_FTOF)
+     elseif(reconstruct_Bitildes_instead_of_Bis==0) then
+        call flux_induction_1D_v2(CCTK_PASS_FTOF)
+     else
+        !$omp parallel do
+        do k=1,cctk_lsh(3)
+           do j=1,cctk_lsh(2)
+              do i=1,cctk_lsh(1)
+                 !Note that reconstruction functions require Bx,By,Bz as input.
+                 ! Here, we trick them by inserting Bxtilde,Bytilde, and Bztilde instead (we need to advect tildes here!)
+                 Bx(i,j,k) = Bxtilde(i,j,k)
+                 By(i,j,k) = Bytilde(i,j,k)
+                 Bz(i,j,k) = Bztilde(i,j,k)
+              end do
+           end do
+        end do
+        !$omp end parallel do
+        call reconstruction_v2(CCTK_PASS_FTOF)
+        call flux_induction_1D_v2(CCTK_PASS_FTOF)
+
+        ! Notice that we set B^i = tildeB^i above.
+        b2bt = -1.D0
+        call convert_b(ext,Bx,By,Bz,phi,b2bt)
+     end if
+  end if
+
+  if (rad_evolve_enable==1) then
+     call radfields_fluxes(CCTK_PASS_FTOF)
+  end if
+
+
+  if(enable_HARM_energyvariable==0) then
+          if (artificial_cooling_enable==1) then
+             call mhd_tau_curvature_cpp_with_cooling(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+             tau_rhs,mhd_st_x_rhs, mhd_st_y_rhs, mhd_st_z_rhs,rho_star,h,P, rho_b, &  
+             neos, ergo_star, ergo_sigma, rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+             sbt,sbx,sby,sbz, &
+             u0,vx,vy,vz, &
+             lapm1,shiftx,shifty,shiftz, &
+             phi,trK, &
+             gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz, &
+             dX,dY,dZ,t_cool,cooling_in_St_eq,allow_negative_eps_th)
+          else
+             call mhd_tau_curvature_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+             tau_rhs,rho_star,h,P, &
+             sbt,sbx,sby,sbz, &
+             u0,vx,vy,vz, &
+             lapm1,shiftx,shifty,shiftz, &
+             phi,trK, &
+             gxx,gxy,gxz,gyy,gyz,gzz, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             Axx,Axy,Axz,Ayy,Ayz,Azz, &
+             dX,dY,dZ)
+          end if
+  else                    ! TODO: Remove the extrinsic curvature variables from the following two routines 
+          if (artificial_cooling_enable==1) then
+             write(*,*) "get the latest code from Vasilis, foo!"
+             stop
+	  end if
+  end if
+  
+  if (rad_evolve_enable==1 ) then
+     call tau_rad_curvature_cpp(cctkGH,cctk_lsh, cctk_nghostzones, Symmetry, &
+                        tau_rad_rhs, E_rad, &
+                        F_rad0, F_radx,F_rady,F_radz,P_rad, &
+                        u0,vx,vy,vz, &
+                        lapm1,shiftx,shifty,shiftz, &
+                        phi,trK, &
+                        gxx,gxy,gxz,gyy,gyz,gzz, &
+			gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+                        Axx,Axy,Axz,Ayy,Ayz,Azz, &
+                        dX,dY,dZ)
+  end if
+
+
+
+!!$  if(enable_HARM_energyvariable==0) then
+!!$     call mhd_tau_curvature_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+!!$          tau_rhs,rho_star,h,P, &
+!!$          sbt,sbx,sby,sbz, &
+!!$          u0,vx,vy,vz, &
+!!$          lapm1,shiftx,shifty,shiftz, &
+!!$          phi,trK, &
+!!$          gxx,gxy,gxz,gyy,gyz,gzz, &
+!!$          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+!!$          Axx,Axy,Axz,Ayy,Ayz,Azz, &
+!!$          dX,dY,dZ)
+!!$  end if
+
+  ! Evolve the EM scalar field psi^6 Phi
+  if (em_evolve_enable==1 .and. constrained_transport_scheme==3 .and. em_gauge==1) then
+     call mhd_A_psi6phi_rhs_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+             psi6phi_rhs,Bxtilde_or_Ax_rhs,Bytilde_or_Ay_rhs,Bztilde_or_Az_rhs, &
+             psi6phi,Ax,Ay,Az,lapm1,shiftx,shifty,shiftz,phi, &
+             gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+             temp1,temp2,temp3,temp4,temp5,temp6,temp7,temp8, &
+             temp9,temp10,temp11,dX,dY,dZ,0.D0,0.D0,0.D0,cctk_time,r,damp_lorenz)
+  else
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              psi6phi_rhs(i,j,k) = 0.d0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  end if
+
+  ! Field line tracer
+  if (em_evolve_enable==1 .and. enable_trace_field_line==1) then
+     call field_line_tracer_cpp(cctkGH,cctk_lsh,cctk_nghostzones, &
+          lapm1, shiftx,shifty,shiftz,phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+          vx,vy,vz, Bxtilde,Bytilde,Bztilde, &
+          mhd_psi_line, mhd_u_psi, mhd_chi_line, mhd_u_chi, &
+          mhd_psi_line_rhs, mhd_u_psi_rhs, mhd_chi_line_rhs, mhd_u_chi_rhs, &
+          lambda_line,dX,dY,dZ,X,Y,Z,min_BH_radius,0.d0,0.d0,0.d0)
+  else
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              mhd_psi_line_rhs(i,j,k) = 0.d0
+              mhd_u_psi_rhs(i,j,k) = 0.d0
+              mhd_chi_line_rhs(i,j,k) = 0.d0
+              mhd_u_chi_rhs(i,j,k) = 0.d0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  end if
+
+  if(excision_enable==1) then
+     call remove_interior(ext,X,Y,Z,rho_star_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(ext,X,Y,Z,tau_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(ext,X,Y,Z,mhd_st_x_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(ext,X,Y,Z,mhd_st_y_rhs,excision_zone_gf,Symmetry)
+     call remove_interior(ext,X,Y,Z,mhd_st_z_rhs,excision_zone_gf,Symmetry)
+     ! Can't do this here since we haven't computed Bitilde_rhs
+     !!if (em_evolve_enable==1) then 
+     !!   call remove_interior(ext,X,Y,Z,Bxtilde_rhs,excision_zone_gf,Symmetry)
+     !!   call remove_interior(ext,X,Y,Z,Bytilde_rhs,excision_zone_gf,Symmetry)
+     !!   call remove_interior(ext,X,Y,Z,Bztilde_rhs,excision_zone_gf,Symmetry)
+     !!   if (hyperbolic_divergence_cleaning_enable==1) then
+     !!      call remove_interior(ext,X,Y,Z,Blagrangemultiplier_rhs,excision_zone_gf,Symmetry)
+     !!   end if
+     !!end if
+  end if
+
+  ! ************
+  if(KO_inside_BH.ne.0.D0) then
+     write(*,*) "ERROR: With MC runs, KO_inside_BH is NOT YET SUPPORTED.  You'll need to copy over the algorithm from driver_timestepping_ppm.F90 to driver_timestepping_v2.F90"
+     stop
+  end if
+!!$
+!!$     ! Add K-O dissipation inside the BH horizon for A evolution
+!!$     ! Empirically, we find that the K-O strength 0. seems to work best:
+!!$     ! First, set horizon position to 0 (for mag Bondi test)
+!!$     bh_posn_x(1) = 0.d0
+!!$     bh_posn_y(1) = 0.d0
+!!$     bh_posn_z(1) = 0.d0
+!!$     !$omp parallel do
+!!$     do k = cctk_nghostzones(3), ext(3)-cctk_nghostzones(3)
+!!$        do j = cctk_nghostzones(2), ext(2)-cctk_nghostzones(2)
+!!$           do i = cctk_nghostzones(1), ext(1)-cctk_nghostzones(1)
+!!$              if(num_BHs.ge.1) then
+!!$                 if((sqrt((x(i,j,k)-bh_posn_x(1))**2 + (y(i,j,k)-bh_posn_y(1))**2 + (z(i,j,k)-bh_posn_z(1))**2) .lt. min_BH_radius).or. &
+!!$                      (num_BHs.eq.2 .and. sqrt((x(i,j,k)-bh_posn_x(2))**2 + (y(i,j,k)-bh_posn_y(2))**2 + (z(i,j,k)-bh_posn_z(2))**2) .lt. min_BH_radius)) then
+!!$
+!!$                    Bxtilde_or_Ax_rhs(i,j,k) = Bxtilde_or_Ax_rhs(i,j,k) - KO_inside_BH / 16.D0 &
+!!$                         * (+ (Ax(i-2,j,k) - 4.D0*Ax(i-1,j,k) + 6.D0*Ax(i,j,k) - 4.D0*Ax(i+1,j,k) + Ax(i+2,j,k)) / dx &
+!!$                         + (Ax(i,j-2,k) - 4.D0*Ax(i,j-1,k) + 6.D0*Ax(i,j,k) - 4.D0*Ax(i,j+1,k) + Ax(i,j+2,k)) / dy &
+!!$                         + (Ax(i,j,k-2) - 4.D0*Ax(i,j,k-1) + 6.D0*Ax(i,j,k) - 4.D0*Ax(i,j,k+1) + Ax(i,j,k+2)) / dz)
+!!$
+!!$                    Bytilde_or_Ay_rhs(i,j,k) = Bytilde_or_Ay_rhs(i,j,k) - KO_inside_BH / 16.D0 &
+!!$                         * (+ (Ay(i-2,j,k) - 4.D0*Ay(i-1,j,k) + 6.D0*Ay(i,j,k) - 4.D0*Ay(i+1,j,k) + Ay(i+2,j,k)) / dx &
+!!$                         + (Ay(i,j-2,k) - 4.D0*Ay(i,j-1,k) + 6.D0*Ay(i,j,k) - 4.D0*Ay(i,j+1,k) + Ay(i,j+2,k)) / dy &
+!!$                         + (Ay(i,j,k-2) - 4.D0*Ay(i,j,k-1) + 6.D0*Ay(i,j,k) - 4.D0*Ay(i,j,k+1) + Ay(i,j,k+2)) / dz)
+!!$
+!!$                    Bztilde_or_Az_rhs(i,j,k) = Bztilde_or_Az_rhs(i,j,k) - KO_inside_BH / 16.D0 &
+!!$                         * (+ (Az(i-2,j,k) - 4.D0*Az(i-1,j,k) + 6.D0*Az(i,j,k) - 4.D0*Az(i+1,j,k) + Az(i+2,j,k)) / dx &
+!!$                         + (Az(i,j-2,k) - 4.D0*Az(i,j-1,k) + 6.D0*Az(i,j,k) - 4.D0*Az(i,j+1,k) + Az(i,j+2,k)) / dy &
+!!$                         + (Az(i,j,k-2) - 4.D0*Az(i,j,k-1) + 6.D0*Az(i,j,k) - 4.D0*Az(i,j,k+1) + Az(i,j,k+2)) / dz)
+!!$
+!!$                    mhd_st_x_rhs(i,j,k) = mhd_st_x_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+!!$                         * (+ (mhd_st_x(i-2,j,k) - 4.D0*mhd_st_x(i-1,j,k) + 6.D0*mhd_st_x(i,j,k) - 4.D0*mhd_st_x(i+1,j,k) + mhd_st_x(i+2,j,k)) / dx &
+!!$                         + (mhd_st_x(i,j-2,k) - 4.D0*mhd_st_x(i,j-1,k) + 6.D0*mhd_st_x(i,j,k) - 4.D0*mhd_st_x(i,j+1,k) + mhd_st_x(i,j+2,k)) / dy &
+!!$                         + (mhd_st_x(i,j,k-2) - 4.D0*mhd_st_x(i,j,k-1) + 6.D0*mhd_st_x(i,j,k) - 4.D0*mhd_st_x(i,j,k+1) + mhd_st_x(i,j,k+2)) / dz)
+!!$
+!!$                    mhd_st_y_rhs(i,j,k) = mhd_st_y_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+!!$                         * (+ (mhd_st_y(i-2,j,k) - 4.D0*mhd_st_y(i-1,j,k) + 6.D0*mhd_st_y(i,j,k) - 4.D0*mhd_st_y(i+1,j,k) + mhd_st_y(i+2,j,k)) / dx &
+!!$                         + (mhd_st_y(i,j-2,k) - 4.D0*mhd_st_y(i,j-1,k) + 6.D0*mhd_st_y(i,j,k) - 4.D0*mhd_st_y(i,j+1,k) + mhd_st_y(i,j+2,k)) / dy &
+!!$                         + (mhd_st_y(i,j,k-2) - 4.D0*mhd_st_y(i,j,k-1) + 6.D0*mhd_st_y(i,j,k) - 4.D0*mhd_st_y(i,j,k+1) + mhd_st_y(i,j,k+2)) / dz)
+!!$
+!!$                    mhd_st_z_rhs(i,j,k) = mhd_st_z_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+!!$                         * (+ (mhd_st_z(i-2,j,k) - 4.D0*mhd_st_z(i-1,j,k) + 6.D0*mhd_st_z(i,j,k) - 4.D0*mhd_st_z(i+1,j,k) + mhd_st_z(i+2,j,k)) / dx &
+!!$                         + (mhd_st_z(i,j-2,k) - 4.D0*mhd_st_z(i,j-1,k) + 6.D0*mhd_st_z(i,j,k) - 4.D0*mhd_st_z(i,j+1,k) + mhd_st_z(i,j+2,k)) / dy &
+!!$                         + (mhd_st_z(i,j,k-2) - 4.D0*mhd_st_z(i,j,k-1) + 6.D0*mhd_st_z(i,j,k) - 4.D0*mhd_st_z(i,j,k+1) + mhd_st_z(i,j,k+2)) / dz)
+!!$
+!!$                    tau_rhs(i,j,k) = tau_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+!!$                         * (+ (tau(i-2,j,k) - 4.D0*tau(i-1,j,k) + 6.D0*tau(i,j,k) - 4.D0*tau(i+1,j,k) + tau(i+2,j,k)) / dx &
+!!$                         + (tau(i,j-2,k) - 4.D0*tau(i,j-1,k) + 6.D0*tau(i,j,k) - 4.D0*tau(i,j+1,k) + tau(i,j+2,k)) / dy &
+!!$                         + (tau(i,j,k-2) - 4.D0*tau(i,j,k-1) + 6.D0*tau(i,j,k) - 4.D0*tau(i,j,k+1) + tau(i,j,k+2)) / dz)
+!!$
+!!$!                    if((sqrt((x(i,j,k)-bh_posn_x(1))**2 + (y(i,j,k)-bh_posn_y(1))**2 + (z(i,j,k)-bh_posn_z(1))**2) .lt. min_BH_radius) .and. &
+!!$!                         (sqrt((x(i,j,k)-bh_posn_x(1))**2 + (y(i,j,k)-bh_posn_y(1))**2 + (z(i,j,k)-bh_posn_z(1))**2) .gt. 0.2D0*min_BH_radius)) then
+!!$!                       rho_star_rhs(i,j,k) = rho_star_rhs(i,j,k) - KO_hydro_inside_BH / 16.D0 &
+!!$!                            * (+ (rho_star(i-2,j,k) - 4.D0*rho_star(i-1,j,k) + 6.D0*rho_star(i,j,k) - 4.D0*rho_star(i+1,j,k) + rho_star(i+2,j,k)) / dx &
+!!$!                            + (rho_star(i,j-2,k) - 4.D0*rho_star(i,j-1,k) + 6.D0*rho_star(i,j,k) - 4.D0*rho_star(i,j+1,k) + rho_star(i,j+2,k)) / dy &
+!!$!                            + (rho_star(i,j,k-2) - 4.D0*rho_star(i,j,k-1) + 6.D0*rho_star(i,j,k) - 4.D0*rho_star(i,j,k+1) + rho_star(i,j,k+2)) / dz)
+!!$
+!!$                 end if
+!!$
+!!$                 if(num_BHs.gt.2) then
+!!$                    write(*,*) "SORRY, the addition of K-O DOES NOT CURRENTLY SUPPORT num_BHs.gt.2"
+!!$                    stop
+!!$                 end if
+!!$              end if
+!!$           end do
+!!$        end do
+!!$     end do
+!!$     !$omp end parallel do
+!!$  end if
+
+!!$  !---------------------------------------
+!!$  do k=1,cctk_lsh(3)
+!!$     do j=1,cctk_lsh(2)
+!!$        do i=1,cctk_lsh(1)
+!!$           if(isnan(Bz(i,j,k))) then
+!!$              write(*,*) "found a NAN in Bz at",i,j,k
+!!$!              stop
+!!$           end if
+!!$           if(isnan(By(i,j,k))) then
+!!$              write(*,*) "found a NAN in By at",i,j,k
+!!$!              stop
+!!$           end if
+!!$           if(isnan(Bx(i,j,k))) then
+!!$              write(*,*) "found a NAN in Bx at",i,j,k,cctk_lsh
+!!$           end if
+!!$        end do
+!!$     end do
+!!$  end do
+!!$  !---------------------------------------
+
+  ! *** TEST ***
+  if (A_BC_rad_mag_bondi_enable==1) then
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              if (sqrt(x(i,j,k)**2 + y(i,j,k)**2 + z(i,j,k)**2) .lt.  &
+                   min_BH_radius*32.d0/cctk_levfac(1) &
+                   .and. cctk_levfac(1) .lt. 31 ) then
+                 Bxtilde_or_Ax_rhs(i,j,k) = 0.d0
+                 Bytilde_or_Ay_rhs(i,j,k) = 0.d0
+                 Bztilde_or_Az_rhs(i,j,k) = 0.d0
+                 rho_star_rhs(i,j,k) = 0.d0
+                 mhd_st_x_rhs(i,j,k) = 0.d0
+                 mhd_st_y_rhs(i,j,k) = 0.d0
+                 mhd_st_z_rhs(i,j,k) = 0.d0
+                 tau_rhs(i,j,k) = 0.d0
+              end if
+           end do
+        end do
+     end do
+     !$omp end parallel do
+  end if
+  ! *************
+
+  ! *** Add KO dissipation near the refinement boundaries ***
+  ! Note: refbd is set to 1 at the refinement boundaries. 
+  ! The following lines set fac to 1 when i+/-i1, j+/-j1 
+  ! and k+/-k1 are at the refinement boundaries 
+  ! (i1,j1,k1=1,2,...cctk_nghostzones).
+!!$     do k=cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+!!$        do j=cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+!!$           do i=cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+!!$if(1==0) then
+!!$  do k=2+1,cctk_lsh(3)-2
+!!$     do j=2+1,cctk_lsh(2)-2
+!!$        do i=2+1,cctk_lsh(1)-2
+!!$              fac = 0.d0
+!!$              do k1=0,number_of_points_apply_KO_outside_refboundaries
+!!$                 do j1=0,number_of_points_apply_KO_outside_refboundaries
+!!$                    do i1=0,number_of_points_apply_KO_outside_refboundaries
+!!$                       if(i-i1.gt.1 .and. j-j1.gt.1 .and. k-k1.gt.1 .and. &
+!!$                            i+i1.le.cctk_lsh(1) .and. j+j1.le.cctk_lsh(2) .and. k+k1.le.cctk_lsh(3)) then
+!!$                          fac = fac + refbd(i+i1,j+j1,k+k1) + refbd(i-i1,j-j1,k-j1)
+!!$                       end if
+!!$                    end do
+!!$                 end do
+!!$              end do
+!!$
+!!$              fac = min(fac,1.d0)
+!!$
+!!$              ! TURN OFF refbd; just apply KO everywhere!
+!!$              !           fac = 1.D0
+!!$
+!!$           Bxtilde_or_Ax_rhs(i,j,k) = Bxtilde_or_Ax_rhs(i,j,k) - KO_refbd*fac / 16.D0 &
+!!$                * (+ (Ax(i-2,j,k) - 4.D0*Ax(i-1,j,k) + 6.D0*Ax(i,j,k) - 4.D0*Ax(i+1,j,k) + Ax(i+2,j,k)) / dx &
+!!$                + (Ax(i,j-2,k) - 4.D0*Ax(i,j-1,k) + 6.D0*Ax(i,j,k) - 4.D0*Ax(i,j+1,k) + Ax(i,j+2,k)) / dy &
+!!$                + (Ax(i,j,k-2) - 4.D0*Ax(i,j,k-1) + 6.D0*Ax(i,j,k) - 4.D0*Ax(i,j,k+1) + Ax(i,j,k+2)) / dz)
+!!$
+!!$           Bytilde_or_Ay_rhs(i,j,k) = Bytilde_or_Ay_rhs(i,j,k) - KO_refbd*fac / 16.D0 &
+!!$                * (+ (Ay(i-2,j,k) - 4.D0*Ay(i-1,j,k) + 6.D0*Ay(i,j,k) - 4.D0*Ay(i+1,j,k) + Ay(i+2,j,k)) / dx &
+!!$                + (Ay(i,j-2,k) - 4.D0*Ay(i,j-1,k) + 6.D0*Ay(i,j,k) - 4.D0*Ay(i,j+1,k) + Ay(i,j+2,k)) / dy &
+!!$                + (Ay(i,j,k-2) - 4.D0*Ay(i,j,k-1) + 6.D0*Ay(i,j,k) - 4.D0*Ay(i,j,k+1) + Ay(i,j,k+2)) / dz)
+!!$
+!!$           Bztilde_or_Az_rhs(i,j,k) = Bztilde_or_Az_rhs(i,j,k) - KO_refbd*fac / 16.D0 &
+!!$                * (+ (Az(i-2,j,k) - 4.D0*Az(i-1,j,k) + 6.D0*Az(i,j,k) - 4.D0*Az(i+1,j,k) + Az(i+2,j,k)) / dx &
+!!$                + (Az(i,j-2,k) - 4.D0*Az(i,j-1,k) + 6.D0*Az(i,j,k) - 4.D0*Az(i,j+1,k) + Az(i,j+2,k)) / dy &
+!!$                + (Az(i,j,k-2) - 4.D0*Az(i,j,k-1) + 6.D0*Az(i,j,k) - 4.D0*Az(i,j,k+1) + Az(i,j,k+2)) / dz)
+!!$        end do
+!!$     end do
+!!$  end do
+!!$end if
+  ! **********************************************************
+
+end subroutine mhd_timestepping_v2

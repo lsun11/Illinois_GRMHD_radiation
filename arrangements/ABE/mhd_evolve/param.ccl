@@ -1,0 +1,585 @@
+# Parameter definitions for thorn mhd_evolve
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+shares: bssn
+USES KEYWORD zero_out_matter_source_terms
+
+shares: lapse
+USES KEYWORD slicing_type
+shares: shift
+USES KEYWORD Spatial_Gauge
+
+shares: diagnostics_vacuum
+USES KEYWORD num_BHs
+
+shares: bhns
+USES KEYWORD iteration_to_insert_rad
+#USES KEYWORD num_CO
+
+#shares: OS_toy
+#USES KEYWORD OS_T_Rmax
+
+#shares:movingbox
+
+
+#########################################################
+# Timestepping (MoL) stuff
+shares: MethodOfLines
+
+USES CCTK_INT MoL_Num_Evolved_Vars
+USES CCTK_INT MoL_Num_Constrained_Vars
+USES CCTK_INT MoL_Num_SaveAndRestore_Vars
+
+restricted:
+
+CCTK_INT MHD_MaxNumEvolvedVars "The maximum number of evolved variables used by BSSN" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Evolved_Vars
+{
+  27:27           :: "Just 19: rho_star,tau,mhd_st_x,mhd_st_y,mhd_st_z,Bxtilde,Bytilde,Bztilde, psi6phi, mhd_psi_line, mhd_u_psi, mhd_chi_line, mhd_u_chi and Blagrangemultiplier, tau_rad, S_rad_x, S_rad_y, S_rad_z, tau_rad_nue, S_rad_x_nue, S_rad_y_nue, S_rad_z_nue, tau_rad_nux, S_rad_x_nux, S_rad_y_nux, S_rad_z_nux, and rhoYe"
+} 27
+
+CCTK_INT MHD_MaxNumConstrainedVars "The maximum number of constrained variables used by BSSN" ACCUMULATOR-BASE=MethodofLines::MoL_Num_Constrained_Vars
+{
+  1:1           :: "Let's ignore this for the time being..."
+} 1
+#########################################################
+
+restricted:
+
+INT tau_stildefix_enable "tau<0 fix in primitive_vars_hybrid2 to reduce number of Font fixes, especially in puncture+matter evolutions" STEERABLE=ALWAYS
+{
+ 0:3 :: "zero (disable), one (enable everywhere), or two (enable only where Psi6 > 50.0 [i.e., inside the horizon, where B's are set to zero], or three (kludge: set B=0 if tau<0 inside horizon))"
+} 0
+
+REAL K_poly "initial polytropic constant"
+{
+ 0:* :: "Positive"
+} 1.0
+
+INT use_new_code "0 = no, 1 = yes"
+{
+ 0:1 :: "zero or one"
+} 0
+
+INT reconstruct_Bitildes_instead_of_Bis "Set this to 1 to reproduce the old behavior, and to compare to older versions of our code, in which we did reconstruction _twice_ on Bi.  Set to 0 to be less wasteful, reconstructing Bi only once." STEERABLE=ALWAYS
+{
+ 0:1 :: "zero or one: default to OLD BEHAVIOR"
+} 1
+
+INT reconstruct_Pthermal_instead_of_P "reconstruct P_thermal instead of P?" STEERABLE=ALWAYS
+{
+ 0:1 :: "yes or no"
+} 0
+
+INT use_central_scheme_instead_of_hll "Use central-upwind numerical flux instead of HLL flux?" STEERABLE=ALWAYS
+{ 
+ 0:1 :: "yes or no"
+} 0
+
+INT m "temporary integer for mhd evolution: DON'T TOUCH"
+{
+ *:* :: "Any integer"
+} 0
+
+INT Reconstruction "Chosen reconstruction scheme: PPM_PLUS = 1, PPM = 2,CENO = 3,MC = 4, SPPM = 5" STEERABLE=ALWAYS
+{
+ *:* :: "Any integer"
+} 2
+
+INT Matter_BC "Chosen Matter boundary condition: OUTFLOW = 1,FREEZE = 2,COPY = 3,LINEAR = 4,QUADRATIC = 5,PLANAR = 6"
+{
+ *:* :: "Any integer"
+} 1
+
+INT EM_BC "EM field boundary condition"
+{
+ 1:5 :: "COPY=1, FREEZE=2, EXTRAP=3, QUAD=4, PLANAR=5"
+} 1
+
+INT A_BC_rad_mag_bondi_enable "Enable special symmetry boundary condition for the magnetic vector potential for the radial magnetized Bondi test?" 
+{
+ 0:1 :: "0: no, 1:yes"
+} 0 
+
+REAL tau_atm "Parameter used only when tau_stildefix_enable==1.  Should be set by your initial data thorn!  If you need to change this parameter mid-run, you'll need to set STEERABLE=ALWAYS!"
+{
+ 0:* :: "Positive"
+} 100.000
+
+REAL tau_fact "tau atmosphere factor used with tau_atm.  Usually, tau_atm = tau_max * tau_fact.  You'll want to fiddle with this parameter to minimize the time spent in primitives solver! (use gprof)"
+{
+ 0:* :: "Any real > 0"
+} 1e-18
+
+REAL rho_b_atm "Atmosphere value of rho_b.  Should be set by your initial data thorn!  If you need to change this parameter mid-run, you'll need to set STEERABLE=ALWAYS!" STEERABLE=ALWAYS
+{
+ *:* :: "Allow for negative values.  This enables us to debug the code and verify if rho_b_atm is properly set."
+} 100.000
+
+REAL rho_fact "rho atmosphere factor.  Usually, rho_b_atm = rho_b_max * rho_fact"
+{
+ 0:* :: "Any real > 0"
+} 1e-7
+
+REAL Sym_Bz "Symmetry parameter across z axis for magnetic fields = +/- 1"
+{
+ *:* :: "Any real"
+} 1.0
+
+INT adm_ppm_b "whether to advect the B fields (1= do advection; otherwise, no advection)"
+{
+ *:* :: "Any integer"
+} 1
+
+INT eps_flag "flag determining whether to use cold equation of state (=0 -> cold EOS)"
+{
+ *:* :: "Any integer"
+} 0
+
+REAL gamma_th "thermal gamma parameter"
+{
+ *:* :: "Any real"
+} 1.3
+
+REAL P_fact "P atmosphere factor"
+{
+ 0:* :: "Any real > 0"
+} 1e-7
+
+REAL pfloor "Pressure floor, set in initial data to = P_fact*P_max"
+{
+ *:* :: "Any real"
+} 1000.0
+
+
+## Some more parameters for the harm_primitives_lowlevel routine (see bhbh-disk)
+
+INT horizon_enforce_rho_profile "enforce a particular rho profile inside Psi6threshold"
+{
+ 0:1 :: "zero (no) or one (yes)"
+} 1
+
+
+
+## Ergo Star param. ##
+
+
+INT ergo_star "Wether use EOS for ergo stars? 1 Yes, 0 No"
+{
+0:1  :: "0 or 1"
+} 0
+
+REAL ergo_sigma "Sigma parameter in the quark core of ergo star"
+{
+*:* :: "Any real"
+}1.0
+
+
+
+INT neos "number of parameters in EOS table: ALSO SET BELOW TABLES TO HAVE CORRECT ARRAY SIZES"
+{
+ 1:10 :: "Any integer between 1 and 10"
+} 1
+
+REAL rho_b_max "max rho_b, computed at the beginning of each timestep"
+{
+ *:* :: "Any real"
+} -1000.0
+
+REAL rhos_max "max rho_star, computed at the beginning of each timestep"
+{
+ *:* :: "Any real"
+} -1000.0
+
+REAL P_max "max P, computed at the beginning of each timestep"
+{
+ *:* :: "Any real"
+} -1000.0
+
+INT constrained_transport_scheme "Which constrained transport scheme? 0: none, 1: CT, 2: new CD 3: CT scheme of Del Zanna"
+{
+ 0:3 :: "0 - 3"
+} 1
+
+INT em_gauge "0: original, non-evolved _algebraic_ gauge (doesn't work well; see first magnetized BHNS paper), 1: (generalized) Lorenz gauge (This is an excellent gauge choice for dynamical evolutions, Phys. Rev. D 85, 024013 (2012), 2: evolved, but not Lorenz gauge (probably shouldn't use this one...)"
+{
+ 0:2 :: "0, 1, or 2"
+} 1
+
+
+
+INT nrhovec "Number of points in the vectors for storing the Bondi solution"
+{
+ 1:* :: "Any positive integer less than or equal to 10000"
+} 10000
+
+REAL dxvec "spacing ofor the vector" STEERABLE=ALWAYS
+{
+ 0:* :: "Any positive amount"
+} 0.001
+
+#parameters from bondi and moving_puncture
+
+REAL mhd_bigp "local storage of moving_puncture::bigP" STEERABLE=ALWAYS
+{
+ *:* :: "Anything"
+} 0.0
+
+REAL mhd_mbh "local storage of moving_puncture::Mbh" STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+REAL mhd_mdot "local storage of bondi::Mdot" STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+REAL mhd_r_crit "local storage of bondi::r_crit" STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+INT em_evolve_enable "Enable EM field evolution?" STEERABLE=ALWAYS
+{
+ 0:1 :: "0: off, 1: on"
+} 0
+
+REAL sdots_o_rhot "limit on ratio of s_dot_s over rho_t"
+{
+ 0.0:1.0 :: "must be between 0 and 1"
+} 0.98
+
+INT primitives_solver "0: use default, old FORTRAN-based primitives solver (non-OpenMP'ed -- do not use on supercomputers!)  1: Use the n=1, B=0 specialty primitives solver  2: Use new generic primitives solver, written in C++ (OpenMP'ed),   11: Use new HARM simple Gamma-law solver with B-field support (OpenMP'ed)" STEERABLE=ALWAYS
+{
+ 0:11 :: "see description above for what the options mean"
+} 0
+
+INT primitives_debug "0: no, 1: yes" STEERABLE=ALWAYS
+{
+ 0:1 :: "zero (no) or one (yes)"
+} 0
+
+REAL Psi6threshold "Where Psi^6 > Psi6threshold, we assume we're inside the horizon in the primitives solver, and certain limits are relaxed or imposed" STEERABLE=ALWAYS
+{
+ *:* :: "Can set to anything"
+} 1e100
+
+
+INT enable_shocktest_primitive_mode "If enable_shocktest_primitive_mode==1, disable all fixes in the primitives solver.  Currently DOES NOT work with old FORTRAN-based primitiveds solver (make sure to set primitives_solver!=0)"
+{
+ 0:1 :: "zero (no) or one (yes)"
+} 0
+
+###############################################################################################
+# Hyperbolic divergence cleaning stuff:
+#############
+INT hyperbolic_divergence_cleaning_enable "Enable hyperbolic divergence cleaning"
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 0
+
+INT hyperbolic_divergence_cleaning_centered_differencing "Enable centered differencing stencil for hyperbolic divergence cleaning"
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 1
+
+REAL min_BH_radius "Minimum radius of all the BHs on the grid.  MAKE SURE THIS IS >=3 GRIDPOINTS _LESS_ THAN THE ACTUAL MINIMUM RADIUS OF THE AH.  Used for setting c_h and c_p inside apparent horizons."
+{
+ 0:* :: "Must be gt or eq to zero"
+} 0.30
+
+REAL c_h_default "Default value of c_h, which sets the speed of the divergence cleaning waves.  default = 1.0, higher and you'll need to lower the Courant factor"
+{
+ 0:* :: "must be gt or eq to zero"
+} 1.0
+
+REAL c_p_default "Default value of c_p, which sets the damping amplitude of the divergence cleaning waves.  default = 1.0, between 1 and 12, the higher, the better it is at fixing divergence around larger shocks, allegedly (see Anderson et al's paper on their MHD algorithm, which include divergence cleaning.  We find that setting this value = c_h and decreasing c_h inside BH horizons, coupled with constrained transport and K-O dissipation on Bitildes inside the horizon, makes the divergence waves stay inside the horizon."
+
+{
+ 0:* :: "must be gt or eq to zero"
+} 1.0
+
+###############################################################################################
+# Field lines tracer
+###############################################################################################
+
+INT enable_trace_field_line "Want to trace B-field lines?"
+{
+ 0:1 :: "0: no; 1:yes"
+} 0
+
+REAL lambda_line "Damping parameter used to trace B-field lines"
+{
+  0.0:* :: "positive"
+} 0.0
+
+REAL r_ex_line "Excision radius for the field line tracer"
+{
+ 0.0:*  :: "positive"
+} 0.0
+
+
+###############################################################################################
+# Artificial Cooling stuff:
+#############
+
+INT artificial_cooling_enable "Enable artificial cooling?" STEERABLE=ALWAYS
+{
+ 0:1 :: "0: off, 1: on"
+} 0
+
+INT cooling_in_St_eq "Enable artificial cooling terms in Stilde equation (1) or only in the tau equation (0). Vasilis says: Probably want to leave this set to 1. Otherwise cooling timescale does not necessarily represent what is going on!" STEERABLE=ALWAYS
+{
+ 0:1 :: "0: off, 1: on"
+} 1
+
+INT allow_negative_eps_th "Allow negative epsilon_th in the cooling?" STEERABLE=ALWAYS
+{
+ 0:1 :: "0: No, 1: Yes"
+} 0
+
+REAL t_cool "cooling timescale" STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 100.
+
+##################################
+# End of artificial cooling
+######################################
+
+
+
+###############################################################################################
+# Radiation stuff:
+#############
+
+INT rad_evolve_enable "Enable radiative transport? ALWAYS set primitives_solver == 2 to enable this!" STEERABLE=ALWAYS
+{
+ 0:1 :: "0: off, 1: on"
+} 0
+
+INT rad_fourforce_enable "Enable radiative transport? ALWAYS set primitives_solver == 2 to enable this!" STEERABLE=ALWAYS
+{
+ 0:1 :: "0: off, 1: on"
+} 0
+
+
+INT rad_closure_scheme " Choose your radiation closure scheme." STEERABLE=ALWAYS
+{
+ 0:1 :: "0:Eddington approx. 1:M1 (under development)"
+} 0
+
+
+REAL rad_opacity_abs "radiation opacity (absorption)." STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+REAL rad_opacity_sct "radiation opacity (scattering)." STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+
+REAL rad_emissivity_abs "radiation emissivity (absorption)." STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+REAL rad_emissivity_sct "radiation emissivity (scattering)." STEERABLE=ALWAYS
+{
+ 0:* :: "Anything positive"
+} 0.0
+
+REAL M_B "average baryon mass of the star" STEERABLE=ALWAYS
+{
+ 0:* :: "we set this to the mass of the a proton (~ a neutron) by default, the mass is in code unit with kB = 1"
+} 8.4233432876e-58
+
+#INT iteration_to_insert_rad "Iteration to insert radiation" STEERABLE=ALWAYS
+#{
+# *:* :: "Any integer."
+#} -1
+
+#INT iteration_to_compute_temp "Iteration to use temperature to get the thermal pressure/energy density" STEERABLE=ALWAYS
+#{
+# *:* :: "Any integer."
+#} -1
+
+#########Temperature stuff. NOTE: to convert code unit temperature (densiy) to Kelvin, multiply the value by 1.295e71 ######################
+
+REAL rad_T_fac "Largest radius from NS center of mass at which the temperature drops by a fraction of bhns_rho_b_max below the maximum. (NOTSURE No need to set this. Will be set by the code)"     
+{                                                                                                                                                                                  
+ 0:* :: "Any positive Real"                                                                                                                                                       
+} 0.9                                                                                                                                                                                    
+
+REAL rad_T_cutoff " Radius above which we make the temperature a drop decay"
+{
+ 0:* :: "should be a little bigger than the radius of the star."
+}0.5
+
+REAL rad_T_pow "The power(rate) of the temperature drop"
+{
+ 0:* :: "any real"
+}3.0
+
+REAL rad_T_floor "The floor value of the temperature, in code unit"  STEERABLE=ALWAYS
+{
+ 0:* :: "any real, here the default value is 10^4 Kelvin (~ Based on neutron star surface temperature AA 323,415-428,1997)in code unit"
+} 1.295e-67
+
+###############################################################################################
+# Microphysics Stuff: 
+#############
+INT compute_microphysics "Microphysics Mode" STEERABLE=ALWAYS
+{
+ 0:2 :: "0: No, 1: Analytic expression, 2: Read table data"
+}0
+
+INT microphysics_scheme "Microphysics Scheme" STEERABLE=ALWAYS
+{
+ 0:1 ::  "0:simplied, 1:full"
+}0
+
+
+###############################################################################################
+# OS collapse trigger:
+#############
+INT enable_OS_collapse "whether to start OS collapse"
+{
+ 0:1 :: "0: No, 1: Yes"
+}0
+
+REAL gamma_OS "OS EOS P = (gamma_th-1.0)*rho^gamma_OS*eps"
+{
+ 0:* :: "Positive"
+}1.0
+
+REAL OS_T_Rmax "radius of maximum temperature"
+{
+  0:* :: "Positive"
+}5.0
+
+
+
+
+
+###############################################################################################
+# Disk stuff:
+#############
+restricted:
+
+INT force_font_fix_fail "If enabled, forces Font fix to fail, and the primitives to be averaged.  Useful for disks since Font fix sometimes gives crap"
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 0
+
+INT enable_HARM_energyvariable "Enable HARM energy variable?  WARNING: Can only use this if cowling_enable==1!!!"
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 0
+
+#INT use_alt_primitives_solver "Alt. primitives solver supports a spatially varying density floor, hotter atmosphere by default"
+#{
+# 0:1 :: "zero (no) or one (yes)"
+#} 0
+
+INT enable_primitives_disk "Disk-specific primitives solver.  You'll probably want to use this one if you're evolving disks."
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 0
+
+INT use_HARM_primitives "Use Charles' primitives solver.  Must have enable_primitives_disk=1 if you want to use this one"
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 0
+
+INT enable_disk_em_flux_induction "When doing a magnetized disk, should set this value to 1."
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 0
+
+REAL Erad_cut "Cutoff value of rad variables"
+{
+ 0:* :: "Positive"
+}0.99
+
+REAL Erad_atm_cut "Cutoff value of E_rad atmosphere variables" STEERABLE=ALWAYS
+{
+ 0:1 :: "Positive"
+}1.0e-15
+
+REAL T_fluid_cgs_atm "Cutoff value of fluid temperature variables (in Kelvin)" STEERABLE=ALWAYS
+{
+ 0:* :: "Positive"
+}1.0e6
+
+REAL eps_thermal_bhns "Artificial thermal internal energy paramter (1.0 -> no thermal eps)" STEERABLE=ALWAYS
+{
+ 1:* :: "Greater than 1"
+} 1.0
+
+
+INT rad_fix "Lunan: We impose a fix in the coeffcients used in the neutrino insertion (in bhns thorn) and computation of LTE opacity using the Kirchoff's law (off)7/8---> (on)7/16"
+{
+ 0:1 :: "zero (disable) or one (enable)"
+} 1
+
+
+
+private:
+
+INT use_std_PPM_instead_of_efficient_3_gz_version "Use standard PPM? This PPM requires 4 ghostzones, instead of the 3 in our more efficient version, inspired by the ET code."
+{
+ 0:1 :: "0 = no, 1 = yes. Default to 3 ghostzone version!"
+} 0
+
+
+INT use_disk_bcs "Use disk-specific boundary conditions?"
+{
+ 0:1 :: "zero (no) or one (yes)"
+} 0
+
+REAL KO_inside_BH "Strength of KO dissipitation inside the BH horizon" STEERABLE=ALWAYS
+{ 
+ 0.0:* :: "non-negative"
+} 0.0
+
+REAL KO_hydro_inside_BH "Strength of KO dissipitation inside the BH horizon" STEERABLE=ALWAYS
+{ 
+ 0.0:* :: "non-negative"
+} 0.0
+
+REAL KO_refbd "Strength of KO dissipation at/near the refinement boundaries for A fields" STEERABLE=ALWAYS
+{
+  0.0:* :: "non-negative, defaults to zero == TURNED OFF BY DEFAULT.  Set to 0.1 or 0.2 (0.3 max) if you want to enable this."
+} 0.0
+
+INT number_of_points_apply_KO_outside_refboundaries "Number of points to apply KO dissipation outside the refinement boundaries"
+{
+ 0:* :: "If you just want to apply KO at refinement boundaries only, set this param to zero.  Otherwise specify number of points outside ref boundary."
+} 0
+
+#INT enforce_disk_sym_bcs "Use disk-specific boundary conditions?"
+#{
+# 0:1 :: "zero (no) or one (yes)"
+#} 0
+
+REAL damp_lorenz "Damping factor for Lorenz gauge. Has units of 1/length = 1/M. Try using the same value as used for the eta parameter, or smaller! Brian tried 0.1 with M=1. Note: only applied if > 0" STEERABLE=ALWAYS
+{
+ *:* :: "any real"
+} -1.0
+
+
+
+###############################################################################################
+
+private:
+
+INT really_want_gamma_th_of_1_point_3 "Show gamma_th error message if gamma_th has not been reset from its default value (of 1.3).  You must set gamma_th to the appropriate value in your initial data thorn, or your .par file!!!"
+{
+ 0:1 :: "zero (no) or one (yes)"
+} 0

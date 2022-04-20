@@ -1,0 +1,76 @@
+# Schedule definitions for thorn bbh_bondi
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::BSSN_matter,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::phi_derivs,BSSN::BSSN_diag_restrict,BSSN::BSSN_rhs
+STORAGE: lapse::lapse_vars[3],lapse::lapse_rhs
+STORAGE: shift::shift_vars[3],shift::shift_rhs
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::volIntegrals diagnostics_mhd::volIntegrals_mhd
+STORAGE: excision::excision_int_gfs
+STORAGE: bbh_bondi::bbh_bondi_M0dot_BH, bbh_bondi::bbh_bondi_last_data
+STORAGE: lapse::lapse_derivatives#, shift::shift_spatial_derivs
+
+
+# Setup Initial Data
+
+#hydro initial data
+schedule bbh_bondi_matter_id at CCTK_INITIAL as bondi_id after metric_id
+{
+  LANG:       FORTRAN
+  OPTIONS:    LOCAL
+} "Set up the bondi solution as initial data"
+
+schedule bbh_bondi_matter_local_1 at CCTK_INITIAL as bondi_local_1 after bondi_id
+{
+  LANG:       FORTRAN
+} "Set up the bondi solution as initial data"
+
+schedule GROUP bondi_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+{
+} "Finish up BHNS initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+schedule bbh_bondi_matter_global_1 in bondi_postid as global_id_1
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set rho_b_atm, etc."
+
+schedule bbh_bondi_matter_local_2 in bondi_postid as bondi_local_2 after global_id_1
+{
+  LANG:       FORTRAN
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Insert description here"
+
+schedule bbh_bondi_matter_global_2 in bondi_postid after bondi_local2 as bondi_global_2
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set tau_atm, which depends on tau, which depends on rho_b, etc."
+
+if (1==0){
+schedule driver_spatial_derivs at CCTK_ANALYSIS after poststep as spatial_derivs
+{
+  LANG:		FORTRAN
+  SYNC:		phi_derivs
+  SYNC:  	BSSN_aux_restrict2
+#  SYNC:  	shift_spatial_derivs
+  SYNC:  	lapse_derivatives
+} "compute spatial derivatives"
+}
+
+if (1==1){
+#schedule bbh_bondi_diagnostics at CCTK_ANALYSIS as bbh_bondi_diagnostics
+schedule bbh_bondi_diagnostics at CCTK_ANALYSIS after poststep as bbh_bondi_diagnostics
+{
+  LANG:		FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"
+}
+if (1==0){
+schedule bbh_bondi_output at CCTK_ANALYSIS after spatial_derivs as data_output
+{
+  LANG:         FORTRAN
+  OPTIONS: 	GLOBAL
+} "output the data"
+}

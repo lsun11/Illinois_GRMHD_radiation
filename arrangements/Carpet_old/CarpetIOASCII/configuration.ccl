@@ -1,0 +1,9 @@
+# Configuration definitions for thorn CarpetIOASCII
+
+REQUIRES Carpet CarpetLib IOUtil
+
+REQUIRES THORNS: Carpet CarpetLib IOUtil
+
+OPTIONAL SDF
+{
+}

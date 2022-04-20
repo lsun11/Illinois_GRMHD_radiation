@@ -1,0 +1,422 @@
+!--------------------------------------------------------
+! Okay, we've read in the initial data from files.
+! Now we set up all other required variables, including:
+!  emfields, BSSN variables, primitives, etc.
+!--------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine magnetar_setup_GFs(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer, dimension(3) :: ext
+  real*8                :: dT,dX,dY,dZ,P_max,rho_max,tau_max,rhos_max,rho_fail_max_step,M_fail_step
+  real*8                :: detmin_l,detmax_l,delta_bar,xmin,ymin,zmin,xmax,ymax,zmax
+  real*8                :: Aphi_scaling_factor
+  integer               :: n1,n2,n3,mf
+  integer               :: proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax
+  integer               :: ierr,index,handle,dummy,glob_imax,glob_jmax,glob_kmax
+  integer               :: Nfont, Nfont_l
+  CCTK_REAL             :: reduction_value
+
+  integer               :: i,j,k
+
+  integer :: NO_SYMM, EQUATORIAL, OCTANT, PI_SYMM, AXISYM
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+
+  integer :: ONE,ZERO
+  parameter(ONE = 1.D0, ZERO = 0.D0)
+
+  ext = cctk_lsh
+
+  dT = CCTK_DELTA_TIME
+  dX = CCTK_DELTA_SPACE(1)
+  dY = CCTK_DELTA_SPACE(2)
+  dZ = CCTK_DELTA_SPACE(3)
+
+  glob_imax = ubound(rho_star,1)
+  glob_jmax = ubound(rho_star,2)
+  glob_kmax = ubound(rho_star,3)
+
+  call CCTK_ReductionHandle(handle,"maximum")
+  call CCTK_VarIndex(index,"grid::X")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,xmax,1,index)
+  if(X(cctk_lsh(1),1,1) .eq. xmax) then
+     proc_imax = glob_imax
+  else 
+     proc_imax = -1
+  end if
+  call CCTK_VarIndex(index,"grid::Y")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,ymax,1,index)
+  if(Y(1,cctk_lsh(2),1) .eq. ymax) then
+     proc_jmax = glob_jmax
+  else 
+     proc_jmax = -1
+  end if
+  call CCTK_VarIndex(index,"grid::Z")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,zmax,1,index)
+  if(Z(1,1,cctk_lsh(3)) .eq. zmax) then
+     proc_kmax = glob_kmax
+  else 
+     proc_kmax = -1
+  end if
+  call CCTK_ReductionHandle(handle,"minimum")
+  call CCTK_VarIndex(index,"grid::X")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,xmin,1,index)
+  if(X(1,1,1) .eq. xmin) then
+     proc_imin = 0
+  else 
+     proc_imin = -100
+  end if
+  call CCTK_VarIndex(index,"grid::Y")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,ymin,1,index)
+  if(Y(1,1,1) .eq. ymin) then
+     proc_jmin = 0
+  else 
+     proc_jmin = -100
+  end if
+  call CCTK_VarIndex(index,"grid::Z")
+  call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,zmin,1,index)
+  if(Z(1,1,1) .eq. zmin) then
+     proc_kmin = 0
+  else 
+     proc_kmin = -100
+  end if
+
+
+  if(enable_alt_atmosphere==1) then
+     ! When enable_alt_atmosphere==0 (default), the atmosphere will be set up in compute_magnetar!
+     call Setup_alt_Atmosphere(CCTK_PASS_FTOF)
+  end if
+
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CartSymGN(dummy,cctkGH,'lapse::lapse_vars')
+  call CCTK_SyncGroup(dummy,cctkGH,'lapse::lapse_vars')
+  call CartSymGN(dummy,cctkGH,'shift::shift_vars')
+  call CCTK_SyncGroup(dummy,cctkGH,'shift::shift_vars')
+
+  ! Note:  kset_c uses *physical* metric as input.
+  !we use all the _bck's and _fwd's as temporary storage, as well as Pr.
+  call kset_c_v2(ext,X,Y,Z, &
+       Axx,Axy,Axz,Ayy,Ayz,Azz,trK, &
+       gxx,gxy,gxz,gyy,gyz,gzz, &
+       shiftx,shifty,shiftz,lapm1, &
+       Symmetry, &
+       d2rho_b_bck,d2P_bck,d2vx_bck,d2vy_bck,d2vz_bck, &
+       d2rho_b_fwd,d2P_fwd,d2vx_fwd,d2vy_fwd, &
+       gxxx,gxxy,gxxz,gxyx,gxyy,gxyz, &
+       gxzx,gxzy,gxzz,gyyx,gyyy,gyyz, &
+       gyzx,gyzy,gyzz,gzzx,gzzy,gzzz, &
+       gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+       Pr)
+
+  !  call kset_c_cpp(cctkGH,cctk_lsh,cctk_nghostzones,Symmetry, &
+  !       dx,dy,dz, &
+  !       Axx,Axy,Axz,Ayy,Ayz,Azz,trK,  &
+  !       gxx,gxy,gxz,gyy,gyz,gzz,  &
+  !       shiftx,shifty,shiftz,lapm1)
+  !  call kset_c(ext,X,Y,Z, &
+  !         Axx,Axy,Axz,Ayy,Ayz,Azz,trK, &
+  !         gxx,gxy,gxz,gyy,gyz,gzz, &
+  !         shiftx,shifty,shiftz,lapm1, &
+  !         Symmetry)
+
+  trK = 0.D0
+
+
+  call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  if(Symmetry .eq. AXISYM) then 
+     call CCTK_VarIndex(index,'BSSN::Axx')
+     call BndCartoon2DVI(dummy, cctkGH, 2, index)
+  end if
+
+  detmin_l = 0.D0
+  detmax_l = 0.D0
+
+  !====================================================
+  ! Convert to tilde metric and invert tilde metric 
+  !====================================================
+  !  call convert_cpp(cctkGH,cctk_lsh,phi, &
+  !       gxx,gxy,gxz,gyy,gyz,gzz, &
+  !       gupxx,gupxy,gupxz,gupyy,gupyz,gupzz)
+
+
+  call convert(ext,phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+       gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,gxx_p, &
+       detmin_l,detmax_l)
+  gxx_p = gxx
+
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+
+  !====================================================
+  ! Get Gamma^i
+  !====================================================
+  !  call setgamma_cpp(cctkGH,cctk_lsh, &
+  !       dx,dy,dz, &
+  !       gupxx, gupxy, gupxz, gupyy, gupyz, gupzz, &
+  !       Gammax, Gammay, Gammaz)
+  call setgamma(ext,X,Y,Z, &
+       phi,gxx,gxy,gxz,gyy,gyz,gzz, &
+       gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+       Gammax,Gammay,Gammaz, &
+       Symmetry)
+
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+  if(Symmetry .eq. AXISYM) then 
+     call CCTK_VarIndex(index,'BSSN::Gammax')
+     call BndCartoon2DVI(dummy, cctkGH, 1, index)
+  end if
+  call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+
+  n1 = 0
+  n2 = 0
+  n3 = 0
+  mf = 1
+  !use gxx_p as temporary storage here:
+  call update_falloff_fisheye(ext,X,Y,Z,PhysicalRadius,Gammax,gxx_p,n1,n2,n3,mf,Symmetry)
+  call update_falloff_fisheye(ext,X,Y,Z,PhysicalRadius,Gammay,gxx_p,n1,n2,n3,mf,Symmetry)
+  call update_falloff_fisheye(ext,X,Y,Z,PhysicalRadius,Gammaz,gxx_p,n1,n2,n3,mf,Symmetry)
+  gxx_p=gxx
+  !Next line NEEDED!
+  call CCTK_SyncGroup(dummy,cctkGH,'BSSN::BSSN_vars')
+
+  !Scale Aij by appropriate conformal factor to make it BSSN-compatible.
+  Axx = Axx*exp(-4.D0*phi)
+  Axy = Axy*exp(-4.D0*phi)
+  Axz = Axz*exp(-4.D0*phi)
+  Ayy = Ayy*exp(-4.D0*phi)
+  Ayz = Ayz*exp(-4.D0*phi)
+  Azz = Azz*exp(-4.D0*phi)
+
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CCTK_VarIndex(index,"mhd_evolve::rho_b")
+  call CCTK_ReductionHandle(handle,"maximum")
+  if (handle .gt. 0) then
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+     if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+        print *,"Maximum value of rho_b is ",reduction_value
+     end if
+  else
+     call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+  end if
+  rho_max = reduction_value 
+
+  do k=1,ext(3)
+     do j=1,ext(2)
+        do i=1,ext(1)
+           if(rho_b(i,j,k).eq.rho_max) then
+              write(*,*) "FOUND IT!",i,j,k,rho_max,x(i,j,k),y(i,j,k),z(i,j,k)
+!              stop
+           end if
+        end do
+     end do
+  end do
+
+  rho_b_atm = rho_fact*rho_max
+
+  n_poly = Pr(1,1,1)
+  RADEQUAT = Pr(1,1,2)
+
+  !delta_bar sets up a bar-mode, I believe
+  delta_bar = 0.D0 
+
+  !
+  ! Compute the initial matter profile
+  !
+  if(enable_alt_atmosphere==0) then
+     call compute_magnetar_hybrid(ext,P_deplete, RADEQUAT, delta_bar, &
+          X,Y,Z, &
+          neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,gamma_th, &
+          lapm1,phi,shiftx,shifty, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          rho,S,Sx,Sy,Sz, &
+          Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+          rho_star,tau,st_x,st_y,st_z, &
+          P,w,vx,vy,vz,rho_b, &
+          u0,h,rho_b_atm,Omega_Frame,PhysicalRadius,eps_flag,K_poly,n_poly)
+  else
+     write(*,*) "BEFORE COMP ALT ATM"
+     call compute_magnetar_hybrid_alt_atmosphere(ext,P_deplete, RADEQUAT, delta_bar, &
+          X,Y,Z, &
+          neos,rho_tab,P_tab,eps_tab,k_tab,gamma_tab,gamma_th, &
+          lapm1,phi,shiftx,shifty, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          rho,S,Sx,Sy,Sz, &
+          Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+          rho_star,tau,st_x,st_y,st_z, &
+          P,w,vx,vy,vz,rho_b, &
+          u0,h,rho_b_atm_gf,pfloor_gf,Omega_Frame,PhysicalRadius,eps_flag,K_poly,n_poly)
+     write(*,*) "AFTER COMP ALT ATM"
+  end if
+
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_conservatives')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_primitives')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_vs')
+
+  call CCTK_VarIndex(index,"mhd_evolve::P")
+  call CCTK_ReductionHandle(handle,"maximum")
+  if (handle .gt. 0) then
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+     if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+        print *,"Maximum value of P is ",reduction_value
+     end if
+  else
+     call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+  end if
+  P_max = reduction_value 
+  pfloor = P_fact*P_max
+
+  ! Setup initial EM fields (from a vector potential A_phi)
+  ! Note: Using rho_bl,rho_br,Pl,Pr as temporary storage!
+  if(em_field_type == 0 .or. em_field_type == 2) then
+     Aphi_scaling_factor = 1.D0
+     call setup_poloidal_emfields(ext,RADEQUAT,P_max,p_c,betam1,X,Y,Z,PhysicalRadius, &
+          phi,lapm1,shiftx,shifty,shiftz, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          rho_b,P,Bx,By,Bz,  &
+          st_x,st_y,st_z,mhd_st_x,mhd_st_y,mhd_st_z, &
+          tau,u0,vx,vy,vz,Symmetry,Sym_Bz, &
+          rho_bl,rho_br,Pl,Pr,Aphi_scaling_factor,em_field_type)
+  else 
+     if(fisheye_enable==1) then
+        write(*,*) "TOROIDAL FIELDS NOT FISHEYE COMPATIBLE.  PLEASE TRY AGAIN!"
+        stop
+     end if
+     call initial_toroidal_emfields(ext,P_max,p_c,betam1,X,Y,Z, &
+          phi,lapm1, shiftx,shifty,shiftz, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          rho_b,P,Bx,By,Bz, &
+          st_x,st_y,st_z,mhd_st_x,mhd_st_y,mhd_st_z, &
+          tau,u0,vx,vy,vz,Symmetry,Sym_Bz)
+  end if
+  call CCTK_SyncGroup(dummy,cctkGH,'mhd_evolve::mhd_conservatives')
+  call CCTK_SyncGroup(dummy,cctkGH,'mhd_evolve::mhd_primitives')
+  call CCTK_SyncGroup(dummy,cctkGH,'mhd_evolve::mhd_vs')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_conservatives')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_primitives')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_vs')
+  if(Symmetry .eq. AXISYM) then 
+     call CCTK_VarIndex(index,'mhd_evolve::st_x')
+     call BndCartoon2DVI(dummy, cctkGH, 1, index)
+     call CCTK_VarIndex(index,'mhd_evolve::mhd_st_x')
+     call BndCartoon2DVI(dummy, cctkGH, 1, index)
+     call CCTK_VarIndex(index,'mhd_evolve::Bx')
+     call BndCartoon2DVI(dummy, cctkGH, 1, index)
+     call BndCartoon2DVN(dummy, cctkGH, 0, 'mhd_evolve::tau')
+  end if
+
+  ! Set tau_atm for primitives solver!
+  call CCTK_VarIndex(index,"mhd_evolve::tau")
+  call CCTK_ReductionHandle(handle,"maximum")
+  if (handle .gt. 0) then
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+     if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+        print *,"Maximum value of tau is ",reduction_value
+     end if
+  else
+     call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+  end if
+  tau_max = reduction_value 
+  tau_atm = tau_fact * tau_max
+
+  call CCTK_VarIndex(index,"mhd_evolve::rho_star")
+  call CCTK_ReductionHandle(handle,"maximum")
+  if (handle .gt. 0) then
+     call CCTK_Reduce (ierr,cctkGH, -1,handle, 1, CCTK_VARIABLE_REAL,reduction_value,1,index)
+     if (ierr .eq. 0 .and. CCTK_MyProc(cctkGH).eq.0) then
+        print *,"Maximum value of rho_star is ",reduction_value
+     end if
+  else
+     call CCTK_WARN (1,"TestReduce: Invalid reduction operator")
+  end if
+  rhos_max = reduction_value 
+
+  ! Set excision_zone_gf to avoid valgrind memory errors
+  excision_zone_gf = 0
+
+  if(enable_HARM_energyvariable==1 .and. cowling_enable==0) then
+     write(*,*) "ERROR: HARM energy variable CANNOT be used with evolving spacetimes!"
+     stop
+  end if
+
+  if(enable_primitives_disk==1) then
+     write(*,*) "HELLO. BEFORE PRIM VARS ALT DISK"
+     call primitive_vars_alt_disk(ext,X,Y,Z, &
+          rho_star,tau,st_x,st_y,st_z, &
+          mhd_st_x,mhd_st_y,mhd_st_z,neos, &
+          rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+          w,rho_b,rho,P,h,Sx,Sy,Sz, &
+          Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+          phi,lapm1,shiftx,shifty,shiftz, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          h,u0,rho_max,rho_b_atm_gf, &
+          rho_fail_max_step,M_fail_step, &
+          Bx,By,Bz,Ex,Ey,Ez, &
+          vx,vy,vz, &
+          sbt,sbx,sby,sbz, &
+          proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax, &
+          glob_imax,glob_jmax,glob_kmax,Symmetry, &
+          Fontfix_tracker_gf,pfloor_gf, Nfont_l, &
+          enable_HARM_energyvariable, excision_zone_gf, force_font_fix_fail, excision_enable)
+     write(*,*) "HELLO. AFTER PRIM VARS ALT DISK"
+
+     call CCTK_ReductionHandle(handle,"sum")
+     call CCTK_VarIndex(index,"disk::Nfont_l")
+     call CCTK_ReduceLocScalar(ierr,cctkGH,-1,handle,Nfont_l,Nfont,CCTK_VARIABLE_INT)
+
+     if (CCTK_MyProc(CCTKGH) == 0) write(*,*) 'Fixed ', Nfont, " zones in initial data setup."
+  else
+     call primitive_vars_hybrid2(ext,cctk_nghostzones,X,Y,Z, &
+          rho_star,tau,st_x,st_y,st_z, &
+          mhd_st_x,mhd_st_y,mhd_st_z,neos, &
+          rho_tab, P_tab, eps_tab, k_tab, gamma_tab, gamma_th, &
+          w,w,rho_b,rho,P,h,Sx,Sy,Sz, &
+          Sxx,Sxy,Sxz,Syy,Syz,Szz, &
+          phi,lapm1,shiftx,shifty,shiftz, &
+          gxx,gxy,gxz,gyy,gyz,gzz, &
+          gupxx,gupxy,gupxz,gupyy,gupyz,gupzz, &
+          h,u0,rho_max,rho_b_atm, &
+          rho_fail_max_step,M_fail_step,rhos_max, &
+          Bx,By,Bz,Ex,Ey,Ez, &
+          vx,vy,vz, &
+          sbt,sbx,sby,sbz, &
+          proc_imin,proc_jmin,proc_kmin,proc_imax,proc_jmax,proc_kmax, &
+          glob_imax,glob_jmax,glob_kmax,Symmetry,pfloor,excision_enable, &
+          excision_zone_gf,tau_stildefix_enable,tau_atm,0)
+  end if
+
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_conservatives')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_primitives')
+  call CartSymGN(dummy,cctkGH,'mhd_evolve::mhd_vs')
+  call CartSymGN(dummy,cctkGH,'BSSN::BSSN_vars')
+  call CartSymGN(dummy,cctkGH,'lapse::lapse_vars')
+  call CartSymGN(dummy,cctkGH,'shift::shift_vars')
+
+  !set the initial time derivative of the lapse to zero
+  lapset = 0.D0
+
+  !Add a perturbation (for testing only)
+!!$  rho_b = (1.D0 + 1.D-15)*rho_b
+!!$  rho_star = (1.D0 + 1.D-15)*rho_star
+!!$  u0 = (1.D0 + 1.D-15)*u0
+!!$  vx = (1.D0 + 1.D-15)*vx
+!!$  vy = (1.D0 - 1.D-15)*vy
+!!$  vz = (1.D0 + 1.D-15)*vz
+!!$  gxy = (1.D0 + 1.D-15)*gxy
+!!$  where(gxy.eq.0.D0) gxy = 1.D-15*gxx
+!!$  where(gxz.eq.0.D0) gxz = -1.D-15*gxx
+!!$  where(gyz.eq.0.D0) gyz = -1.D-15*gxx
+
+end subroutine magnetar_setup_GFs

@@ -1,0 +1,138 @@
+# Parameter definitions for the mag_bh_accretion thorn 
+
+shares: IO
+USES KEYWORD out_every
+
+shares: grid
+
+shares: mhd_evolve
+USES KEYWORD Reconstruction
+USES KEYWORD Matter_BC
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD constrained_transport_scheme
+
+USES KEYWORD P_max
+USES KEYWORD P_fact
+USES KEYWORD pfloor
+
+USES KEYWORD rho_b_max
+USES KEYWORD rho_fact
+USES KEYWORD rho_b_atm
+
+USES KEYWORD tau_fact
+USES KEYWORD tau_atm
+
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD enable_primitives_disk
+USES KEYWORD primitives_solver
+USES KEYWORD sdots_o_rhot
+USES KEYWORD use_HARM_primitives
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD force_font_fix_fail
+
+shares: diagnostics_mhd
+USES KEYWORD initial_monopole_value
+
+shares: diagnostics_vacuum
+USES KEYWORD surf_radius
+
+restricted:
+
+##INT radial_coordinate_type "KS = 0, Boyer-Lindquist = 1"
+##{
+## 0:1 :: "zero or one" 
+##} 1
+
+REAL sam "the a/M parameter of the Kerr metric"
+{
+ -1.0:1.0 :: "from maximal negative spin to maximal positive"
+} 0.0
+
+REAL r_out_flux1  "a flux shell" STEERABLE = ALWAYS
+{
+ 0.0:* :: "radii should be positive"
+} 0.0
+
+REAL r_out_flux2  "another flux shell" STEERABLE = ALWAYS
+{
+ 0.0:* :: "radii should be positive"
+} 0.0
+
+REAL r_out_flux3  "a third flux shell" STEERABLE = ALWAYS
+{
+ 0.0:* :: "radii should be positive"
+} 0.0
+
+# I decided to make these private so that they won't interfere
+# with parameters of the same name in the diagnostic thorn.
+private:
+
+INT N_theta "number of zones in the theta direction on the horizon surface."  STEERABLE = ALWAYS
+{
+ 0:* :: "anything positive" 
+} 100
+
+INT N_phi "number of zones in the phi direction on the horizon surface."  STEERABLE = ALWAYS
+{
+ 0:* :: "anything positive" 
+} 1
+
+REAL Bstrength "B-field strength: Bstrength = b^2/rho0 at r=2M"
+{
+ *:* :: "Real"
+} 0.0
+
+# polytropic index 
+REAL npoly "" 
+{
+ 0.0:* :: "Postive"
+} 1.5
+
+REAL r_sonic "Sonic radius"
+{
+ 0.0:* :: "positive"
+} 8.0
+
+REAL r0 "shift origin: so that the coordinate origin corresponds to r=r0 of the Kerr-Schild (or BL) radius"
+{
+  0.0:* :: "positive"
+} 1.0
+
+INT enable_movingbox "1=yes, 0=no" 
+{
+ 0:1 :: "yes or no"
+} 0
+
+INT puncture_id "Setup initial data for a puncture BH? 1=yes, 0=no"
+{
+ 0:1 :: "yes or no"
+} 0
+
+###INT dump_every "Dump bin file periodically" STEERABLE = ALWAYS
+###{ 
+### 1:* :: "greater than 1"
+###} 999999
+
+
+###################################################################
+# Alt. Atmosphere setup parameters (PRIVATE) ######################
+INT enable_alt_atmosphere "Set up alternate atmosphere"
+{
+ 0:1 :: "0 (no) or 1 (yes)"
+} 0
+
+REAL rho_atm "atmosphere density floor coefficient"
+{
+ 0:* :: "Positive"
+} 1.e-7
+
+REAL p_atm "atmosphere pressure floor coefficient"
+{
+ 0:* :: "Positive"
+} 1.e-7
+
+###################################################################

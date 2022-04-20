@@ -1,0 +1,64 @@
+# Interface definition for thorn diagnostics_vacuum
+
+implements: diagnostics_vacuum
+inherits: grid
+inherits: SpaceMask
+
+USES INCLUDE: Symmetry.h
+friend: fisheye
+
+protected:
+
+REAL surf_params TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=20
+{
+  surfvec,rbrvec,drbrvec,ddrbrvec
+} "for using multiple integration surfaces"
+
+#  Ham_const_outside_AH_mask_VolIntN,Ham_const_outside_AH_mask_VolIntD,
+
+REAL volIntegrals TYPE=scalar
+{
+  M_ADM_VolInt,J_ADM_VolInt,J_ADM_VolInt_inner,J_ADM_VolInt_inner2,
+  Ham_const_VolIntN,Ham_const_VolIntD,Ham_const_excised_VolIntN,Ham_const_excised_VolIntD,
+  Ham_const_excised_innerregion_VolIntN,Ham_const_excised_innerregion_VolIntD,
+  momx_const_VolIntN,momy_const_VolIntN,momz_const_VolIntN,mom_const_VolIntD,
+  momx_const_excised_VolIntN,momy_const_excised_VolIntN,momz_const_excised_VolIntN,mom_const_excised_VolIntD,
+  Gamx_const_VolInt,Gamy_const_VolInt,Gamz_const_VolInt, M_constraint, M_constraint_inner,
+  Jz_constraint, Jz_constraint_inner, P_constraint, P_constraint_inner
+}
+
+REAL bh_posns TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=30
+{
+  bh_posn_x,bh_posn_y,bh_posn_z,bh_radius_z
+}
+
+# Need 4 gf's here for momentum constraint violation (3 for momx,momy,momz numerators; and 1 for denominator)
+cctk_real diag_vacuum_gf type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+  VolIntegrand,VolIntegrand2,VolIntegrand3,VolIntegrand4
+} "Volume Integrand for ALL volume integrals.  DO NOT ADD ANY MORE GRIDFUNCTIONS.  Our code is memory bloated as-is."
+
+private:
+
+###########################################################################
+# Following needed for setting puncture positions from ahfinderdirect
+CCTK_INT FUNCTION HorizonCentroid \
+  (CCTK_INT IN horizon_number,						\
+   CCTK_REAL OUT centroid_x, CCTK_REAL OUT centroid_y, CCTK_REAL OUT centroid_z)
+REQUIRES FUNCTION HorizonCentroid
+
+CCTK_INT FUNCTION HorizonWasFound(CCTK_INT IN horizon_number)
+REQUIRES FUNCTION HorizonWasFound
+
+CCTK_INT FUNCTION HorizonLocalCoordinateOrigin                          \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_REAL OUT origin_x, CCTK_REAL OUT origin_y, CCTK_REAL OUT origin_z)
+REQUIRES FUNCTION HorizonLocalCoordinateOrigin
+
+CCTK_INT FUNCTION HorizonRadiusInDirection                              \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_INT IN N_points,                                               \
+    CCTK_REAL IN ARRAY x, CCTK_REAL IN ARRAY y, CCTK_REAL IN ARRAY z,   \
+    CCTK_REAL OUT ARRAY radius)
+REQUIRES FUNCTION HorizonRadiusInDirection
+###########################################################################

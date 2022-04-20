@@ -1,0 +1,357 @@
+# Interface definition for thorn mhd_evolve
+
+implements: mhd_evolve
+inherits: grid
+
+USES INCLUDE: Symmetry.h
+friend: BSSN
+friend: lapse
+friend: shift
+friend: excision
+friend: fisheye
+#friend: movingbox
+#friend: OS_toy
+
+protected:
+
+cctk_real mhd_conservatives type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  rho_star,tau,mhd_st_x,mhd_st_y,mhd_st_z
+} "Evolved mhd variables"
+
+
+
+cctk_real rad_conservatives type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  tau_rad,S_rad_x,S_rad_y,S_rad_z,tau_rad_nue,S_rad_x_nue,S_rad_y_nue,S_rad_z_nue,tau_rad_nux,S_rad_x_nux,S_rad_y_nux,S_rad_z_nux,
+} "Evolved radiation variables, note that for neutrino evolution, tau_rad is for electron antineutrino and the only set if using simplifed scheme. *_nue and *_nux are for electron neutrino and heavy lepton neutrinos."
+
+
+cctk_real micphys_conservatives type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  rhoYe
+} "Evolved microphys variables"
+
+
+##cctk_real em_conservatives type = GF Timelevels=3
+##{
+##  Bxtilde,Bytilde,Bztilde
+##} "Evolved em variables"
+
+# We need to split Bitilde and em_rhsi into 3 different groups because Ai must 
+# be split into 3 groups (3 different staggerings==3 different prolongation
+# operators).  This way, we can evolve EITHER em_conservativexyz OR em_Axyz.
+# See src/MoL_registration.C for more details.
+cctk_real em_conservativex type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  Bxtilde
+} "Evolved em variable, when constrained_transport_scheme!=3"
+
+cctk_real em_conservativey type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  Bytilde
+} "Evolved em variable, when constrained_transport_scheme!=3"
+
+cctk_real em_conservativez type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  Bztilde
+} "Evolved em variable, when constrained_transport_scheme!=3"
+
+cctk_real em_Blagrangemultiplier type = GF TAGS='prolongation="Lag3"' Timelevels=3
+{
+  Blagrangemultiplier
+} "Generalized Lagrange multiplier for hyperbolic divergence cleaning"
+
+# These variables are semi-staggered:
+# Ax is defined on the semi-staggered grid (i,j+1/2,k+1/2)
+cctk_real em_Ax type = GF Timelevels=3 tags='Prolongation="STAGGER011"'
+{
+  Ax
+} "x-component of the vector potential, evolved when constrained_transport_scheme==3"
+# Ay is defined on the semi-staggered grid (i+1/2,j,k+1/2)
+cctk_real em_Ay type = GF Timelevels=3 tags='Prolongation="STAGGER101"'
+{
+  Ay
+} "y-component of the vector potential, evolved when constrained_transport_scheme==3"
+# Az is defined on the semi-staggered grid (i+1/2,j+1/2,k)
+cctk_real em_Az type = GF Timelevels=3 tags='Prolongation="STAGGER110"'
+{
+  Az
+} "z-component of the vector potential, evolved when constrained_transport_scheme==3"
+
+# psi6phi is defined on the staggered grid (i+1/2,j+1/2,k+1/2)
+#cctk_real em_Phi type = GF Timelevels=3 tags='Prolongation="Lag3"'
+cctk_real em_Phi type = GF Timelevels=3 tags='Prolongation="STAGGER111"'
+{
+  psi6phi 
+} "\sqrt{\gamma} \Phi, where Phi is the em scalar potential"
+
+cctk_real em_Phi_rhs type = GF TAGS='Checkpoint="no"'
+{
+  psi6phi_rhs
+}
+
+# These variables are only semi-staggered:
+#  Bx_stagger is defined at (i+1/2,j,k)
+#  By_stagger is defined at (i,j+1/2,k)
+#  Bz_stagger is defined at (i,j,k+1/2)
+cctk_real Stagger_Bs type = GF TAGS='InterpNumTimelevels=1'
+{ 
+  Bx_stagger, By_stagger, Bz_stagger
+}
+
+cctk_real mhd_rhs type = GF TAGS='Checkpoint="no"'
+{
+  rho_star_rhs,tau_rhs,mhd_st_x_rhs,mhd_st_y_rhs,mhd_st_z_rhs
+}
+
+
+cctk_real rad_conservatives_rhs type = GF TAGS='Checkpoint="no"' 
+{
+  tau_rad_rhs,S_rad_x_rhs,S_rad_y_rhs,S_rad_z_rhs,tau_rad_nue_rhs,S_rad_x_nue_rhs,S_rad_y_nue_rhs,S_rad_z_nue_rhs,tau_rad_nux_rhs,S_rad_x_nux_rhs,S_rad_y_nux_rhs,S_rad_z_nux_rhs
+} "Evolved radiation variables RHS"
+
+
+cctk_real micphys_conservatives_rhs type = GF TAGS='Checkpoint="no"'
+{
+  rhoYe_rhs
+} "Evolved radiation variables RHS"
+
+
+##cctk_real em_rhs type = GF TAGS='Checkpoint="no"'
+##{
+##  Bxtilde_or_Ax_rhs,Bytilde_or_Ay_rhs,Bztilde_or_Az_rhs
+##}
+
+cctk_real em_rhsx type = GF TAGS='Checkpoint="no"'
+{
+  Bxtilde_or_Ax_rhs
+}
+
+cctk_real em_rhsy type = GF TAGS='Checkpoint="no"'
+{
+  Bytilde_or_Ay_rhs
+}
+
+cctk_real em_rhsz type = GF TAGS='Checkpoint="no"'
+{
+  Bztilde_or_Az_rhs
+}
+
+cctk_real em_Blagrangemultiplier_rhs type = GF TAGS='Checkpoint="no"'
+{
+  Blagrangemultiplier_rhs
+}
+
+cctk_real field_line_variables type = GF Timelevels=3
+{
+  mhd_psi_line, mhd_u_psi, mhd_chi_line, mhd_u_chi
+} "Variables used to trace B-field lines"
+
+cctk_real field_line_variables_rhs type = GF TAGS='Checkpoint="no"'
+{
+  mhd_psi_line_rhs, mhd_u_psi_rhs, mhd_chi_line_rhs, mhd_u_chi_rhs
+}
+
+cctk_real mhd_primitives type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+  h_p,h,P,rho_b,w,st_x,st_y,st_z,Bx,By,Bz,Ex,Ey,Ez,sbt,sbx,sby,sbz,smallb2
+} "MHD primitive variables.  Note that we need the _p variables for the primitives solver! P_p is also used to store P_thermal during the reconstruction step when reconstruct_Pthermal_instead_of_P==1"
+
+
+
+cctk_real rad_primitives type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+  E_rad,F_radx,F_rady,F_radz, E_rad_nue,F_radx_nue,F_rady_nue,F_radz_nue, E_rad_nux,F_radx_nux,F_rady_nux,F_radz_nux
+} "Radiation primitive variables. F_rad0 for diagnostics only"
+
+
+cctk_real rad_pressure type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+F_rad0, P_radxx, P_radyy, P_radzz, P_radxy, P_radxz, P_radyz, chi_rad, zeta_rad, F_rad_scalar, FaFar, FaFal, F_rad0_nue, P_radxx_nue, P_radyy_nue, P_radzz_nue, P_radxy_nue, P_radxz_nue, P_radyz_nue, chi_rad_nue, zeta_rad_nue, F_rad_scalar_nue, FaFar_nue, FaFal_nue, F_rad0_nux, P_radxx_nux, P_radyy_nux, P_radzz_nux, P_radxy_nux, P_radxz_nux, P_radyz_nux, chi_rad_nux, zeta_rad_nux, F_rad_scalar_nux, FaFar_nux, FaFal_nux
+} "Radiation pressure terms and coefficients for M1. For output purpose only"
+
+cctk_real mhd_vs type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+  vx,vy,vz
+} "Velocities: more convenient to put them here for syncing purposes."
+
+cctk_real disk_atmosphere type = GF
+{
+ rho_b_atm_gf, pfloor_gf, Fontfix_tracker_gf
+} "disk atmosphere variables, used by alternate primitives solver"
+
+cctk_real mhd_sync_nablas type = GF TAGS='Checkpoint="no"'
+{
+  drho_b_m,dP_m,dvx_m,dvy_m,dvz_m,dBx_m,dBy_m,dBz_m
+}
+
+cctk_real micphys_sync_nablas type = GF TAGS='Checkpoint="no"'
+{
+  drhoYe_m, dT_fluid_m
+}
+
+cctk_real mhd_sync_nablas_diag type = GF TAGS='Checkpoint="no"'
+{
+  drho_b_m_x, dvx_m_x, drho_b_m_xp1, dvx_m_xp1, drhoYe_m_x, drhoYe_m_xp1
+}
+
+
+
+cctk_real mhd_sync_rho_br_rho_bl type = GF TAGS='Checkpoint="no"'
+{
+  rho_br,rho_bl
+}
+
+cctk_real mhd_sync_metric_facevals type = GF TAGS='Checkpoint="no"'
+{
+  lapm1_f,shiftx_f,shifty_f,shiftz_f,
+  gxx_f,gxy_f,gxz_f,gyy_f,gyz_f,gzz_f,phi_f,
+  gupxx_f,gupyy_f,gupzz_f,gupxy_f,gupxz_f,gupyz_f
+}
+
+
+cctk_real mhd_sync_lr_hydro_quantities type = GF TAGS='Checkpoint="no"'
+{
+  Pr,Pl,vxr,vxl,vyr,vyl,vzr,vzl
+}
+
+cctk_real micphys_sync_lr_hydro_quantities type = GF TAGS='Checkpoint="no"'
+{
+  Y_er, Y_el, T_fluidle, T_fluidr
+}
+
+cctk_real mhd_sync_lr_B_quantities type = GF TAGS='Checkpoint="no"'
+{
+  Bxr,Bxl,Byr,Byl,Bzr,Bzl
+}
+
+cctk_real rad_sync_lr type = GF TAGS='Checkpoint="no"'
+{
+  E_radr,E_radl,F_radxr,F_radxle,F_radyr,F_radyle,F_radzr,F_radzle,E_rad_nuer,E_rad_nuel,F_radx_nuer,F_radx_nuele,F_rady_nuer,F_rady_nuele,F_radz_nuer,F_radz_nuele,E_rad_nuxr,E_rad_nuxl,F_radx_nuxr,F_radx_nuxle,F_rady_nuxr,F_rady_nuxle,F_radz_nuxr,F_radz_nuxle,
+}
+
+cctk_real mhd_nosync type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+  v02r,v02l,cmin,cmax, cmin_rad,cmax_rad, cmin_rad_nue,cmax_rad_nue, cmin_rad_nux,cmax_rad_nux,
+  u0,rhob_floor,P_floor, v02_radr,v02_radl, v02_rad_nuer,v02_rad_nuel, v02_rad_nuxr,v02_rad_nuxl
+} "temporary variables needed for mhd evolution"
+
+REAL eos_params1 TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=10
+{
+  rho_tab,P_tab,eps_tab
+} "eos_parameters"
+
+REAL eos_params2 TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=11
+{
+  k_tab,gamma_tab
+} "eos_parameters"
+
+REAL mhdscalar TYPE = SCALAR 
+{
+  n_poly
+} "polytropic index"
+
+# Probably don't want to set the size TOO big... Remember in axisymmetry, SIZE=10000 is same size as GF...
+REAL rhovecs TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=1000
+{
+  rhovec,Pvec,vvec
+} "Bondi solution vectors"
+
+#FIXME: set flag prolongation="none" here:
+cctk_real mhd_temps type = GF TAGS='Checkpoint="no" InterpNumTimelevels=1 prolongation="none"'
+{
+  temp1,temp2,temp3,temp4,
+  temp5,temp6,temp7,temp8,temp_g00
+# following 3 GF's are only used in EM field sector
+  temp9,temp10,temp11,MONOPOLE,P_thermal,
+  temp12,temp13,temp14,temp15,temp16,temp17,temp18,
+  temp19,temp20,temp21,temp22,temp23,temp24,temp25,temp26
+#,carpet_weight
+}
+
+
+#cctk_real temperatures type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+#{
+# T_fluid_bakp
+#} " temperatures of the fluid"
+
+cctk_real microphys_primitives type = GF TAGS='InterpNumTimelevels=1 prolongation="none"'
+{
+ Y_e, ka_gf, ks_gf, emission_gf, ka_gf_nue, ks_gf_nue, emission_gf_nue, ka_gf_nux, ks_gf_nux, emission_gf_nux, mu_nu, eps_thermal, eps_cld, P_cld, optd_x, optd_y, optd_z, optd, eps_tot,T_fluid
+} " Microphysics variables: Y_e-electron fraction, ka_gf-absorption opacity, ks_gf-scattering opacity, mu_nu-chemical potential "
+
+REAL radscalar TYPE = SCALAR
+{
+ rad_const
+} "radiation constant"
+
+
+# OS_toy stuff
+REAL OS_stellar_surface TYPE=scalar
+{
+  OS_surf_rad
+} "OS star stellar surface"
+
+private:
+################################################################
+# EM FIELDS STUFF:  The variable names are most logical when 
+#  constrained_transport_scheme=1, otherwise they are just 
+#  used as temporary storage.  We do not store these during
+#  a checkpoint, since they are redefined every time substep.
+cctk_real em_fijs type = GF TAGS='Checkpoint="no"'
+{
+  fxy,fxz,fyx,fyz,fzx,fzy
+} "Additional EM variables required for constrained transport"
+
+cctk_real em_ftijs type = GF TAGS='Checkpoint="no"'
+{
+  ftxy,ftxz,ftyx,ftyz,ftzx,ftzy
+} "Additional EM variables required for constrained transport"
+################################################################
+
+
+################################################################
+# Radiation STUFF:
+cctk_real rad_fijs type = GF TAGS='Checkpoint="no"'
+{
+tau_rad_flux, S_radx_flux, S_rady_flux, S_radz_flux, tau_rad_nue_flux, S_radx_nue_flux, S_rady_nue_flux, S_radz_nue_flux, tau_rad_nux_flux, S_radx_nux_flux, S_rady_nux_flux, S_radz_nux_flux
+} "Radiation variables for constrained transport"
+
+cctk_real rad_fijs_diag type = GF TAGS='Checkpoint="no"'
+{
+tau_rad_flux_x, S_radx_flux_x, tau_rad_advect_diag, S_radx_flux_xp1, tau_rad_flux_diag, tau_rad_scalar_diag
+} "Radiation flux for constrained transport"
+
+###########################################################################
+# Following needed for MoL (timestepping):
+CCTK_INT FUNCTION MoLRegisterEvolvedGroup(CCTK_INT IN EvolvedIndex, \
+                                          CCTK_INT IN RHSIndex)
+CCTK_INT FUNCTION MoLRegisterConstrained(CCTK_INT IN ConstrainedIndex)
+
+REQUIRES FUNCTION MoLRegisterEvolvedGroup
+REQUIRES FUNCTION MoLRegisterConstrained
+
+CCTK_INT FUNCTION Boundary_SelectGroupForBC(CCTK_POINTER_TO_CONST IN GH, \
+  CCTK_INT IN faces, CCTK_INT IN boundary_width, CCTK_INT IN table_handle, \
+  CCTK_STRING IN var_name, CCTK_STRING IN bc_name)
+REQUIRES FUNCTION Boundary_SelectGroupForBC
+###########################################################################
+
+###########################################################################
+# The following function computes the horizon radius in the direction
+# of each (x,y,z) point, or -1.0 if this horizon wasn't found the most
+# recent time AHFinderDirect searched for it.  More precisely, for each
+# (x,y,z), consider the ray from the local coordinate origin through
+# (x,y,z).  This function computes the Euclidean distance between the
+# local coordinate origin and this ray's intersection with the horizon,
+# or -1.0 if this horizon wasn't found the most recent time AHFinderDirect
+# searched for it.  
+#
+CCTK_INT FUNCTION HorizonRadiusInDirection                              \
+   (CCTK_INT IN horizon_number,                                         \
+    CCTK_INT IN N_points,                                               \
+    CCTK_REAL IN ARRAY x, CCTK_REAL IN ARRAY y, CCTK_REAL IN ARRAY z,   \
+    CCTK_REAL OUT ARRAY radius)
+REQUIRES FUNCTION HorizonRadiusInDirection
+###########################################################################

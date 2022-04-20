@@ -1,0 +1,12 @@
+This is for all known invalid HDF5 files. h5check should reject them.
+
+vms_data.h5:
+    Imported from HDF5 v1.8 library. It contains new datatypes not
+    defined in current File Format.
+
+base_addr.h5:
+leaf_internal_k.h5:
+offsets_lengths.h5:
+sb_version.h5:
+signature.h5:
+    See invalid_files.doc.

@@ -1,0 +1,196 @@
+# Parameter definitions for thorn mhd_shock
+
+shares: IO
+USES KEYWORD out_every
+
+#following 2 lines needed for binfile checkpointing
+shares: Cactus
+USES INT cctk_itlast 
+
+shares: grid
+
+shares: mhd_evolve
+USES KEYWORD tau_stildefix_enable
+USES KEYWORD constrained_transport_scheme
+USES KEYWORD force_font_fix_fail
+USES KEYWORD enable_primitives_disk
+USES KEYWORD primitives_solver
+USES KEYWORD enable_shocktest_primitive_mode
+USES KEYWORD enable_HARM_energyvariable
+USES KEYWORD rho_b_atm
+USES KEYWORD rho_fact
+USES KEYWORD tau_atm
+USES KEYWORD tau_fact
+USES KEYWORD pfloor
+USES KEYWORD P_fact
+USES KEYWORD neos
+USES KEYWORD gamma_th
+USES KEYWORD eps_flag
+USES KEYWORD Sym_Bz
+USES KEYWORD K_poly
+USES KEYWORD M_B
+USES KEYWORD rad_const
+USES KEYWORD rad_evolve_enable
+USES KEYWORD rad_opacity_abs
+USES KEYWORD rad_opacity_sct
+
+
+restricted:
+
+private:
+REAL rho_l "rho_b on left side of shock"
+{
+  0:* :: "Any positive real"
+} 0
+REAL rho_r "rho_b on right side of shock"
+{
+  0:* :: "Any positive real"
+} 0.65
+
+REAL P_l "P on left side of shock"
+{
+  0:* :: "Any positive real"
+} 0
+REAL P_r "P on right side of shock"
+{
+  0:* :: "Any positive real"
+} 0.65
+
+REAL u1_l "u^1 on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u2_l "u^2 on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u3_l "u^3 on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u1_r "u^1 on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u2_r "u^2 on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL u3_r "u^3 on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL B1os4pi_l "B^1/sqrt(4 pi) on left side of shock"
+{ 
+  *:* :: "Any real"
+} 0.0
+
+REAL B2os4pi_l "B^2/sqrt(4 pi) on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL B3os4pi_l "B^3/sqrt(4 pi) on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL B1os4pi_r "B^1/sqrt(4 pi) on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL B2os4pi_r "B^2/sqrt(4 pi) on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL B3os4pi_r "B^3/sqrt(4 pi) on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL Erad_l "E_rad on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL Erad_r "E_rad on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL Fradx_l "Fradx on left side of shock"
+{
+  *:* :: "Any real"
+}0.0
+
+
+REAL Fradx_r "Fradx on right side of shock"
+{
+  *:* :: "Any real"
+}0.0
+
+REAL Frad0_l "F_rad0 on left side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+REAL Frad0_r "F_rad0 on right side of shock"
+{
+  *:* :: "Any real"
+} 0.0
+
+
+
+REAL nx "shock direction: x-component"
+{
+  0:* :: "Any positive real"
+} 1
+REAL ny "shock direction: y-component"
+{
+  0:* :: "Any positive real"
+} 0
+REAL nz "shock direction: z-component"
+{
+  0:* :: "Any positive real"
+} 0
+
+REAL npolyshock "polytropic index for shock. Note that Gamma = 1+1/n"
+{
+  0:* :: "Any positive real"
+} 1
+
+
+#------------------------------------------------------------------
+REAL M0_initial "Initial value of M_0, for diagnostic/comparison purposes"
+{
+  0:* :: "Any positive real"
+} 0
+
+
+#---------------integration flag for radiation
+INT integrate_flag "integration flag"
+{
+  0:2 :: "2:from xL to xR; 1:from xR to xL;0: from xL to 0 shooting to xR"
+} 0
+
+
+
+INT read_radiation_shock_data "whether to read directly from files"
+{
+ 0:1 :: "0: No, 1: Yes"
+}0
+
+
+INT NS "number of points in the rad-shock initial data"
+{
+ 0:* :: "any positive integer"
+}100
+

@@ -1,0 +1,34 @@
+# Interface definition for thorn em_extraction
+
+implements: em_extraction
+inherits: grid
+friend: diagnostics_vacuum
+friend: diagnostics_mhd
+#friend: bhns_ffe
+friend: gw_extraction
+friend: mhd_evolve
+
+USES INCLUDE: Symmetry.h
+
+protected:
+#  When you use em_extraction, you need to make sure that the refinement
+#  levels crossed by a given extraction radius are ALL updated at the
+#  timestep immediately preceeding phi2, phi0 calculation.  I.e., if you 
+#  are extracting waves on the N-1th & Nth refinement levels (where 
+#  level N=0 is the finest level), you will need to extract waves 
+#  every 2^N timesteps, N>=5 AND NO MORE FREQUENTLY THAN THAT.  
+#
+#  We need 3 timelevels for our gridfunctions, since we need to do 
+#  interpolation on those gridfunctions over the extraction radius
+#  sphere.  Carpet interpolation does not handle single timelevel
+#  gridfunctions properly near refinement boundaries!  You can check
+#  this by performing interpolation over a 1 timelevel gridfunction,
+#  over a surface that crosses refinement boundaries, and then compare
+#  the result to that where the finer refinement level is removed.  If
+#  the gridfunction contains derivatives, the former result will not 
+#  converge, but the latter one will.
+
+real NPphi2_em type = GF timelevels=3
+{
+	NPphi0re,NPphi0im,NPphi2re,NPphi2im,SPx,SPy,SPz,T_0x,T_0y,T_0z
+} "Newman Penrose electromagnetic scalars for ingoing (phi0) and outgoing (phi2) EM radiation"

@@ -1,0 +1,107 @@
+!-----------------------------------------------------------------------------
+! Compute \rho_star \epsilon to get the total internal energy integrand 
+!  This version is hybrid EOS - compatible
+!-----------------------------------------------------------------------------
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine minternal_cold_hybrid_4surf_integrand(CCTK_ARGUMENTS)
+  implicit none
+
+  !~~~~~> ABE Functions used:
+  interface
+     subroutine compute_pcold_epscold(rhob, P_cold, eps_cold, &
+          neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab)
+       implicit none
+       integer :: neos,ergo_star
+       real*8  :: rhob, P_cold, eps_cold, ergo_sigma
+       real*8, dimension(neos) :: rho_tab,P_tab,eps_tab
+       real*8, dimension(neos+1) :: k_tab, gamma_tab
+     end subroutine compute_pcold_epscold
+  end interface
+
+  !~~~~~> Input parameters:
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  !~~~~~> Other variables:
+  real*8                             :: dV,cs,sn,pi,FOUR,ONE, rho_tiny
+  real*8                             :: rhob, P_cold, eps_cold, eps
+  real*8                             :: rr,rr1,rr2
+  real*8                             :: xbh1,ybh1,zbh1,xbh2,ybh2,zbh2
+  integer                            :: i,j,k
+  integer                            :: AXISYM
+  parameter(AXISYM = 4)
+  parameter(ONE = 1.D0, FOUR = 4.D0)
+
+  WhichIntegral = 118
+
+  write(*,*) "vol_integrand-minternal_cold_hybrid_4surf.F90"
+  
+  if(MOD(cctk_iteration,Compute_VolIntegrands_Every)==0) then
+     xbh1 = xbh1_initial * cos(binary_orb_freq*cctk_time)
+     ybh1 = xbh1_initial * sin(binary_orb_freq*cctk_time)
+     zbh1 = 0.d0
+     
+     xbh2 = xbh2_initial * cos(binary_orb_freq*cctk_time)
+     ybh2 = xbh2_initial * sin(binary_orb_freq*cctk_time) 
+     zbh2 = 0.d0
+
+     rho_tiny = rho_b_atm
+
+     !-----------------------------------------------------------------------------
+     ! Compute integrand
+     !-----------------------------------------------------------------------------
+     !Reset VolIntegrand quickly, using OpenMP
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              VolIntegrand(i,j,k) = 0.D0
+              VolIntegrand2(i,j,k) = 0.D0
+              VolIntegrand3(i,j,k) = 0.D0
+              VolIntegrand4(i,j,k) = 0.D0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+     !!!$omp parallel do
+     do k = cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+        do j = cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+           do i = cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+             rr1 = sqrt((X(i,j,k)-xbh1)*(X(i,j,k)-xbh1)+&
+                   (Y(i,j,k)-ybh1)*(Y(i,j,k)-ybh1)+&
+                   (Z(i,j,k)-zbh1)*(Z(i,j,k)-zbh1))
+              rr2 = sqrt((X(i,j,k)-xbh2)*(X(i,j,k)-xbh2)+&
+                   (Y(i,j,k)-ybh2)*(Y(i,j,k)-ybh2)+& 
+                   (Z(i,j,k)-zbh2)*(Z(i,j,k)-zbh2))
+              rr = sqrt(X(i,j,k)*X(i,j,k)+Y(i,j,k)*Y(i,j,k)+Z(i,j,k)*Z(i,j,k)) 
+ 
+              rhob = rho_b(i,j,k)
+ 
+              if (rhob .gt. rho_tiny) then
+                 call compute_pcold_epscold(rhob, P_cold, eps_cold, &
+                      neos,ergo_star,ergo_sigma,rho_tab,P_tab,eps_tab,k_tab,gamma_tab)
+                 eps = eps_cold + (P(i,j,k)-P_cold)/(gamma_th-1.d0)/rhob
+              else
+                 eps = 0.d0
+		 eps_cold=0.d0
+              end if
+              if ((rr1 .lt. rah1_initial) .or. (rr2 .lt. rah2_initial)) then
+                    VolIntegrand(i,j,k) = rho_star(i,j,k)*eps_cold
+              else if (rr .lt. 10.d0) then
+                    VolIntegrand2(i,j,k) = rho_star(i,j,k)*eps_cold
+              else if (rr .lt. 25.d0) then
+                    VolIntegrand3(i,j,k) = rho_star(i,j,k)*eps_cold
+              else if (rr .lt. 40.d0) then
+                    VolIntegrand4(i,j,k) = rho_star(i,j,k)*eps_cold
+	      endif
+           end do ! i-loop
+        end do ! j-loop
+     end do ! k-loop
+     !!!$omp end parallel do
+  end if
+end subroutine minternal_cold_hybrid_4surf_integrand

@@ -1,0 +1,54 @@
+# Interface definition for thorn OS_rad
+# $Header: $
+
+implements: OS_rad
+#inherits: grid lapse shift BSSN
+inherits: grid
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: diagnostics_mhd
+friend: diagnostics_vacuum
+friend: interpolation
+friend: mhd_evolve
+friend: rad_evolve
+
+USES INCLUDE: Symmetry.h
+ 
+PROTECTED:
+cctk_real analytic type = GF
+{
+ rho_b_analytic
+} "analytic stuff"
+
+PRIVATE:
+REAL particle_tracer TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=narr,4 
+{
+  coord,slope,coordt,slopet,slopem
+} "particle tracers"
+
+REAL pcle_stuff TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=narr
+{
+areal_radius,gxx_pcle,gxz_pcle,gzz_pcle,phi_pcle,rho_b_pcle,P_pcle,u0_pcle,E_rad_pcle,Ec_pcle,eta,Q,F_pcle,Fc_pcle,z_anal,rho_b_anal,Ec_anal,Fc_anal,E_anal,F_anal,E_rad_gradient,F_coeff
+}
+
+REAL more_pcle_stuff TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=narr,3
+{
+  pos
+}
+
+REAL convergence TYPE=ARRAY DISTRIB=CONSTANT DIM=1 SIZE=coarse_res+2
+{
+  rho_b_conv,P_conv,E_rad_conv,F_radx_conv
+} "useful for convergence tests"
+
+REAL conv_int TYPE=ARRAY DISTRIB=CONSTANT DIM=2 SIZE=coarse_res+2,3
+{
+  pos_int
+} "useful for convergence tests"
+
+cctk_real mhd_v_ps type = GF
+{
+  vx_p,vy_p,vz_p,u0_p
+} "velocity variables at previous level"

@@ -1,0 +1,58 @@
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine bhns_regridder_writer_driver(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  integer               :: which_line,checksum
+  real*8 		:: xmin_interp,ymin_interp,zmin_interp,dx_interp,dy_interp,dz_interp
+  integer               :: Nx_interp,Ny_interp,Nz_interp
+
+!  if(CCTK_ITERATION==bhns_regrid_output_enable_iter .and. CCTK_MyProc(CCTKGH)==0) then
+  write(*,*) "Start bhns_regridder_writer_driver", bhns_regrid_output_enable_iter
+  if(CCTK_ITERATION==bhns_regrid_output_enable_iter) then
+     write (*,*) "CCTK_ITERATION==bhns_regrid_output_enable_iter!!!!!"
+     do which_line=1,100000
+
+        ! Read the grid parameters
+        call bhns_regrid_read_one_line_of_inputfile(which_line, &
+             xmin_interp,ymin_interp,zmin_interp, &
+             dx_interp,dy_interp,dz_interp, &
+             Nx_interp,Ny_interp,Nz_interp, &
+             checksum)
+
+
+        write(*,*) "Current checksum = ",checksum
+        write(*,*) "xyzmin = ",xmin_interp,ymin_interp,zmin_interp
+        write(*,*) "dxyz = ",dx_interp,dy_interp,dz_interp
+        write(*,*) "Nxyz = ",Nx_interp,Ny_interp,Nz_interp
+
+        if(checksum .ne. -1) then
+           ! Note that Ax,Ay,Az,psi6phi have been unstaggered (regridder_unstagger_driver was scheduled prior to this function),
+           ! and their unstaggered values have been saved to Bxtilde,Bytilde,Bztilde,Blagrangemultiplier, respectively.
+           call bhns_regridder_out_allgfs(cctkGH,checksum, &
+                xmin_interp,ymin_interp,zmin_interp, &
+                dx_interp,dy_interp,dz_interp, &
+                Nx_interp,Ny_interp,Nz_interp, &
+                rho_b_atm,tau_atm,CCTK_MyProc(CCTKGH))
+        else
+           write(*,*) "i'm gonna kill the run now."
+
+           ! Kill the run after outputting everything.
+           stop
+        end if
+
+        
+     end do
+
+     write(*,*) "Shouldn't be here!"
+
+  end if
+
+end subroutine bhns_regridder_writer_driver

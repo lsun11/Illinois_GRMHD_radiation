@@ -1,0 +1,381 @@
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+!------------------------------------
+! Do bbh_bondi diagnostics
+!------------------------------------
+subroutine bbh_bondi_output(CCTK_ARGUMENTS)
+
+  implicit none
+
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+  INTEGER            :: i,j,k
+  INTEGER            :: ntot,n,vindex
+  REAL*8             :: output_logradmin1,output_logradmin2,output_logradmin3
+  REAL*8             :: output_logradmax1,output_logradmax2,output_logradmax3
+  REAL*8             :: PI,thetamin,thetamax,phimin,phimax
+  REAL*8             :: output_lograd1L,output_lograd2L,output_lograd3L
+  REAL*8             :: phiL,thetaL,x1L,y1L,z1L,x2L,y2L,z2L,x3L,y3L,z3L
+  REAL*8             :: BH1_posx,BH1_posy,BH2_posx,BH2_posy
+
+  REAL*8, allocatable, dimension(:,:)       :: pointcoords1,pointcoords2,pointcoords3
+  real*8, allocatable, dimension(:)         :: rho_b_int1,rho_b_int2,rho_b_int3
+  real*8, allocatable, dimension(:)         :: P_int1,P_int2,P_int3
+  real*8, allocatable, dimension(:)         :: vx_int1,vx_int2,vx_int3
+  real*8, allocatable, dimension(:)         :: vy_int1,vy_int2,vy_int3
+  real*8, allocatable, dimension(:)         :: vz_int1,vz_int2,vz_int3
+  real*8, allocatable, dimension(:)         :: lapse_rhs_int1,lapse_rhs_int2,lapse_rhs_int3
+  real*8, allocatable, dimension(:)         :: shiftx_rhs_int1,shiftx_rhs_int2,shiftx_rhs_int3
+  real*8, allocatable, dimension(:)         :: shifty_rhs_int1,shifty_rhs_int2,shifty_rhs_int3
+  real*8, allocatable, dimension(:)         :: shiftz_rhs_int1,shiftz_rhs_int2,shiftz_rhs_int3
+  real*8, allocatable, dimension(:)         :: phi_rhs_int1,phi_rhs_int2,phi_rhs_int3
+  real*8, allocatable, dimension(:)         :: gxx_rhs_int1,gxx_rhs_int2,gxx_rhs_int3
+  real*8, allocatable, dimension(:)         :: gxy_rhs_int1,gxy_rhs_int2,gxy_rhs_int3
+  real*8, allocatable, dimension(:)         :: gxz_rhs_int1,gxz_rhs_int2,gxz_rhs_int3
+  real*8, allocatable, dimension(:)         :: gyy_rhs_int1,gyy_rhs_int2,gyy_rhs_int3
+  real*8, allocatable, dimension(:)         :: gyz_rhs_int1,gyz_rhs_int2,gyz_rhs_int3
+  real*8, allocatable, dimension(:)         :: gzz_rhs_int1,gzz_rhs_int2,gzz_rhs_int3
+  real*8, allocatable, dimension(:)         :: lapse_int1,lapse_int2,lapse_int3
+  real*8, allocatable, dimension(:)         :: shiftx_int1,shiftx_int2,shiftx_int3
+  real*8, allocatable, dimension(:)         :: shifty_int1,shifty_int2,shifty_int3
+  real*8, allocatable, dimension(:)         :: shiftz_int1,shiftz_int2,shiftz_int3
+  real*8, allocatable, dimension(:)         :: phi_int1,phi_int2,phi_int3
+  real*8, allocatable, dimension(:)         :: gxx_int1,gxx_int2,gxx_int3
+  real*8, allocatable, dimension(:)         :: gxy_int1,gxy_int2,gxy_int3
+  real*8, allocatable, dimension(:)         :: gxz_int1,gxz_int2,gxz_int3
+  real*8, allocatable, dimension(:)         :: gyy_int1,gyy_int2,gyy_int3
+  real*8, allocatable, dimension(:)         :: gyz_int1,gyz_int2,gyz_int3
+  real*8, allocatable, dimension(:)         :: gzz_int1,gzz_int2,gzz_int3
+
+  BH1_posx = 5.d0
+  BH1_posy = 0.d0
+  BH2_posx = -5.d0
+  BH2_posy = 0.d0
+
+  ntot = output_Nlograd*output_Nphi*output_Ntheta
+  
+  allocate(pointcoords1(ntot,3))
+  allocate(pointcoords2(ntot,3))
+  allocate(pointcoords3(ntot,3))
+
+  allocate(rho_b_int1(ntot))
+  allocate(rho_b_int2(ntot))
+  allocate(rho_b_int3(ntot))
+
+  allocate(P_int1(ntot))
+  allocate(P_int2(ntot))
+  allocate(P_int3(ntot))
+
+  allocate(vx_int1(ntot))
+  allocate(vx_int2(ntot))
+  allocate(vx_int3(ntot))
+ 
+  allocate(vy_int1(ntot))
+  allocate(vy_int2(ntot))
+  allocate(vy_int3(ntot))
+  
+  allocate(vz_int1(ntot))
+  allocate(vz_int2(ntot))
+  allocate(vz_int3(ntot))
+
+  allocate(lapse_rhs_int1(ntot))
+  allocate(lapse_rhs_int2(ntot))
+  allocate(lapse_rhs_int3(ntot))
+ 
+  allocate(shiftx_rhs_int1(ntot))
+  allocate(shiftx_rhs_int2(ntot))
+  allocate(shiftx_rhs_int3(ntot))
+  allocate(shifty_rhs_int1(ntot))
+  allocate(shifty_rhs_int2(ntot))
+  allocate(shifty_rhs_int3(ntot))
+  allocate(shiftz_rhs_int1(ntot))
+  allocate(shiftz_rhs_int2(ntot))
+  allocate(shiftz_rhs_int3(ntot))
+
+  allocate(phi_rhs_int1(ntot))
+  allocate(phi_rhs_int2(ntot))
+  allocate(phi_rhs_int3(ntot))
+
+  allocate(gxx_rhs_int1(ntot))
+  allocate(gxx_rhs_int2(ntot))
+  allocate(gxx_rhs_int3(ntot))
+  allocate(gxy_rhs_int1(ntot))
+  allocate(gxy_rhs_int2(ntot))
+  allocate(gxy_rhs_int3(ntot))
+  allocate(gxz_rhs_int1(ntot))
+  allocate(gxz_rhs_int2(ntot))
+  allocate(gxz_rhs_int3(ntot))
+  allocate(gyy_rhs_int1(ntot))
+  allocate(gyy_rhs_int2(ntot))
+  allocate(gyy_rhs_int3(ntot))
+  allocate(gyz_rhs_int1(ntot))
+  allocate(gyz_rhs_int2(ntot))
+  allocate(gyz_rhs_int3(ntot))
+  allocate(gzz_rhs_int1(ntot))
+  allocate(gzz_rhs_int2(ntot))
+  allocate(gzz_rhs_int3(ntot))
+
+  allocate(lapse_int1(ntot))
+  allocate(lapse_int2(ntot))
+  allocate(lapse_int3(ntot))
+ 
+  allocate(shiftx_int1(ntot))
+  allocate(shiftx_int2(ntot))
+  allocate(shiftx_int3(ntot))
+  allocate(shifty_int1(ntot))
+  allocate(shifty_int2(ntot))
+  allocate(shifty_int3(ntot))
+  allocate(shiftz_int1(ntot))
+  allocate(shiftz_int2(ntot))
+  allocate(shiftz_int3(ntot))
+
+  allocate(phi_int1(ntot))
+  allocate(phi_int2(ntot))
+  allocate(phi_int3(ntot))
+
+  allocate(gxx_int1(ntot))
+  allocate(gxx_int2(ntot))
+  allocate(gxx_int3(ntot))
+  allocate(gxy_int1(ntot))
+  allocate(gxy_int2(ntot))
+  allocate(gxy_int3(ntot))
+  allocate(gxz_int1(ntot))
+  allocate(gxz_int2(ntot))
+  allocate(gxz_int3(ntot))
+  allocate(gyy_int1(ntot))
+  allocate(gyy_int2(ntot))
+  allocate(gyy_int3(ntot))
+  allocate(gyz_int1(ntot))
+  allocate(gyz_int2(ntot))
+  allocate(gyz_int3(ntot))
+  allocate(gzz_int1(ntot))
+  allocate(gzz_int2(ntot))
+  allocate(gzz_int3(ntot))
+
+  PI=acos(-1.0)
+  thetamin=-PI/100.
+  thetamax=PI/2.0 + PI/100.
+  phimin=-PI/100.
+  phimax=2.0*PI+PI/100.
+
+  output_logradmin1 = log(output_radmin1)
+  output_logradmin2 = log(output_radmin2)
+  output_logradmin3 = log(output_radmin3)
+  output_logradmax1 = log(output_radmax1)
+  output_logradmax2 = log(output_radmax2)
+  output_logradmax3 = log(output_radmax3)
+ 
+  n=1
+  do k=1,output_Nlograd
+     do j=1,output_Nphi
+        do i=1,output_Ntheta
+           output_lograd1L=output_logradmin1+(output_logradmax1-output_logradmin1)/(output_Nlograd-1.0)*k
+           output_lograd2L=output_logradmin2+(output_logradmax2-output_logradmin2)/(output_Nlograd-1.0)*k
+           output_lograd3L=output_logradmin3+(output_logradmax3-output_logradmin3)/(output_Nlograd-1.0)*k
+           phiL=phimin+(phimax-phimin)/(output_Nphi-1.0)*j
+           thetaL = thetamin+(thetamax-thetamin)/(output_Ntheta-1.0)*i
+           pointcoords1(n,1) = exp(output_lograd1L)*cos(thetaL)*cos(phiL)+BH1_posx
+           pointcoords1(n,2) = exp(output_lograd1L)*cos(thetaL)*sin(phiL)+BH2_posy
+           pointcoords1(n,3) = exp(output_lograd1L)*sin(thetaL)
+           pointcoords2(n,1) = exp(output_lograd2L)*cos(thetaL)*cos(phiL)+BH1_posx
+           pointcoords2(n,2) = exp(output_lograd2L)*cos(thetaL)*sin(phiL)+BH2_posy
+           pointcoords2(n,3) = exp(output_lograd2L)*sin(thetaL)
+           pointcoords3(n,1) = exp(output_lograd3L)*cos(thetaL)*cos(phiL)
+           pointcoords3(n,2) = exp(output_lograd3L)*cos(thetaL)*sin(phiL)
+           pointcoords3(n,3) = exp(output_lograd3L)*sin(thetaL)    
+           n = n + 1
+        enddo
+     enddo
+  enddo
+  
+! Interpolate the grid functions
+  call CCTK_VarIndex(vindex,"mhd_evolve::rho_b")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,rho_b_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,rho_b_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,rho_b_int3)
+
+  call CCTK_VarIndex(vindex,"mhd_evolve::P")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,P_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,P_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,P_int3)
+
+  call CCTK_VarIndex(vindex,"mhd_evolve::vx")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,vx_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,vx_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,vx_int3)
+  call CCTK_VarIndex(vindex,"mhd_evolve::vy")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,vy_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,vy_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,vy_int3)
+  call CCTK_VarIndex(vindex,"mhd_evolve::vz")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,vz_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,vz_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,vz_int3)
+
+  call CCTK_VarIndex(vindex,"lapse::lapm1_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,lapse_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,lapse_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,lapse_rhs_int3)
+
+  call CCTK_VarIndex(vindex,"shift::shiftx_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,shiftx_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,shiftx_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,shiftx_rhs_int3)
+  call CCTK_VarIndex(vindex,"shift::shifty_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,shifty_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,shifty_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,shifty_rhs_int3)
+  call CCTK_VarIndex(vindex,"shift::shiftz_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,shiftz_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,shiftz_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,shiftz_rhs_int3)
+
+  call CCTK_VarIndex(vindex,"bssn::phi_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,phi_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,phi_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,phi_rhs_int3)
+
+  call CCTK_VarIndex(vindex,"bssn::gxx_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gxx_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gxx_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gxx_rhs_int3)
+  call CCTK_VarIndex(vindex,"bssn::gxy_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gxy_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gxy_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gxy_rhs_int3)
+  call CCTK_VarIndex(vindex,"bssn::gxz_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gxz_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gxz_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gxz_rhs_int3)
+  call CCTK_VarIndex(vindex,"bssn::gyy_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gyy_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gyy_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gyy_rhs_int3)
+  call CCTK_VarIndex(vindex,"bssn::gyz_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gyz_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gyz_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gyz_rhs_int3)
+  call CCTK_VarIndex(vindex,"bssn::gzz_rhs")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gzz_rhs_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gzz_rhs_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gzz_rhs_int3)
+ 
+  call CCTK_VarIndex(vindex,"lapse::lapm1")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,lapse_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,lapse_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,lapse_int3)
+
+  call CCTK_VarIndex(vindex,"shift::shiftx")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,shiftx_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,shiftx_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,shiftx_int3)
+  call CCTK_VarIndex(vindex,"shift::shifty")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,shifty_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,shifty_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,shifty_int3)
+  call CCTK_VarIndex(vindex,"shift::shiftz")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,shiftz_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,shiftz_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,shiftz_int3)
+
+  call CCTK_VarIndex(vindex,"bssn::phi")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,phi_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,phi_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,phi_int3)
+
+  call CCTK_VarIndex(vindex,"bssn::gxx")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gxx_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gxx_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gxx_int3)
+  call CCTK_VarIndex(vindex,"bssn::gxy")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gxy_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gxy_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gxy_int3)
+  call CCTK_VarIndex(vindex,"bssn::gxz")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gxz_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gxz_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gxz_int3)
+  call CCTK_VarIndex(vindex,"bssn::gyy")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gyy_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gyy_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gyy_int3)
+  call CCTK_VarIndex(vindex,"bssn::gyz")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gyz_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gyz_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gyz_int3)
+  call CCTK_VarIndex(vindex,"bssn::gzz")
+  call interp_driver_carp(cctkGH,ntot,pointcoords1,vindex,gzz_int1)
+  call interp_driver_carp(cctkGH,ntot,pointcoords2,vindex,gzz_int2)
+  call interp_driver_carp(cctkGH,ntot,pointcoords3,vindex,gzz_int3)
+  
+
+  !do i=1,1000
+  !   write(*,*) pointcoords1(i,1)
+  !enddo
+  call bbh_bondi_IO(cctkGH,cctk_time,output_radmin1,output_radmin2,output_radmin3,&
+       output_radmax1,output_radmax2,output_radmax3,&
+       output_Nlograd,output_Nphi,output_Ntheta,&
+       rho_b_int1,rho_b_int2,rho_b_int3,&
+       P_int1,P_int2,P_int3,&
+       vx_int1,vx_int2,vx_int3,&
+       vy_int1,vy_int2,vy_int3,&
+       vz_int1,vz_int2,vz_int3,&
+       lapse_rhs_int1,lapse_rhs_int2,lapse_rhs_int3,&
+       shiftx_rhs_int1,shiftx_rhs_int2,shiftx_rhs_int3,&
+       shifty_rhs_int1,shifty_rhs_int2,shifty_rhs_int3,&
+       shiftz_rhs_int1,shiftz_rhs_int2,shiftz_rhs_int3,&
+       phi_rhs_int1,phi_rhs_int2,phi_rhs_int3,&
+       gxx_rhs_int1,gxx_rhs_int2,gxx_rhs_int3,&
+       gxy_rhs_int1,gxy_rhs_int2,gxy_rhs_int3,&
+       gxz_rhs_int1,gxz_rhs_int2,gxz_rhs_int3,&
+       gyy_rhs_int1,gyy_rhs_int2,gyy_rhs_int3,&
+       gyz_rhs_int1,gyz_rhs_int2,gyz_rhs_int3,&
+       gzz_rhs_int1,gzz_rhs_int2,gzz_rhs_int3,&
+       lapse_int1,lapse_int2,lapse_int3,&
+       shiftx_int1,shiftx_int2,shiftx_int3,&
+       shifty_int1,shifty_int2,shifty_int3,&
+       shiftz_int1,shiftz_int2,shiftz_int3,&
+       phi_int1,phi_int2,phi_int3,&
+       gxx_int1,gxx_int2,gxx_int3,&
+       gxy_int1,gxy_int2,gxy_int3,&
+       gxz_int1,gxz_int2,gxz_int3,&
+       gyy_int1,gyy_int2,gyy_int3,&
+       gyz_int1,gyz_int2,gyz_int3,&
+       gzz_int1,gzz_int2,gzz_int3,&
+       BH1_posx,BH1_posy,BH2_posx,BH2_posy)
+  !  write(*,*) "just called output lowlevel"
+  deallocate(pointcoords1,pointcoords2,pointcoords3)
+  deallocate(rho_b_int1,rho_b_int2,rho_b_int3)
+  deallocate(P_int1,P_int2,P_int3)
+  deallocate(vx_int1,vx_int2,vx_int3)
+  deallocate(vy_int1,vy_int2,vy_int3)
+  deallocate(vz_int1,vz_int2,vz_int3)
+  deallocate(lapse_rhs_int1,lapse_rhs_int2,lapse_rhs_int3)
+  deallocate(shiftx_rhs_int1,shiftx_rhs_int2,shiftx_rhs_int3)
+  deallocate(shifty_rhs_int1,shifty_rhs_int2,shifty_rhs_int3)
+  deallocate(shiftz_rhs_int1,shiftz_rhs_int2,shiftz_rhs_int3)
+  deallocate(phi_rhs_int1,phi_rhs_int2,phi_rhs_int3)
+  deallocate(gxx_rhs_int1,gxx_rhs_int2,gxx_rhs_int3)
+  deallocate(gxy_rhs_int1,gxy_rhs_int2,gxy_rhs_int3)
+  deallocate(gxz_rhs_int1,gxz_rhs_int2,gxz_rhs_int3)
+  deallocate(gyy_rhs_int1,gyy_rhs_int2,gyy_rhs_int3)
+  deallocate(gyz_rhs_int1,gyz_rhs_int2,gyz_rhs_int3)
+  deallocate(gzz_rhs_int1,gzz_rhs_int2,gzz_rhs_int3)
+  deallocate(lapse_int1,lapse_int2,lapse_int3)
+  deallocate(shiftx_int1,shiftx_int2,shiftx_int3)
+  deallocate(shifty_int1,shifty_int2,shifty_int3)
+  deallocate(shiftz_int1,shiftz_int2,shiftz_int3)
+  deallocate(phi_int1,phi_int2,phi_int3)
+  deallocate(gxx_int1,gxx_int2,gxx_int3)
+  deallocate(gxy_int1,gxy_int2,gxy_int3)
+  deallocate(gxz_int1,gxz_int2,gxz_int3)
+  deallocate(gyy_int1,gyy_int2,gyy_int3)
+  deallocate(gyz_int1,gyz_int2,gyz_int3)
+  deallocate(gzz_int1,gzz_int2,gzz_int3)
+  stop
+
+end subroutine bbh_bondi_output

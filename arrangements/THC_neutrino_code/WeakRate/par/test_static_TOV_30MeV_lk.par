@@ -1,0 +1,256 @@
+ActiveThorns = "
+ADMBase
+ADMCoupling
+ADMMacros
+AEILocalInterp
+Boundary
+Carpet
+CarpetIOASCII
+CarpetIOBasic
+CarpetIOScalar
+CarpetInterp
+CarpetLib
+CarpetReduce
+CarpetSlab
+CartGrid3d
+CoordBase
+CoordGauge
+EOS_Barotropic
+EOS_Thermal
+EOS_Thermal_Table3d
+EOS_Thermal_Extable
+GenericFD
+HydroBase
+HRSCCore
+InitBase
+IOUtil
+LoopControl
+MoL
+NaNChecker
+PizzaBase
+PizzaIDBase
+PizzaNumUtils
+PizzaTOV
+ID_Switch_EOS
+ReflectionSymmetry
+Slab
+StaticConformal
+SymBase
+THC_Core
+THC_Leakage
+THC_Tracer
+Time
+TmunuBase
+WeakRates
+"
+
+Cactus::terminate			= "iteration"
+Cactus::cctk_itlast			= 50000
+
+# =============================================================================
+# Grid
+# =============================================================================
+Grid::avoid_origin			= "no"
+Grid::domain			= "full"
+Grid::type			= "coordbase"
+
+ReflectionSymmetry::reflection_x		= "yes"
+ReflectionSymmetry::reflection_y		= "yes"
+ReflectionSymmetry::reflection_z		= "yes"
+ReflectionSymmetry::avoid_origin_x		= "no"
+ReflectionSymmetry::avoid_origin_y		= "no"
+ReflectionSymmetry::avoid_origin_z		= "no"
+
+CoordBase::xmin			= 0
+CoordBase::xmax			= 16
+CoordBase::ymin			= 0
+CoordBase::ymax			= 16
+CoordBase::zmin			= 0
+CoordBase::zmax			= 16
+
+CoordBase::spacing			= "numcells"
+CoordBase::ncells_x			= 80
+CoordBase::ncells_y			= 80
+CoordBase::ncells_z			= 80
+
+CoordBase::boundary_size_x_lower		= 3
+CoordBase::boundary_size_x_upper		= 3
+CoordBase::boundary_shiftout_x_lower		= 1
+CoordBase::boundary_shiftout_x_upper		= 0
+
+CoordBase::boundary_size_y_lower		= 3
+CoordBase::boundary_size_y_upper		= 3
+CoordBase::boundary_shiftout_y_lower		= 1
+CoordBase::boundary_shiftout_y_upper		= 0
+
+CoordBase::boundary_size_z_lower		= 3
+CoordBase::boundary_size_z_upper		= 3
+CoordBase::boundary_shiftout_z_lower		= 1
+CoordBase::boundary_shiftout_z_upper		= 0
+
+Driver::ghost_size			= 3
+Driver::ghost_size_x		= 3
+Driver::ghost_size_y		= 3
+Driver::ghost_size_z		= 3
+
+Carpet::domain_from_coordbase		= "yes"
+
+InitBase::initial_data_setup_method		= "init_all_levels"
+
+Carpet::max_refinement_levels		= 1
+Carpet::prolongation_order_space		= 3
+Carpet::prolongation_order_time		= 2
+Carpet::use_buffer_zones		= "yes"
+Carpet::enable_all_storage		= "no"
+
+Carpet::grid_coordinates_filename		= "grid.carpet"
+
+NaNChecker::check_every		= 100
+NaNChecker::check_vars		= "HydroBase::w_lorentz"
+NaNChecker::action_if_found		= "terminate"
+
+# =============================================================================
+# Initial data
+# =============================================================================
+ADMBase::initial_data		= "PizzaTOV"
+ADMBase::initial_lapse		= "PizzaTOV"
+ADMBase::initial_shift		= "PizzaTOV"
+ADMBase::initial_dtlapse		= "zero"
+ADMBase::initial_dtshift		= "zero"
+HydroBase::initial_hydro		= "PizzaTOV"
+HydroBase::initial_temperature                              = "PizzaTOV"
+
+# File describing a one-parametric EOS in Pizza format. Used only for
+# initial data.
+PizzaIDBase::eos_file                                       = "/home/filga/Nevada/Wheeler/Cactus/data/LS220B30.pizza"
+
+ID_Switch_EOS::sync_eps_temp = "yes"
+ID_Switch_EOS::temp_from_eps = "no"
+ID_Switch_EOS::limit_efrac   = "yes"
+
+# TOV central rest mass density in kg/m^3
+PizzaTOV::star_crmd       = 1.451057520821530e+18
+
+# Geometric unit system for initial data, specified by length unit.
+PizzaBase::length_unit    = 1476.7161818921163   # use CACTUS units
+PizzaTOV::star_gm1_cut    = 5.021673110500712e+08
+
+
+#===========================================
+# EOS parameters
+#===========================================
+
+EOS_Thermal::evol_eos_name              = "Extable"
+EOS_Thermal_Extable::rho_max            = 1e10
+EOS_Thermal_Extable::extend_ye          = yes
+EOS_Thermal_Table3d::eos_db_loc         = "/home/filga/Nevada/Wheeler/Cactus"
+EOS_Thermal_Table3d::eos_folder         = "data"
+EOS_Thermal_Table3d::eos_filename       = "LS_220_hydro_27-Sep-2014.h5"
+
+# =============================================================================
+# Templated hydrodynamics code
+# =============================================================================
+HydroBase::evolution_method		= "none"
+HydroBase::timelevels		= 3
+HydroBase::initial_entropy                                  = "THCode"
+HydroBase::initial_Y_e                                      = "PizzaTOV"
+HydroBase::initial_Abar                                     = "zero"
+THC_Core::eos_type			= "nuclear"
+
+TmunuBase::support_old_CalcTmunu_mechanism	= "no"
+
+THC_Core::bc_type			= "none"
+
+THC_Core::atmo_rho			= 1e-10
+THC_Core::atmo_eps			= 1e-8
+THC_Core::verbose			= "yes"
+
+THC_Leakage::rmax			= 15
+THC_Leakage::nrad			= 80
+THC_Leakage::ntheta			= 32
+THC_Leakage::nphi			= 64
+THC_Leakage::store_free_rates                               = "yes"
+THC_Leakage::DiffFact                                       = 6
+THC_Leakage::compute_every                                  = 4
+WeakRates::table_filename                                   = "/home/filga/Nevada/Wheeler/Cactus/data/LS_220_weak_27-Sep-2014.h5"
+WeakRates::use_rho_max_ext                                  = "yes"
+WeakRates::use_rho_min_ext                                  = "yes"
+WeakRates::use_temp_max_ext                                 = "yes"
+WeakRates::use_temp_min_ext                                 = "yes"
+WeakRates::use_ye_max_ext                                   = "yes"
+WeakRates::use_ye_min_ext                                   = "yes"
+
+# =============================================================================
+# Spacetime evolution
+# =============================================================================
+
+ADMBase::evolution_method		= "static"
+ADMBase::lapse_evolution_method		= "static"
+ADMBase::shift_evolution_method		= "static"
+ADMBase::dtlapse_evolution_method		= "static"
+ADMBase::dtshift_evolution_method		= "static"
+
+# =============================================================================
+# Output
+# =============================================================================
+IOUtil::out_dir			= $parfile
+IOUtil::out_fileinfo		= "none"
+IOUtil::strict_io_parameter_check		= "yes"
+IOUtil::parfile_write		= "no"
+
+CarpetIOBasic::outinfo_vars		= "
+THC_Leakage::thc_lk_N_nue
+THC_Leakage::thc_lk_E_nue
+THC_Leakage::Q_eff_nue
+THC_Leakage::thc_lk_kappa_0_nue
+"
+
+CarpetIOScalar::outscalar_reductions		= "
+count minimum maximum average norm1 norm2 norm_inf
+"
+CarpetIOScalar::outscalar_vars		= "
+HydroBase::rho
+HydroBase::Y_e
+HydroBase::temperature
+HydroBase::Abar
+THC_Leakage::thc_leakage_free_rates
+THC_Leakage::thc_leakage_eff_rates
+THC_Leakage::thc_leakage_abs
+THC_Leakage::thc_leakage_optd
+ADMBase::lapse
+ADMBase::shift
+"
+
+CarpetIOASCII::out1d_vars		= "
+HydroBase::rho
+HydroBase::Y_e
+HydroBase::temperature
+HydroBase::Abar
+THC_Leakage::thc_leakage_free_rates
+THC_Leakage::thc_leakage_eff_rates
+THC_Leakage::thc_leakage_abs
+THC_Leakage::thc_leakage_optd
+ADMBase::lapse
+ADMBase::shift
+"
+
+CarpetIOASCII::out2d_vars		= "
+HydroBase::rho
+HydroBase::Y_e
+HydroBase::temperature
+HydroBase::Abar
+THC_Leakage::thc_leakage_free_rates
+THC_Leakage::thc_leakage_eff_rates
+THC_Leakage::thc_leakage_abs
+THC_Leakage::thc_leakage_optd
+ADMBase::lapse
+ADMBase::shift
+"
+
+CarpetIOBasic::outinfo_every		= 1
+CarpetIOASCII::out0d_every		= 1
+CarpetIOASCII::out1d_every		= 1
+CarpetIOASCII::out2d_every		= 1
+CarpetIOScalar::outscalar_every		= 1
+
+# vim: set ft=sh tabstop=20 noexpandtab :

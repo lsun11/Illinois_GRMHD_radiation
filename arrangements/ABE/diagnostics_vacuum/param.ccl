@@ -1,0 +1,144 @@
+
+# Parameter definitions for thorn diagnostics_vacuum
+
+shares: lapse
+USES KEYWORD slicing_type
+shares: shift
+USES KEYWORD Spatial_Gauge
+
+#shares: ahfinder
+#USES KEYWORD ahf_lmax
+
+shares: grid
+USES KEYWORD domain
+USES KEYWORD bitant_plane
+
+restricted:
+
+REAL surf_radius "Surface integration: Fisheye Radius of surface" STEERABLE = ALWAYS
+{
+  *:* :: "Anything.  Negative value will be reset by setup_surf...F90"
+} -0.95
+
+INT scaledsurf "if surf_radius is negative, set to 1 and scale by size of grid.  otherwise, set to zero" STEERABLE=ALWAYS
+{
+ 0:1 :: "Zero or one"
+} 0
+
+REAL rbr "Surface integration: physical/fisheye radius of surface =  r/rbar" STEERABLE = ALWAYS
+{
+  0:* :: "Anything poditive. This is reset in setup_fisheye if fisheye_enable=1"
+} 1.0
+
+REAL drbdr "Surface integration: RadiusDerivative of surface: dr/drbar" STEERABLE = ALWAYS
+{
+  0:* :: "Anything. positive"
+} 1.0
+
+REAL ddrbddr "Surface integration: RadiusDerivative2 of surface: d^2r/drbar^2" STEERABLE = ALWAYS
+{
+  0:* :: "Anything positiive"
+} 0.0
+
+INT numtheta "Surface integration: Number of points in theta dimension if we used a full sphere"
+{
+  0:* :: "Positive"
+} 40
+
+INT numphi "Surface integration: Number of points in phi dimension if we used a full sphere"
+{
+  0:* :: "Positive"
+} 40
+
+INT N_theta "Surface integration: Actual Number of points in theta dimension w.r.t. symmetries" STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 20
+
+INT N_phi "Surface integration: Actual Number of points in phi dimension w.r.t. symmetries" STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 40
+
+INT ntot "Surface integration: Actual total Number of points both dimensions w.r.t. symmetries" STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 640
+
+INT sym_factor "Symmetry factor: how many of these grids make up a sphere"  STEERABLE=ALWAYS
+{
+  1:* :: "Greater than or equal to 1"
+} 1
+
+REAL dphi "Change in phi for neighboring points"  STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 1
+
+REAL dcostheta "Change in cos(theta) for neighboring points"  STEERABLE=ALWAYS
+{
+  0:* :: "Positive"
+} 1
+
+######################################
+# BH Position tracking variables:
+INT num_BHs "Number of black holes"  STEERABLE=ALWAYS
+{
+  0:* :: "Greater than or equal to 0"
+} 0
+
+REAL BH_Vol_Excise_Radius "Sets size of BH excision volumes" STEERABLE=ALWAYS
+{
+  : :: "No restriction"
+} 1.1
+######################################
+
+
+################################################################################
+# Stuff having to do with multiple surfaces:
+INT nsurf "number of surfaces at which to perform integrals"
+{
+ 0:20 :: "positive, 20 or less for array allocation"
+} 1
+
+INT arithsurf "Use arithmetic (1) or geometric (0) spacing for multiple integrations surfaces"
+{
+ 0:1 :: "Zero or one"
+} 1
+
+REAL rsurf2 "The other extremal surfaces of integration; note scaledsurf above!"
+{
+ 0:* :: "anything positive"
+} 0.4
+################################################################################
+
+INT WhichIntegral "Keeps track of which volume integral we've just evaluated" STEERABLE=ALWAYS
+{
+  *:* :: "This value is set within the volume integration drivers."
+} 0
+
+INT Compute_VolIntegrands_Every "Compute volume integrals every x timesteps.  You set x here."
+{
+  0:* :: "You must set this value"
+} 1
+
+REAL inner_volInt_radius "Radius outside of which we exclude from Vol Int.  Note: For Ham constraint integral only!"
+{
+ 0:* :: "anything positive"
+} 32.0
+
+#####################################################################################
+INT enable_M_constraint "Compute the mass associated with Hamiltonian constraint violation? (0=no, 1=yes)" STEERABLE=ALWAYS
+{
+ 0:1 :: "yes or no"
+} 0
+
+INT enable_Jz_constraint "Compute Jz associated with momentum constraint violation? (0=no, 1=yes)" STEERABLE=ALWAYS
+{
+ 0:1 :: "yes or no"
+} 0
+
+INT enable_P_constraint "Compute momentum associated with momentum constraint violation? (0=no, 1=yes)" STEERABLE=ALWAYS
+{
+ 0:1 :: "yes or no"
+} 0

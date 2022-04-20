@@ -1,0 +1,149 @@
+#O NCELLS	Number of gridpoints
+#O TIMESTEP	Timestep
+
+ActiveThorns = "
+ADMBase
+ADMCoupling
+ADMMacros
+Boundary
+Carpet
+CarpetIOASCII
+CarpetIOBasic
+CarpetIOScalar
+CarpetLib
+CarpetReduce
+CarpetSlab
+CartGrid3d
+CoordBase
+HydroBase
+HRSCCore
+InitBase
+IOUtil
+LoopControl
+MoL
+NanChecker
+Slab
+StaticConformal
+SymBase
+THC_Core
+THC_InitialData
+THC_Tracer
+Time
+TmunuBase
+"
+
+#############################################################
+# Grid
+#############################################################
+
+CoordBase::domainsize                   = minmax
+
+CoordBase::xmin                         = -0.5
+CoordBase::ymin                         = -0.5
+CoordBase::zmin                         = -0.5
+
+CoordBase::xmax                         = 0.5
+CoordBase::ymax                         = 0.5
+CoordBase::zmax                         = 0.5
+
+CoordBase::spacing                      = "numcells"
+CoordBase::ncells_x                     = 50
+CoordBase::ncells_y                     = 1
+CoordBase::ncells_z                     = 1
+
+CoordBase::boundary_size_x_lower        = 3
+CoordBase::boundary_size_y_lower        = 3
+CoordBase::boundary_size_z_lower        = 3
+CoordBase::boundary_shiftout_x_lower    = 1
+CoordBase::boundary_shiftout_y_lower    = 1
+CoordBase::boundary_shiftout_z_lower    = 1
+CoordBase::boundary_staggered_x_lower   = 1
+
+CoordBase::boundary_size_x_upper        = 3
+CoordBase::boundary_size_y_upper        = 3
+CoordBase::boundary_size_z_upper        = 3
+CoordBase::boundary_shiftout_x_upper    = 1
+CoordBase::boundary_shiftout_y_upper    = 1
+CoordBase::boundary_shiftout_z_upper    = 1
+CoordBase::boundary_staggered_x_upper   = 1
+
+CartGrid3D::type                        = "coordbase"
+CartGrid3D::domain                      = "full"
+CartGrid3D::avoid_origin                = "no"
+
+#############################################################
+# Carpet
+#############################################################
+
+Carpet::ghost_size                      = 3
+Carpet::domain_from_coordbase           = "yes"
+Carpet::max_refinement_levels           = 1
+Carpet::init_each_timelevel             = "no"
+Carpet::num_integrator_substeps         = 3
+
+#############################################################
+# Time integration
+#############################################################
+
+Cactus::terminate                     = "time"
+Cactus::cctk_final_time               = 0.4
+
+Time::timestep_method                 = "given"
+Time::timestep                        = 0.002
+
+MethodOfLines::ode_method             = "RK3"
+MethodOfLines::MoL_Intermediate_Steps = 3
+MethodOfLines::MoL_Num_Scratch_Levels = 1
+MethodOfLines::MoL_NaN_Check          = "yes"
+MethodOfLines::verbose                = "register"
+
+#############################################################
+# Templated Hydrodynamics code
+#############################################################
+
+HydroBase::evolution_method           = "THCode"
+HydroBase::timelevels                 = 3
+
+TmunuBase::support_old_CalcTmunu_mechanism = "no"
+
+THC_InitialData::id_type              = "shocktube"
+THC_InitialData::shocktube_case       = "sod"
+THC_InitialData::shocktube_dir        = "x"
+
+HRSCCore::scheme                    = "FD"
+HRSCCore::reconstruction            = "WENO5"
+HRSCCore::system_split              = "characteristics"
+HRSCCore::flux_split                = "RF"
+
+THC_Core::physics                     = "SRHD"
+THC_Core::eos_type                    = "ultrarelativistic"
+THC_Core::ultrarelativistic_gamma     = 1.333333333333
+
+THC_Core::bc_type                     = "flat"
+
+#############################################################
+# Output
+#############################################################
+
+IO::out_dir                   = $parfile
+IO::out_fileinfo              = "none"
+
+CarpetIOBasic::outInfo_every  = 10
+CarpetIOBasic::outInfo_vars   = "HydroBase::rho"
+
+IOASCII::out1D_every          = 10
+IOASCII::out1D_x              = "yes"
+IOASCII::out1D_y              = "no"
+IOASCII::out1D_z              = "no"
+IOASCII::out1D_vars           = "
+HydroBase::rho
+HydroBase::vel[0]
+HydroBase::w_lorentz
+THC_Core::scon
+THC_Core::tau
+"
+
+CarpetIOASCII::out_precision  = 19
+CarpetIOASCII::out3D_ghosts   = "yes"
+
+# vim: set ft=sh tabstop=20 noexpandtab :

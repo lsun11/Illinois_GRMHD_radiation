@@ -1,0 +1,5 @@
+# make.configuration.defn for HDF5 
+# $Header: /cactusdevcvs/AlphaThorns/HDF5/src/make.configuration.defn,v 1.1 2007/11/12 16:24:16 tradke Exp $
+
+# add the recombiner and the IEEEIO converter to the Cactus utitlity tools
+ALL_UTILS += hdf5_merge hdf5_extract hdf5_double_to_single

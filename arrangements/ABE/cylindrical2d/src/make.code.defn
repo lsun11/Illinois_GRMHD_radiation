@@ -1,0 +1,7 @@
+# Main make.code.defn file for thorn shocktests
+
+# Source files in this directory
+SRCS =  initialdata_local.F90 initialdata_global.F90 recompute_primitives.F90 compute_b2_u0.F90
+
+# Subdirectories containing source files
+SUBDIRS = 

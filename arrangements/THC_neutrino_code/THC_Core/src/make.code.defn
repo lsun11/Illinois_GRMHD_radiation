@@ -1,0 +1,24 @@
+# Main make.code.defn file for thorn THC_Core
+
+# Source files in this directory
+SRCS = con2prim.cc \
+    thc_atmosphere.cc \
+    thc_claws.cc \
+    thc_cons_to_all.cc \
+    thc_grsource.cc \
+    thc_hrscc_register.cc \
+    thc_init.cc \
+    thc_init_source.cc \
+    thc_mol_register.cc \
+    thc_param_check.cc \
+    thc_prim_to_all.cc \
+    thc_printer.cc \
+    thc_reset_densgain.cc \
+    thc_rhs.cc \
+    thc_select_bc.cc \
+    thc_setsym.cc \
+    thc_sph_grid.c \
+    thc_tmunu.cc
+
+# Subdirectories containing source files
+SUBDIRS =

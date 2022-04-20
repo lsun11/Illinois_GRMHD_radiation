@@ -1,0 +1,13 @@
+# Interface definition for thorn jobsuicide
+# $Header: /home/astro/CVS/Cactus/arrangements/ABE/BSSN/interface.ccl,v 1.1.1.1 2006/03/21 11:14:26 ytliu Exp $
+
+implements: jobsuicide
+
+inherits: grid
+
+private:
+
+REAL timescalar TYPE = SCALAR 
+{
+  start_time
+} "start time of simulation in wall clock units"

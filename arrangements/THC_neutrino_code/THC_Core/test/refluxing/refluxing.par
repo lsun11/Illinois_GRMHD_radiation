@@ -1,0 +1,198 @@
+ActiveThorns = "
+ADMBase
+ADMCoupling
+ADMMacros
+Boundary
+Carpet
+CarpetInterp
+CarpetIOASCII
+CarpetIOBasic
+CarpetIOScalar
+CarpetMask
+CarpetLib
+CarpetReduce
+CarpetRegrid2
+CarpetSlab
+CartGrid3D
+Constants
+CoordBase
+EOS_Thermal
+EOS_Thermal_Idealgas
+HydroBase
+HRSCCore
+InitBase
+IOUtil
+LoopControl
+MoL
+NanChecker
+Refluxing
+Slab
+SphericalSurface
+StaticConformal
+SymBase
+THC_Core
+THC_InitialData
+THC_Refluxing
+THC_Tracer
+Time
+TmunuBase
+"
+
+#############################################################
+# Grid
+#############################################################
+
+CoordBase::domainsize                   = minmax
+
+CoordBase::xmin                         = -0.5
+CoordBase::ymin                         = -0.5
+CoordBase::zmin                         = -0.5
+
+CoordBase::xmax                         = 0.5
+CoordBase::ymax                         = 0.5
+CoordBase::zmax                         = 0.5
+
+CoordBase::spacing                      = "numcells"
+CoordBase::ncells_x                     = 100
+CoordBase::ncells_y                     = 1
+CoordBase::ncells_z                     = 1
+
+CoordBase::boundary_size_x_lower        = 3
+CoordBase::boundary_size_y_lower        = 3
+CoordBase::boundary_size_z_lower        = 3
+CoordBase::boundary_shiftout_x_lower    = 0
+CoordBase::boundary_shiftout_y_lower    = 0
+CoordBase::boundary_shiftout_z_lower    = 0
+CoordBase::boundary_staggered_x_lower   = "yes"
+CoordBase::boundary_staggered_y_lower   = "yes"
+CoordBase::boundary_staggered_z_lower   = "yes"
+
+CoordBase::boundary_size_x_upper        = 3
+CoordBase::boundary_size_y_upper        = 3
+CoordBase::boundary_size_z_upper        = 3
+CoordBase::boundary_shiftout_x_upper    = 0
+CoordBase::boundary_shiftout_y_upper    = 0
+CoordBase::boundary_shiftout_z_upper    = 0
+CoordBase::boundary_staggered_x_upper   = "yes"
+CoordBase::boundary_staggered_y_upper   = "yes"
+CoordBase::boundary_staggered_z_upper   = "yes"
+
+CartGrid3D::type                        = "coordbase"
+CartGrid3D::domain                      = "full"
+CartGrid3D::avoid_origin                = "no"
+
+#############################################################
+# Carpet
+#############################################################
+
+Carpet::refinement_centering            = "cell"
+
+Carpet::ghost_size                      = 3
+Carpet::domain_from_coordbase           = "yes"
+Carpet::max_refinement_levels           = 2
+Carpet::init_each_timelevel             = "no"
+Carpet::num_integrator_substeps         = 3
+
+Carpet::prolongation_order_space        = 3
+Carpet::prolongation_order_time         = 2
+Carpet::use_buffer_zones                = "yes"
+Carpet::enable_all_storage              = "no"
+Carpet::init_fill_timelevels            = "yes"
+
+CarpetRegrid2::snap_to_coarse           = "yes"
+CarpetRegrid2::num_centres              = 1
+CarpetRegrid2::active_1                 = "yes"
+CarpetRegrid2::num_levels_1             = 2
+CarpetRegrid2::radius_1[1]              = 0.1
+
+#############################################################
+# Time integration
+#############################################################
+
+Cactus::terminate                     = "time"
+Cactus::cctk_final_time               = 0.4
+
+Time::timestep_method                 = "courant_static"
+Time::dtfac                           = 0.9
+Time::courant_fac                     = 0.9
+
+MethodOfLines::ode_method             = "RK3"
+MethodOfLines::MoL_Intermediate_Steps = 3
+MethodOfLines::MoL_Num_Scratch_Levels = 1
+MethodOfLines::MoL_NaN_Check          = "yes"
+MethodOfLines::verbose                = "register"
+
+#############################################################
+# Templated Hydrodynamics code
+#############################################################
+
+ADMBase::lapse_timelevels             = 3
+ADMBase::shift_timelevels             = 3
+ADMBase::metric_timelevels            = 3
+HydroBase::evolution_method           = "THCode"
+HydroBase::timelevels                 = 3
+
+TmunuBase::support_old_CalcTmunu_mechanism = "no"
+
+EOS_Thermal::evol_eos_name            = "IdealGas"
+EOS_Thermal_IdealGas::index_n         = 2.5
+
+HRSCCore::scheme                      = "FV"
+HRSCCore::pplim                       = "no"
+HRSCCore::reconstruction              = "MP5"
+HRSCCore::riemann_solver              = "HLLE"
+HRSCCore::refluxing                   = "yes"
+
+THC_InitialData::id_type              = "shocktube"
+THC_InitialData::shocktube_case       = "sod"
+THC_InitialData::shocktube_dir        = "x"
+
+THC_Core::eos_type                     = "ideal"
+THC_Core::bc_type                     = "flat"
+
+THC_Core::c2a_zmax                    = 100
+THC_Core::c2a_rho_strict              = 0
+
+THC_Core::eig_min_rho                 = 0
+
+THC_Refluxing::nvars                  = 5
+
+EOS_Thermal_IdealGas::rho_max         = 1e128
+EOS_Thermal_IdealGas::eps_max         = 1e128
+
+#############################################################
+# Output
+#############################################################
+
+IO::out_dir                   = $parfile
+IO::out_fileinfo              = "none"
+
+CarpetIOBasic::outInfo_every  = 10
+CarpetIOBasic::outInfo_vars   = "HydroBase::rho"
+
+CarpetIOScalar::outScalar_every = 10
+CarpetIOScalar::outScalar_reductions = "
+norm1
+"
+CarpetIOScalar::outScalar_vars = "
+THC_Core::dens
+THC_Core::scon[0]
+THC_Core::tau
+"
+
+IOASCII::out1D_every          = 10
+IOASCII::out1D_x              = "yes"
+IOASCII::out1D_y              = "yes"
+IOASCII::out1D_z              = "yes"
+IOASCII::out1D_vars           = "
+HydroBase::eps
+HydroBase::press
+HydroBase::rho
+HydroBase::vel[0]
+THC_Core::scon[0]
+"
+
+CarpetIOASCII::out_precision  = 19
+CarpetIOASCII::out3D_ghosts   = "yes"
+
+# vim: set ft=sh tabstop=20 noexpandtab :

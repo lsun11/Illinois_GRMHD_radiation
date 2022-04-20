@@ -1,0 +1,85 @@
+# Schedule definitions for thorn OS_collapse
+
+STORAGE: BSSN::BSSN_vars[3],BSSN::BSSN_gupij,BSSN::BSSN_matter,BSSN::BSSN_AH,BSSN::BSSN_aux_restrict2,BSSN::phi_derivs,BSSN::BSSN_diag_restrict
+STORAGE: lapse::lapse_vars[3]
+STORAGE: shift::shift_vars[3]
+STORAGE: mhd_evolve::mhd_conservatives[3], mhd_evolve::mhd_rhs, mhd_evolve::mhd_primitives, mhd_evolve::mhd_vs
+STORAGE: mhd_evolve::disk_atmosphere, mhd_evolve::eos_params1, mhd_evolve::eos_params2, mhd_evolve::mhdscalar
+STORAGE: gw_extraction::gw_moment_arrays,fisheye::fisheye_vars 
+STORAGE: diagnostics_vacuum::surf_params diagnostics_vacuum::volIntegrals diagnostics_mhd::volIntegrals_mhd
+STORAGE: excision::excision_int_gfs
+STORAGE: OS_collapse::particle_tracer OS_collapse::pcle_stuff OS_collapse::more_pcle_stuff OS_collapse::v_previous OS_collapse::OS_center_diagnostics OS_collapse::h17
+# Setup Initial Data
+
+schedule read_OS_metric_inputfile_driver at CCTK_INITIAL as metric_readinfiles before lapse_initialdata
+{
+  LANG:		FORTRAN
+  OPTIONS:      LOCAL
+} "Read initial Psi and lapse from input file"
+
+schedule OS_metric_initialdata at CCTK_INITIAL after metric_readinfiles before lapse_initialdata
+{
+  LANG:		FORTRAN
+  SYNC:		BSSN::BSSN_vars[3]
+} "Set up TwoPunctures initial data on individual, local grids - part 1"
+
+schedule OS_initialdata_driver at CCTK_INITIAL as bondi_id after id_part2
+{
+  LANG:       FORTRAN
+  OPTIONS:    LOCAL
+} "Set up the bondi solution as initial data"
+
+schedule OS_initialdata_local at CCTK_INITIAL after bondi_id as id_local
+{
+  LANG:		FORTRAN
+  SYNC:		BSSN::BSSN_vars
+} "Fill in metric quantities"
+
+schedule GROUP OS_postid in CCTK_POSTPOSTINITIAL before ABE_PostInitial before MoL_PostStep
+{
+} "Finish up BHNS initial data.  Need to schedule several GLOBAL function calls that don't work in CCTK_INITIAL. :("
+
+schedule OS_initialdata_global in OS_postid as third_initialdata
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set rho_b_atm, etc."
+
+schedule OS_initialdata_local2 in OS_postid after third_initialdata as fourth_initialdata
+{
+  LANG:          FORTRAN
+  SYNC:		BSSN::BSSN_vars
+  OPTIONS:      GLOBAL,LOOP-LOCAL
+} "Fill in matter quantities.  Note that rho_b depends on rho_b_atm, and most hydro vars depend on rho_b"
+
+schedule OS_initialdata_global2 in OS_postid after fourth_initialdata as fifth_initialdata
+{
+  LANG:          FORTRAN
+  OPTIONS:      GLOBAL
+} "Set tau_atm, which depends on tau, which depends on rho_b, etc."
+
+#schedule OS_sanitycheck_restore_Aij at CCTK_ANALYSIS as sanitycheck_restore_Aij
+#{
+#  LANG:          FORTRAN
+#} "Sanity check, Restore Aij"
+
+#schedule particle_tracer at CCTK_ANALYSIS as tracer
+#{
+#  LANG:		FORTRAN
+#  OPTIONS:	GLOBAL,loop-local
+#} "do particle tracer"
+
+schedule driver_h17 at CCTK_ANALYSIS as poststep
+{
+  LANG:		FORTRAN
+  SYNC:		OS_collapse::h17
+} "RHS of Equation H.17 in 'numerical relativity', by baumgarte and shapiro"
+
+schedule OS_diagnostics at CCTK_ANALYSIS after poststep
+{
+  LANG:         FORTRAN
+  OPTIONS:	GLOBAL
+} "Evaluate diagnostic integrals"
+
+
+

@@ -1,0 +1,32 @@
+# Interface definition for thorn movingbox
+
+implements: movingbox_for_boosted_bh
+inherits: grid
+inherits: CarpetRegrid2 SphericalSurface 
+
+friend: BSSN
+friend: shift
+friend: lapse
+friend: diagnostics_vacuum
+friend: ahfinderdirect
+
+USES INCLUDE: Symmetry.h
+
+protected:
+
+private:
+
+cctk_real tmp_gfs type = GF 
+{
+  temp0, tempx,tempy
+} "Temporary gfs used to find the location of max phi"
+
+cctk_real center_origin type = SCALAR
+{
+  xc_prev, yc_prev, zc_prev, max_phi
+} "Position of the moving box center"
+
+cctk_int max_phi_flag 
+{ 
+  find_max_phi
+} "Find maximum phi?"

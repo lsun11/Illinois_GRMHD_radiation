@@ -1,0 +1,2 @@
+# Configuration definitions for thorn WeakRates
+REQUIRES HDF5

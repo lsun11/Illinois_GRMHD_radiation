@@ -1,0 +1,154 @@
+!-----------------------------------------------------------------------------
+!
+! Compute the general ADM mass integrand over the grid.  
+! Since the functions are already centered, 
+! the integral is just a sum times dX dY dZ.
+!
+! M =
+!       3       5          1       5      ij     1         i         j    km
+! \int d x (\psi  \rho + ----- \psi  A   A   - ----- \Gamma    \Gamma    g
+!                        16\pi        ij       16\pi        jk        im
+!
+!            1 - \psi       1       5  2
+!          + -------- R - ----- \psi  K  )
+!             16\pi       24\pi
+!
+!-----------------------------------------------------------------------------
+
+#include "cctk.h"
+#include "cctk_Arguments.h"
+#include "cctk_Functions.h"
+#include "cctk_Parameters.h"
+
+subroutine ADM_mass_integrand(CCTK_ARGUMENTS)
+  implicit none
+
+  !~~~~~> Input parameters:
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+  DECLARE_CCTK_FUNCTIONS
+
+  !~~~~~> Other variables:
+
+  integer :: i,j,k,l,m,n,o
+  integer :: AXISYM
+  real*8  :: expphil,exp5phil,dx
+  real*8  :: gup(1:3,1:3),a(1:3,1:3),gam(1:3,1:3,1:3)
+  real*8  :: pi,f1o16pi
+  real*8, parameter :: f16=16.d0,one=1.d0,fiv=5.d0,fou=4.d0
+  real*8, parameter :: f2o3=2.d0/3.d0
+  parameter(AXISYM=4)
+
+  if(MOD(cctk_iteration,Compute_VolIntegrands_Every)==0) then
+
+     WhichIntegral = 1
+
+     pi = acos( - one )
+     f1o16pi = one/(f16*pi)
+
+     !~~~~~> Set up integration
+     !Reset VolIntegrand quickly, using OpenMP
+     !$omp parallel do
+     do k=1,cctk_lsh(3)
+        do j=1,cctk_lsh(2)
+           do i=1,cctk_lsh(1)
+              VolIntegrand(i,j,k) = 0.D0
+           end do
+        end do
+     end do
+     !$omp end parallel do
+
+!$omp parallel do private(expphil,exp5phil,gup,a,gam)
+     do k = cctk_nghostzones(3)+1,cctk_lsh(3)-cctk_nghostzones(3)
+        do j = cctk_nghostzones(2)+1,cctk_lsh(2)-cctk_nghostzones(2)
+           do i = cctk_nghostzones(1)+1,cctk_lsh(1)-cctk_nghostzones(1)
+              expphil = exp ( phi(i,j,k) )
+              exp5phil = expphil * expphil * expphil * expphil * expphil
+
+              !~~~~~> Assign pointers
+
+              gup(1,1) = gupxx(i,j,k)
+              gup(1,2) = gupxy(i,j,k)
+              gup(1,3) = gupxz(i,j,k)
+              gup(2,1) = gupxy(i,j,k)
+              gup(2,2) = gupyy(i,j,k)
+              gup(2,3) = gupyz(i,j,k)
+              gup(3,1) = gupxz(i,j,k)
+              gup(3,2) = gupyz(i,j,k)
+              gup(3,3) = gupzz(i,j,k)
+
+              a(1,1) = axx(i,j,k)
+              a(1,2) = axy(i,j,k)
+              a(1,3) = axz(i,j,k)
+              a(2,1) = axy(i,j,k)
+              a(2,2) = ayy(i,j,k)
+              a(2,3) = ayz(i,j,k)
+              a(3,1) = axz(i,j,k)
+              a(3,2) = ayz(i,j,k)
+              a(3,3) = azz(i,j,k)
+
+              gam(1,1,1) = gammaxxx(i,j,k)
+              gam(1,1,2) = gammaxxy(i,j,k)
+              gam(1,1,3) = gammaxxz(i,j,k)
+              gam(1,2,1) = gammaxxy(i,j,k)
+              gam(1,2,2) = gammaxyy(i,j,k)
+              gam(1,2,3) = gammaxyz(i,j,k)
+              gam(1,3,1) = gammaxxz(i,j,k)
+              gam(1,3,2) = gammaxyz(i,j,k)
+              gam(1,3,3) = gammaxzz(i,j,k)
+
+              gam(2,1,1) = gammayxx(i,j,k)
+              gam(2,1,2) = gammayxy(i,j,k)
+              gam(2,1,3) = gammayxz(i,j,k)
+              gam(2,2,1) = gammayxy(i,j,k)
+              gam(2,2,2) = gammayyy(i,j,k)
+              gam(2,2,3) = gammayyz(i,j,k)
+              gam(2,3,1) = gammayxz(i,j,k)
+              gam(2,3,2) = gammayyz(i,j,k)
+              gam(2,3,3) = gammayzz(i,j,k)
+
+              gam(3,1,1) = gammazxx(i,j,k)
+              gam(3,1,2) = gammazxy(i,j,k)
+              gam(3,1,3) = gammazxz(i,j,k)
+              gam(3,2,1) = gammazxy(i,j,k)
+              gam(3,2,2) = gammazyy(i,j,k)
+              gam(3,2,3) = gammazyz(i,j,k)
+              gam(3,3,1) = gammazxz(i,j,k)
+              gam(3,3,2) = gammazyz(i,j,k)
+              gam(3,3,3) = gammazzz(i,j,k)
+
+              !~~~~~> Integration sum
+
+              VolIntegrand(i,j,k) =  &
+                   exp5phil *( rho(i,j,k) - f1o16pi * f2o3 * trk(i,j,k) * trk(i,j,k) ) + &
+                   f1o16pi * ( one - expphil )* trrtilde(i,j,k)
+
+              do l = 1,3
+                 do m = 1,3
+                    do n = 1,3
+                       do o = 1,3
+
+                          VolIntegrand(i,j,k) = VolIntegrand(i,j,k) + F1o16pi *( &
+                               exp5phil * A(l,m) * gup(l,n) * gup(m,o) * A(n,o) - &
+                               gam(l,m,n) * gam(m,l,o) * gup(n,o) )
+
+                       end do  !~~> o-loop
+                    end do   !~~> n-loop
+                 end do    !~~> m-loop
+              end do     !~~> l-loop
+
+              if (Symmetry==AXISYM) VolIntegrand(i,j,k) = X(i,1,1)*VolIntegrand(i,j,k)
+
+           end do      !~~> i-loop
+        end do       !~~> j-loop
+     end do        !~~> k-loop
+!$omp end parallel do
+
+     if(num_BHs.gt.0) then
+        call excise_bhs_VolInt(CCTK_PASS_FTOF)
+     end if
+
+     !     write(*,*) "HI. adm mass = ",VolIntegrand(10,10,:)
+
+  end if
+end subroutine ADM_mass_integrand

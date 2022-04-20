@@ -1,0 +1,12 @@
+dxi = 1 / dx;
+dyi = 1 / dy;
+dzi = 1 / dz;
+dxi2 = dxi*dxi;
+dyi2 = dyi*dyi;
+dzi2 = dzi*dzi;
+hdxi = 0.5*dxi;
+hdyi = 0.5*dyi;
+hdzi = 0.5*dzi;
+hdxi2 = 0.5*dxi*dxi;
+hdyi2 = 0.5*dyi*dyi;
+hdzi2 = 0.5*dzi*dzi;

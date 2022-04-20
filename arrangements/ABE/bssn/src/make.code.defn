@@ -1,0 +1,21 @@
+# Main make.code.defn file for thorn bssn
+
+# Source files in this directory
+SRCS =	update_boundary.F90 adm_to_bssn.F90 driver_timestepping.F90 bssn_derivs.F90 CheckParameters.C \
+	Startup.C derivatives.F90 invert_g.F90 MoL_registration.C print_time.F90 \
+	bssn_postinitialdata.F90 BSSN_InitSymBound.C axisym.F90 L1_L2_norms.F90 \
+	enforce_Aij_gij_constraints.C driver_timestepping-cowling.F90 kreiss_oliger_drivers.F90 kreiss_oliger.F90 axisym-excision.F90 \
+	update_falloff.F90 update_falloff_fisheye.F90 shift_upwind.F90 compute_riccinew.C compute_gupij.C gauge_derivs.F90 \
+	shift_upwind.C compute_rhsnew.C sanity_check.C kset_c.F90 excise_integration_region.F90 \
+	iter_count.F90 derivs_interior.C fill_bssn_symmetry_ghostzones.F90 \
+	driver_update_boundary.F90 driver_ricci_constraints.F90 global_edges.F90 driver_post_update_boundary.F90 \
+	compute_rhsnew_AHinterior.C driver_post_regrid.F90 set_have_global_bdry_minmax.F90 \
+	\
+	set_metric_rot_driver.F90 set_metric_rot_lowlevel.C driver_cowling_poststep.F90
+
+#	compute_riccinew_AHinterior.C
+#	compute_riccinew_2ndorderbdry.C compute_riccinew_4thorderbdry.C \
+#	compute_rhsnew_2ndorderbdry.C compute_rhsnew_4thorderbdry.C \
+
+# Subdirectories containing source files
+SUBDIRS = 

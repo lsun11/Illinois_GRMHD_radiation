@@ -1,0 +1,10 @@
+# Configuration definitions for thorn CoordBase
+# $Header: /cactusdevcvs/CactusBase/CoordBase/configuration.ccl,v 1.2 2008/02/20 00:20:32 schnetter Exp $
+
+# This will disappear once we have a requires for function aliasing
+
+PROVIDES CoordBase
+{
+  SCRIPT
+  LANG
+}

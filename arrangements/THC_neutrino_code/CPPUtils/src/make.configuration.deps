@@ -1,0 +1,14 @@
+CPPUTILS_SRC_DIR = $(wildcard $(PACKAGE_DIR)/*/CPPUtils/src)
+
+# Compile rules for the utilities
+
+$(UTIL_DIR)/%: $(BUILD_DIR)/CPPUtils/%.o
+	@echo Creating $* in $(UTIL_DIR) from $<
+	-$(MKDIR) $(MKDIRFLAGS) $(UTIL_DIR) 2>/dev/null
+	$(CXX) $(CREATEEXE) $@ $(DEBUG_LD) $(LDFLAGS) $(EXTRAFLAGS) $(TOP)/datestamp.o $< -L$(CCTK_LIBDIR) -lthorn_CPPUtils -lthorn_Cactus -lthorn_CactusBindings -lthorn_Formaline $(GENERAL_LIBRARIES)
+
+$(BUILD_DIR)/CPPUtils/%.o: $(CPPUTILS_SRC_DIR)/utils/%.cc
+	@echo Compiling $<
+	-$(MKDIR) $(MKDIRFLAGS) $(BUILD_DIR)/CPPUtils 2>/dev/null
+	$(CXX) $< $(CXXFLAGS) -DCCODE -I$(CPPUTILS_SRC_DIR) -I$(CONFIG) -I$(BINDINGS_DIR)/include -I$(BINDINGS_DIR)/include/CPPUtils -I$(FLESH_DIR)/include -I$(CCTK_HOME)/arrangements $(SYS_INC_DIRS:%=-I%) -I$(BOOST_INC_DIRS) $(CCOMPILEONLY) $@ -c
+

@@ -1,0 +1,93 @@
+!/*@@
+!  @file      InitSym_em.F90
+!  @date      November 2012
+!  @author    Vasileios Paschalidis
+!  @desc 
+!  
+!  @enddesc 
+!@@*/
+
+#include "cctk.h"
+#include "cctk_Parameters.h"
+#include "cctk_Arguments.h"
+
+
+!/*@@
+!  @routine    em_extraction_InitSym
+!  @date       November 2012
+!  @author     Vasileios Paschalidis
+!  @desc 
+!  
+!  @enddesc 
+!  @calls     
+!  @calledby   
+!  @history 
+!
+!  @endhistory 
+!@@*/
+
+subroutine em_extraction_InitSym(CCTK_ARGUMENTS)
+  implicit none
+  DECLARE_CCTK_ARGUMENTS
+  DECLARE_CCTK_PARAMETERS
+
+  integer ones(3)
+  integer ierr
+
+  ones(1)=1
+  ones(2)=1
+  ones(3)=-1
+
+  call SetCartSymVN(ierr,cctkGH,ones,'em_extraction::NPphi0re')
+  ones(3) = 1
+  call SetCartSymVN(ierr,cctkGH,ones,'em_extraction::NPphi0im')
+  ones(3) = -1
+
+  call SetCartSymVN(ierr,cctkGH,ones,'em_extraction::NPphi2re')
+  ones(3) = 1
+  call SetCartSymVN(ierr,cctkGH,ones,'em_extraction::NPphi2im')
+
+  ! Vasilis says: The symmetries above should be OK. May need to 
+  ! revisit this though. 
+
+
+  ! Vasilis T_{\hat 0}^{\hat r} should have no symmetry
+  ones(1) = 1
+  ones(2) = 1
+  ones(3) = 1
+  call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::Tlow0upr")
+
+
+  ! Vasilis says: Here's I 'm copying the (equatorial and no symmetry) symmetry 
+  ! conditions applied on mhd_evolve::mhd_st_x, mhd_evolve::mhd_st_y, mhd_evolve::mhd_st_z
+  ! to apply symmetries to the components of the Poynting vector em_extraction::S_Px, em_extraction::S_Py, em_extraction::S_Pz,
+  ! which must follow the same symmetry rules, as the Poynting vector is a vector so its z components must be reflected
+  ! across the z=0 plane. NOTE: these are correct only for equatorial symmetry and no symmetry.
+
+
+
+  call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::SPx")
+  call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::SPy") 
+  call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::T_0x")
+  call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::T_0y") 
+  if (Symmetry==1) then ! Equatorial Symmetry
+     ones(3) = -1
+     call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::SPz") 
+     call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::T_0z")
+  else if (Symmetry==0) then ! No Symmetry
+     ones(3) = -1
+     call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::SPz")
+     call SetCartSymVN(ierr,cctkGH, ones,"em_extraction::T_0z")
+  else 
+     write(*,*) "Stopping: Only Symmetry==0 and Symmetry==1) are supported in em_extraction thorn!"
+     stop
+  end if
+
+  
+  
+
+
+  return
+end subroutine em_extraction_InitSym
+
+

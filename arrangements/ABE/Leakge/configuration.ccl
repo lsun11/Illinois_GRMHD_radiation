@@ -1,0 +1,6 @@
+# Configuration definitions for thorn THC_LeakageBase
+PROVIDES Leakage
+{
+    SCRIPT
+    LANG
+}

@@ -1,0 +1,10 @@
+# Main make.code.defn file for thorn stationary_puncture
+
+# Source files in this directory
+SRCS = initialdata_part1.F90 initialdata_part2.F90 funcv_bisect_step.F90 kset_c.F90 diagnostics.F90 \
+	stationary_puncture_id_nonasymptoticisotropic.F90  \
+	nonKeq0_soln_psi_gauge.C nonKeq0_soln_finalize.F90 kset_c_arborder_nogz.C trans_fish_phys_vector.F90
+
+#	stationary_puncture_id_asymptoticBaumgarte.F90
+#	\
+#	fill_excised_region.F90 binfile_dump.F90 binfile_output.C 
