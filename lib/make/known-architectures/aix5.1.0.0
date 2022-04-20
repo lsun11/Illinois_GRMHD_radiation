@@ -1,0 +1,13 @@
+#! /bin/sh
+#  /*@@
+#    @file      aix5.1.0.0
+#    @date      Feb 2002
+#    @author    Gerd Lanfermann
+#    @desc 
+#   
+#    @enddesc
+#    @version $Header: /cactusdevcvs/Cactus/lib/make/known-architectures/aix5.1.0.0,v 1.1 2002/02/07 11:31:37 lanfer Exp $
+#  @@*/
+
+. $srcdir/known-architectures/aix
+

@@ -1,0 +1,2 @@
+rm -rf configs/giggle
+rm exe/cactus_giggle

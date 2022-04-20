@@ -1,0 +1,38 @@
+# Stuff from extra packages 
+
+# BLAS definitions
+
+# FFTW definitions
+
+# GRACE definitions
+
+# HDF5 definitions
+HAVE_HDF5            = 1
+HDF5_LIBS            = hdf5 z m
+HDF5_LIB_DIRS        = /opt/cray/hdf5/1.10.2.0/INTEL/16.0/lib 
+HDF5_INC_DIRS        = /opt/cray/hdf5/1.10.2.0/INTEL/16.0/include
+
+LIBS         += $(HDF5_LIBS)
+LIBDIRS      += $(HDF5_LIB_DIRS)
+SYS_INC_DIRS += $(HDF5_INC_DIRS)
+
+# LAPACK definitions
+
+# LORENE definitions
+
+# MPI definitions
+HAVE_MPI     = 1
+MPI_LIBS     = mpich
+MPI_LIB_DIRS = 
+MPI_INC_DIRS = 
+
+LIBS         += $(MPI_LIBS)
+LIBDIRS      += $(MPI_LIB_DIRS)
+SYS_INC_DIRS += $(MPI_INC_DIRS)
+
+# PETSC definitions
+
+# PTHREADS definitions
+PTHREADS_LIBS = pthread 
+
+LIBS     += $(PTHREADS_LIBS)

@@ -1,0 +1,1156 @@
+dnl @@
+dnl    @file      configure.in
+dnl    @date      Sun Jan 17 15:54:23 1999
+dnl    @author    Tom Goodale
+dnl    @desc
+dnl               Cactus autoconf script
+dnl    @enddesc
+dnl    @version   $Id: configure.in,v 1.156 2008/02/13 06:55:20 schnetter Exp $
+dnl  @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_REVISION($Header: /cactusdevcvs/Cactus/lib/make/configure.in,v 1.156 2008/02/13 06:55:20 schnetter Exp $)
+
+dnl It looks like older versions of Autoconf don't quite work properly under
+dnl cygwin.
+AC_PREREQ(2.13)
+
+dnl Starts here
+AC_INIT()
+AC_CONFIG_HEADER(cctk_Config.h)
+
+
+#######################################################################
+# determine WARN_MODE from the WARN option
+# if this option isn't set WARN_MODE will default to 'no'
+
+WARN_MODE='no'
+if test -n "$WARN" ; then
+  changequote({, })
+  WARN=`echo $WARN | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+  if test "$WARN" != 'yes' -a "$WARN" != 'no' ; then
+    AC_ERROR(Didn't recognize setting of WARN=\"$WARN\" (should be either \"yes\" or \"no\"))
+  fi
+  WARN_MODE=$WARN
+fi
+
+
+#######################################################################
+# determine DEBUG_MODE from the DEBUG option
+# if this option isn't set DEBUG_MODE will default to 'no'
+if test -n "$DEBUG" ; then
+  changequote({, })
+  DEBUG=`echo $DEBUG | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+fi
+
+if test -n "$DEBUG" -a "$DEBUG" != 'no' ; then
+  AC_DEFINE(CCTK_DEBUG)
+  case "$DEBUG" in
+     memory)
+       AC_DEFINE(CCTK_TRACEMEMORY)
+       ;;
+     flags|yes)
+       DEBUG_FLAGS='yes'
+       ;;
+     defines)
+       AC_DEFINE(DEBUG)
+       ;;
+     all)
+      AC_DEFINE(CCTK_TRACEMEMORY)
+      DEBUG_FLAGS='yes'
+      ;;
+    *)
+      AC_ERROR(Didn't recognize setting of DEBUG=\"$DEBUG\")
+      ;;
+   esac
+fi
+
+
+#######################################################################
+# determine OPTIMISE_MODE from the OPTIMISE/OPTIMIZE option
+# if this option isn't set OPTIMISE_MODE will default to 'yes'
+
+OPTIMISE_MODE='yes'
+if test -n "$OPTIMISE" ; then
+  changequote({, })
+  OPTIMISE=`echo $OPTIMISE | tr '[:upper:]' '[:lower:]'`
+  OPTIMIZE=`echo $OPTIMIZE | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+  if test -n "$OPTIMIZE" -a "$OPTIMISE" != "$OPTIMIZE" ; then
+    AC_ERROR(OPTIMISE=\"$OPTIMISE\" is inconsistent with OPTIMIZE=\"$OPTIMIZE\"!)
+  fi
+  if test "$OPTIMISE" != 'yes' -a "$OPTIMISE" != 'no' ; then
+    AC_ERROR(Didn't recognize setting of OPTIMISE=\"$OPTIMISE\" (should be either \"yes\" or \"no\"))
+  fi
+  OPTIMISE_MODE=$OPTIMISE
+elif test -n "$OPTIMIZE"; then
+  changequote({, })
+  OPTIMISE=`echo $OPTIMIZE | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+  if test "$OPTIMISE" != 'yes' -a "$OPTIMISE" != 'no' ; then
+    AC_ERROR(Didn't recognize setting of OPTIMIZE=\"$OPTIMIZE\" (should be either \"yes\" or \"no\"))
+  fi
+  OPTIMISE_MODE=$OPTIMISE
+fi
+
+
+#######################################################################
+# determine PROFILE_MODE from the PROFILE option
+# if this option isn't set PROFILE_MODE will default to 'no'
+
+PROFILE_MODE='no'
+if test -n "$PROFILE" ; then
+  changequote({, })
+  PROFILE=`echo $PROFILE | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+  if test "$PROFILE" != 'yes' -a "$PROFILE" != 'no' ; then
+    AC_ERROR(Didn't recognize setting of PROFILE=\"$PROFILE\" (should be either \"yes\" or \"no\"))
+  fi
+  PROFILE_MODE=$PROFILE
+fi
+
+
+dnl Check the system type
+AC_CANONICAL_HOST
+
+# See if there are any preferred compilers for this system
+
+CCTK_CONFIG_STAGE='preferred-compilers'
+
+if test -r $srcdir/known-architectures/$host_os ; then
+  . $srcdir/known-architectures/$host_os
+else
+  echo 'Warning: '
+  echo '  Cactus has not been previously compiled for this architecture:'
+  echo "    ($host_os)"
+  echo '  The currently known architectures can be found in'
+  echo "    $srcdir/known-architectures"
+  echo '  The configuration will try to do its best to work things out.'
+  echo '  If you create a known-architectures file for this architecture,'
+  echo "  please send it to cactusmaint@cactuscode.org and we'll include"
+  echo '  it in the next release.'
+fi
+
+# Save these for future use.
+if test -n "$LIBS" ; then
+  KNOWN_LIBS="$LIBS"
+  unset LIBS
+fi
+
+dnl Checks for programs.
+AC_PROG_MAKE_SET
+
+if test -z "$CC" ; then
+  AC_CHECK_PROGS(CC, gcc cc cl xlc)
+fi
+
+CCTK_PROG_CC_WORKS
+AC_PROG_CC_GNU
+
+if test "x$CXX" != 'xnone' ; then
+  if test -z "$CXX" ; then
+    AC_CHECK_PROGS(CXX, c++ g++ gcc CC cxx cc++ cl xlC)
+  fi
+
+  CCTK_PROG_CXX_WORKS
+  AC_PROG_CXX_GNU
+fi
+
+if test -z "$RANLIB" ; then
+  AC_PROG_RANLIB
+fi
+
+dnl Look for a standalone CPP
+
+if test -z "$CPP" ; then
+  AC_PATH_PROGS(CPP, cpp, echo, /lib:/usr/lib:/usr/local/lib:$PATH)
+fi
+
+AC_SUBST(FPPFLAGS)
+
+if test -z "$FPP" ; then
+  AC_PATH_PROGS(FPP, cpp, echo, /lib:/usr/lib:/usr/local/lib:$PATH)
+fi
+
+if test -z "$PERL" ; then
+  AC_CHECK_PROGS(PERL, perl)
+fi
+
+if test -z "$F90" ; then
+  AC_CHECK_PROGS(F90, f90 pgf90 xlf90 ifort gfortran)
+fi
+
+if test -z "$F77" ; then
+  AC_CHECK_PROGS(F77, f77 pgf77 g77 f90 pgf90 xlf90 ifort gfortran)
+fi
+
+if test -z "$AR" ; then
+  AC_CHECK_PROGS(AR, ar)
+fi
+
+if test -z "$MKDIR" ; then
+  AC_CHECK_PROGS(MKDIR, mkdir)
+fi
+
+# autoconf sets $SHELL unconditionally; we can only overwrite it here.
+# The user has to set $CONFIG_SHELL to override this.
+if test -z "$CONFIG_SHELL" ; then
+  AC_CHECK_PROGS(SHELL, bash sh)
+fi
+
+AC_SUBST(LD)
+
+if test -z "$LD" ; then
+  if test "x$CXX" != 'xnone' ; then
+    LD=$CXX
+  else
+    LD=$CC
+  fi
+fi
+
+
+# Restore the values we saved earlier
+if test -n "$KNOWN_LIBS" ; then
+  LIBS="$KNOWN_LIBS"
+  unset KNOWN_LIBS
+fi
+
+# Include some CCTK auxiliary functions
+. $srcdir/CCTK_Functions.sh
+
+# Machine architecture for the build
+AC_DEFINE_UNQUOTED(CCTK_BUILD_OS, "$host_os")
+AC_DEFINE_UNQUOTED(CCTK_BUILD_CPU, "$host_cpu")
+AC_DEFINE_UNQUOTED(CCTK_BUILD_VENDOR, "$host_vendor")
+
+#########################################################################
+# If this is a known architecture, setup any specific flags.
+# This has to be done here as flags given to the compiler may
+# change the things detected later.
+
+# Create a file to put any #defines etc needed for this architecture
+# known architecture stuff should use CCTK_WriteLine cctk_Archdefs "foo" to append to this file.
+CCTK_CreateFile cctk_Archdefs.h '/* Stuff from known architectures */'
+CCTK_WriteLine  cctk_Archdefs.h '#ifndef _CCTK_ARCHDEFS_H_'
+CCTK_WriteLine  cctk_Archdefs.h '#define _CCTK_ARCHDEFS_H_'
+
+CCTK_CreateFile make.arch.defn '# Stuff from known architectures '
+
+CCTK_CONFIG_STAGE='misc'
+
+if test -r $srcdir/known-architectures/$host_os ; then
+. $srcdir/known-architectures/$host_os
+fi
+
+# Finish the architecture stuff
+CCTK_WriteLine cctk_Archdefs.h '#endif /* _CCTK_ARCHDEFS_H_ */'
+
+
+
+# Set the warn flags
+AC_SUBST(WARN_MODE)
+
+# Set the warning flags if they've not been set by now
+# (using GNU compiler warning flags as a reasonable default)
+AC_SUBST(C_WARN_FLAGS)
+if test "$CC" = 'gcc' ; then
+  : ${C_WARN_FLAGS='-Wall -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wbad-function-cast -Wsign-compare'}
+else
+  : ${C_WARN_FLAGS=''}
+fi
+
+AC_SUBST(CXX_WARN_FLAGS)
+if test "$CXX" = 'c++' -o "$CXX" = 'g++' ; then
+  : ${CXX_WARN_FLAGS='-Wall -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Woverloaded-virtual'}
+else
+  : ${CXX_WARN_FLAGS=''}
+fi
+
+AC_SUBST(F77_WARN_FLAGS)
+if test "$F77" = 'g77' ; then
+  : ${F77_WARN_FLAGS='-Wall'}
+else
+  : ${F77_WARN_FLAGS=''}
+fi
+
+AC_SUBST(F90_WARN_FLAGS)
+if test "$F90" = 'gfortran' ; then
+  : ${F90_WARN_FLAGS='-Wall -Wshadow -Wsurprising'}
+else
+  : ${F90_WARN_FLAGS=''}
+fi
+
+
+AC_SUBST(DEBUG_MODE)
+DEBUG_MODE='no'
+if test -n "$DEBUG_FLAGS"; then
+  DEBUG_MODE=$DEBUG_FLAGS
+fi
+
+# Set the debug flags if they've not been set by now
+# (using '-g' as a reasonable default)
+AC_SUBST(C_DEBUG_FLAGS)
+: ${C_DEBUG_FLAGS='-g'}
+
+AC_SUBST(CXX_DEBUG_FLAGS)
+: ${CXX_DEBUG_FLAGS='-g'}
+
+AC_SUBST(F77_DEBUG_FLAGS)
+: ${F77_DEBUG_FLAGS='-g'}
+
+AC_SUBST(F90_DEBUG_FLAGS)
+: ${F90_DEBUG_FLAGS='-g'}
+
+
+# Set the optimization flags if they've not been set by now
+# (using '-O2' as a reasonable default)
+AC_SUBST(OPTIMISE_MODE)
+
+AC_SUBST(C_OPTIMISE_FLAGS)
+: ${C_OPTIMISE_FLAGS='-O2'}
+
+AC_SUBST(CXX_OPTIMISE_FLAGS)
+: ${CXX_OPTIMISE_FLAGS='-O2'}
+
+AC_SUBST(F77_OPTIMISE_FLAGS)
+if test -z "$F77_OPTIMISE_FLAGS" -a "$F77" = 'g77' ; then
+  F77_OPTIMISE_FLAGS='-O2'
+else
+  : ${F77_OPTIMISE_FLAGS=''}
+fi
+
+AC_SUBST(F90_OPTIMISE_FLAGS)
+: ${F90_OPTIMISE_FLAGS=''}
+
+
+# Set the profiling flags if they've not been set by now
+# (using '-pg' as a reasonable default)
+AC_SUBST(PROFILE_MODE)
+
+AC_SUBST(C_PROFILE_FLAGS)
+: ${C_PROFILE_FLAGS='-pg'}
+
+AC_SUBST(CXX_PROFILE_FLAGS)
+: ${CXX_PROFILE_FLAGS='-pg'}
+
+AC_SUBST(F77_PROFILE_FLAGS)
+: ${F77_PROFILE_FLAGS='-pg'}
+
+AC_SUBST(F90_PROFILE_FLAGS)
+: ${F90_PROFILE_FLAGS='-pg'}
+
+##########################################################################
+
+# Deal with the Fortran compiler issues.
+# If there's a Fortran 90 compiler use that for all the Fortran.
+if test "x$F90" != "x" -a "x$F90" != "xnone" -a "x$F77" = "x" ; then
+  F77=$F90
+  F77FLAGS=$F90FLAGS
+  F77_WARN_FLAGS=$F90_WARN_FLAGS
+  F77_DEBUG_FLAGS=$F90_DEBUG_FLAGS
+  F77_OPTIMISE_FLAGS=$F90_OPTIMISE_FLAGS
+  F77_PROFILE_FLAGS=$F90_PROFILE_FLAGS
+fi
+
+# Set default Fortran compilers
+AC_SUBST(F90)
+if test -z "$F90" ; then
+  F90='none'
+fi
+
+AC_SUBST(F77)
+if test -z "$F77" ; then
+  F77='none'
+fi
+
+
+# The known architecture stuff has probably set the LIBS variable
+# So remember what it is and set it to blank to prevent any problems with the
+# rest of the configure stuff.
+
+#########################################################################
+
+KNOWN_LIBS="$LIBS"
+unset LIBS
+
+KNOWN_LDFLAGS="$LDFLAGS"
+unset LDFLAGS
+
+: ${LIBDIR_PREFIX='-L'}
+: ${LIBDIR_SUFFIX=''}
+
+: ${LIBLINK_PREFIX='-l'}
+: ${LIBLINK_SUFFIX=''}
+
+dnl Checks for libraries.
+
+dnl Checks for header files.
+
+AC_HEADER_STDC
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+
+if test "x$cross_compiling" = 'xno' ; then
+  AC_C_BIGENDIAN
+else
+  if test -n "$ENDIAN" ; then
+    if test "$ENDIAN" = 'big' ; then
+      AC_DEFINE(WORDS_BIGENDIAN)
+    fi
+  else
+    AC_MSG_ERROR(Cross-compiling - no value set for endian-ness please set ENDIAN)
+  fi
+fi
+
+# Check for sizes of integer types
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_LONG_LONG" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(long long) please set SIZEOF_LONG_LONG)
+fi
+
+AC_CHECK_SIZEOF(long long, $SIZEOF_LONG_LONG)
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_LONG_INT" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(long int) please set SIZEOF_LONG_INT)
+fi
+
+AC_CHECK_SIZEOF(long int, $SIZEOF_LONG_INT)
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_INT" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(int) please set SIZEOF_INT)
+fi
+
+AC_CHECK_SIZEOF(int, $SIZEOF_INT)
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_SHORT_INT" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(short int) please set SIZEOF_SHORT_INT)
+fi
+
+AC_CHECK_SIZEOF(short int, $SIZEOF_SHORT_INT)
+
+# Check for sizes of floating point types
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_LONG_DOUBLE" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(long double) please set SIZEOF_LONG_DOUBLE)
+fi
+
+AC_CHECK_SIZEOF(long double, $SIZEOF_LONG_DOUBLE)
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_DOUBLE" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(double) please set SIZEOF_DOUBLE)
+fi
+
+AC_CHECK_SIZEOF(double, $SIZEOF_DOUBLE)
+
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_FLOAT" ; then
+  AC_MSG_ERROR(Cross-compiling - no value set for sizeof(float) please set SIZEOF_FLOAT)
+fi
+
+AC_CHECK_SIZEOF(float, $SIZEOF_FLOAT)
+
+# Check for sizes of pointers.
+
+if test "x$cross_compiling" = 'xyes' -a -z "$SIZEOF_POINTER" ; then
+   AC_MSG_ERROR(Cross-compiling - no value set for sizeof(char *) please set SIZEOF_POINTER)
+fi
+
+AC_CHECK_SIZEOF(char *, $SIZEOF_POINTER)
+
+# See if there's a null device, and what it's called
+
+if test "x$cross_compiling" = 'xyes'; then
+  if test -z "$NULL_DEVICE" ; then
+     AC_MSG_WARN(Cross-compiling - no value set for location of null device please set NULL_DEVICE)
+     AC_MSG_WARN(Defaulting to /dev/null)
+     NULL_DEVICE='/dev/null'
+  fi
+  eval "cctk_cv_nulldevice=$NULL_DEVICE"
+  AC_DEFINE_UNQUOTED(NULL_DEVICE, "$cctk_cv_nulldevice")
+else
+  CCTK_FIND_NULLDEVICE
+fi
+
+# Various flags
+
+AC_SUBST(ARFLAGS)
+: ${ARFLAGS=rucs}
+
+# Some architectures can't pass the 's' flag to ar so need to use ranlib
+# to create an index in an archive file.
+AC_SUBST(USE_RANLIB)
+: ${USE_RANLIB=no}
+
+AC_SUBST(RANLIBFLAGS)
+: ${RANLIBFLAGS=-cs}
+
+AC_SUBST(F90FLAGS)
+AC_SUBST(F77FLAGS)
+
+#: ${F90FLAGS="$CFLAGS"}
+#: ${F77FLAGS="$CFLAGS"}
+
+AC_SUBST(CPP_VERSION)
+AC_SUBST(CC_VERSION)
+AC_SUBST(CXX_VERSION)
+AC_SUBST(FPP_VERSION)
+AC_SUBST(F77_VERSION)
+AC_SUBST(F90_VERSION)
+
+dnl Checks for library functions.
+
+# Do we have gethostbyname(3) ?
+# For Solaris we should search in libnsl.so
+CCTK_CHECK_FUNCS(gethostbyname,
+                 ,
+                 CCTK_CHECK_LIB(nsl,
+                                gethostbyname,
+                                AC_DEFINE(HAVE_GETHOSTBYNAME))
+)
+
+# Check if we have mode_t available
+AC_MSG_CHECKING([whether mode_t is defined])
+AC_CACHE_VAL(cctk_cv_have_mode_t,
+[AC_TRY_COMPILE([#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>],
+[mode_t foo; return 0], eval "cctk_cv_have_mode_t=yes",
+eval "cctk_cv_have_mode_t=no")
+])
+if test "$cctk_cv_have_mode_t" = 'yes'; then
+  AC_DEFINE(HAVE_MODE_T)
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+
+dnl Check some timing stuff
+
+CCTK_TIME_GETTIMEOFDAY
+CCTK_TIME_GETRUSAGE
+CCTK_TIME__FTIME
+
+dnl Include file stuff
+
+CCTK_CHECK_HEADERS(time.h)
+CCTK_CHECK_HEADERS(sys/time.h)
+CCTK_CHECK_HEADERS(sys/types.h)
+CCTK_CHECK_HEADERS(unistd.h)
+CCTK_CHECK_HEADERS(string.h)
+CCTK_CHECK_HEADERS(assert.h)
+CCTK_CHECK_HEADERS(tgmath.h)
+CCTK_CHECK_HEADERS(sys/stat.h)
+CCTK_CHECK_HEADERS(getopt.h)
+CCTK_CHECK_HEADERS(dirent.h)
+CCTK_CHECK_HEADERS(c_asm.h)
+CCTK_CHECK_HEADERS(intrinsics.h)
+CCTK_CHECK_HEADERS(mach/mach_time.h)
+CCTK_HEADER_REGEX
+CCTK_CHECK_HEADERS(sys/filio.h,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif])
+CCTK_CHECK_HEADERS(sys/ioctl.h,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif])
+CCTK_CHECK_HEADERS(sys/socket.h,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif])
+CCTK_CHECK_HEADERS(netinet/in.h,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif])
+CCTK_CHECK_HEADERS(netdb.h,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif])
+CCTK_CHECK_HEADERS(arpa/inet.h,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif])
+CCTK_CHECK_HEADERS(winsock2.h)
+CCTK_CHECK_HEADERS(crypt.h,[#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif])
+CCTK_CHECK_HEADERS(signal.h)
+CCTK_CHECK_HEADERS(malloc.h)
+
+AC_HEADER_TIME
+
+#Check type of socklen
+
+# Check if we have socklen_t available
+AC_MSG_CHECKING([whether socklen_t is defined])
+AC_CACHE_VAL(cctk_cv_have_socklen_t,
+[AC_TRY_COMPILE([#include <stdio.h>
+#include <stdlib.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif],
+[socklen_t foo; return 0], eval "cctk_cv_have_socklen_t=yes",
+eval "cctk_cv_have_socklen_t=no")
+])
+if test "$cctk_cv_have_socklen_t" = 'yes'; then
+  AC_DEFINE(HAVE_SOCKLEN_T)
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+# Check if someone has defined SOCKET
+AC_MSG_CHECKING([whether SOCKET is defined])
+AC_CACHE_VAL(cctk_cv_have_SOCKET,
+[AC_TRY_COMPILE([#include <stdio.h>
+#include <stdlib.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif],
+[SOCKET foo; return 0], eval "cctk_cv_have_SOCKET=yes",
+eval "cctk_cv_have_SOCKET=no")
+])
+if test "$cctk_cv_have_SOCKET" = 'yes'; then
+  AC_DEFINE(HAVE_SOCKET_TYPE)
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+# Check for timing functions
+
+dnl AC_CHECK_TYPE([hrtime_t],[AC_DEFINE(HAVE_HRTIME_T, 1, [Define to 1 if hrtime_t is defined in <sys/time.h>])],,[#if HAVE_SYS_TIME_H
+dnl #include <sys/time.h>
+dnl #endif])
+AC_CHECK_TYPE(hrtime_t)
+
+AC_CHECK_FUNCS([gethrtime read_real_time time_base_to_time clock_gettime mach_absolute_time])
+
+dnl Cray UNICOS _rtc() (real-time clock) intrinsic
+AC_MSG_CHECKING([for _rtc intrinsic])
+rtc_ok=yes
+AC_TRY_LINK([#ifdef HAVE_INTRINSICS_H
+#include <intrinsics.h>
+#endif], [_rtc()], [AC_DEFINE(HAVE__RTC,1,[Define if you have the UNICOS _rtc() intrinsic.])], [rtc_ok=no])
+AC_MSG_RESULT($rtc_ok)
+
+# Check for memory allocation functions
+
+CCTK_CHECK_FUNCS(mallinfo)
+CCTK_CHECK_FUNCS(mallopt)
+
+# Check if M_MMAP_THRESHOLD is defined
+AC_MSG_CHECKING([whether M_MMAP_THRESHOLD is defined])
+AC_CACHE_VAL(cctk_cv_have_M_MMAP_THRESHOLD,
+[AC_TRY_COMPILE([#include <stdlib.h>
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif],
+[int x=M_MMAP_THRESHOLD; return 0], eval "cctk_cv_have_M_MMAP_THRESHOLD=yes",
+eval "cctk_cv_have_M_MMAP_THRESHOLD=no")
+])
+if test "$cctk_cv_have_M_MMAP_THRESHOLD" = 'yes'; then
+  AC_DEFINE(HAVE_M_MMAP_THRESHOLD_VALUE)
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+
+# Check if we have __int64
+AC_MSG_CHECKING([if __int64 is defined])
+AC_CACHE_VAL(cctk_cv_have___int64,
+[AC_TRY_COMPILE(,
+[__int64 foo; return 0], eval "cctk_cv_have___int64=yes",
+eval "cctk_cv_have___int64=no")
+])
+if test "$cctk_cv_have___int64" = 'yes'; then
+  CCTK_INT8='__int64'
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+# C++ STL stuff
+
+if test "x$CXX" != 'xnone' ; then
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  CCTK_CHECK_HEADERS(vector vector.h)
+
+dnl  AC_TRY_COMPILE(, bool foo;,
+dnl AC_DEFINE(HAVE_BOOL))
+  AC_LANG_RESTORE
+fi
+
+dnl #######################################################################
+dnl ############################ Misc stuff ###############################
+dnl #######################################################################
+
+dnl Do we need to build the GNU getopt and regex stuff ?
+
+CCTK_CHECK_FUNCS(getopt_long_only)
+
+AC_SUBST(BUILD_GETOPT)
+
+if test "x$cctk_cv_header_getopt_h" = 'xyes' -a "x$ac_cv_func_getopt_long_only" = 'xyes'; then
+  BUILD_GETOPT=no
+else
+  BUILD_GETOPT=yes
+fi
+
+AC_SUBST(BUILD_REGEX)
+
+if test "x$cctk_cv_header_regex_h" = 'xyes' ; then
+  BUILD_REGEX=no
+else
+  BUILD_REGEX=yes
+fi
+
+AC_C_CONST
+#AC_C_INLINE
+CCTK_CHECK_C_INLINE
+
+CCTK_CHECK_C_RESTRICT
+CCTK_CHECK_CXX_RESTRICT
+
+CCTK_C_BOOL
+CCTK_CXX_BOOL
+
+CCTK_FORTRAN_REAL4
+CCTK_FORTRAN_REAL8
+CCTK_FORTRAN_REAL16
+
+CCTK_FORTRAN_COMPLEX8
+CCTK_FORTRAN_COMPLEX16
+CCTK_FORTRAN_COMPLEX32
+
+dnl Do we have crypt(3)
+CCTK_CHECK_FUNC(crypt, , CCTK_CHECK_LIB_FUNC(crypt, crypt))
+
+dnl Do we have finite(3)
+CCTK_CHECK_FUNCS(finite, , CCTK_CHECK_LIB_FUNC(m, finite))
+
+dnl Do we have isnan(3)
+CCTK_CHECK_FUNCS(isnan, , CCTK_CHECK_LIB_FUNC(m, isnan))
+
+dnl Do we have isinf(3)
+CCTK_CHECK_FUNCS(isinf, , CCTK_CHECK_LIB_FUNC(m, isinf))
+
+dnl Do we have mkstemp(3)
+CCTK_CHECK_FUNCS(mkstemp, , CCTK_CHECK_LIB_FUNC(c, mkstemp))
+
+dnl Do we have va_copy(3)
+AC_MSG_CHECKING([for va_copy])
+AC_CACHE_VAL(cctk_cv_have_va_copy,
+[AC_TRY_LINK(
+[#include <stdarg.h>],
+[va_list src, dest; va_copy(dest, src); return 0], eval "cctk_cv_have_va_copy=yes",
+eval "cctk_cv_have_va_copy=no")
+])
+if test "$cctk_cv_have_va_copy" = 'yes'; then
+  AC_DEFINE(HAVE_VA_COPY)
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+
+dnl Checks for availability of pthreads library.
+if test "X$PTHREADS" = 'Xyes'; then
+  PTHREAD_LIBS=
+  CCTK_CHECK_LIB(c_r, main,[PTHREAD_LIBS="c_r" LIBS="$LIBS c_r"],,)
+  CCTK_CHECK_LIB(pthread,
+                 main,
+                 PTHREAD_LIBS="pthread $PTHREAD_LIBS",
+                 CCTK_CHECK_LIB(pthreads,
+                                main,
+                                PTHREAD_LIBS="pthreads $PTHREAD_LIBS",
+                                ,)
+                 ,)
+fi
+
+
+AC_SUBST(LIBDIRS)
+
+AC_SUBST(PACKAGE_DIR)
+AC_SUBST(BUILD_DIR)
+AC_SUBST(CCTK_LIBDIR)
+AC_SUBST(EXEDIR)
+AC_SUBST(EXE)
+
+: ${PACKAGE_DIR=arrangements}
+: ${BUILD_DIR=build}
+: ${CCTK_LIBDIR=lib}
+: ${EXEDIR='$(CCTK_HOME)/exe'}
+: ${EXE=cactus-unknown}
+
+# Integer types
+
+case "x$ac_cv_sizeof_long_long" in
+    'x8')
+      CCTK_INT8='long long' ;;
+    'x4')
+      CCTK_INT4='long long' ;;
+    'x2')
+      CCTK_INT2='long long' ;;
+esac
+
+case "x$ac_cv_sizeof_long_int" in
+    'x8')
+      CCTK_INT8='long int' ;;
+    'x4')
+      CCTK_INT4='long int' ;;
+    'x2')
+      CCTK_INT2='long int' ;;
+esac
+
+case "x$ac_cv_sizeof_int" in
+    'x8')
+      CCTK_INT8='int' ;;
+    'x4')
+      CCTK_INT4='int' ;;
+    'x2')
+      CCTK_INT2='int' ;;
+esac
+
+case "x$ac_cv_sizeof_short_int" in
+    'x8')
+      CCTK_INT8='short int' ;;
+    'x4')
+      CCTK_INT4='short int' ;;
+    'x2')
+      CCTK_INT2='short int' ;;
+esac
+
+CCTK_INT1='signed char'
+
+if test -n "$CCTK_INT8" ; then
+  AC_DEFINE_UNQUOTED(CCTK_INT8, $CCTK_INT8)
+  AC_DEFINE(HAVE_CCTK_INT8)
+fi
+
+if test -n "$CCTK_INT4" ; then
+  AC_DEFINE_UNQUOTED(CCTK_INT4, $CCTK_INT4)
+  AC_DEFINE(HAVE_CCTK_INT4)
+fi
+
+if test -n "$CCTK_INT2" ; then
+  AC_DEFINE_UNQUOTED(CCTK_INT2, $CCTK_INT2)
+  AC_DEFINE(HAVE_CCTK_INT2)
+fi
+
+if test -n "$CCTK_INT1" ; then
+  AC_DEFINE_UNQUOTED(CCTK_INT1, $CCTK_INT1)
+  AC_DEFINE(HAVE_CCTK_INT1)
+fi
+
+# Float types
+case "x$ac_cv_sizeof_long_double" in
+    'x16')
+      CCTK_REAL16='long double' ;;
+    'x8')
+      CCTK_REAL8='long double' ;;
+    'x4')
+      CCTK_REAL4='long double' ;;
+esac
+
+case "x$ac_cv_sizeof_double" in
+    'x16')
+      CCTK_REAL16='double' ;;
+    'x8')
+      CCTK_REAL8='double' ;;
+    'x4')
+      CCTK_REAL4='double' ;;
+esac
+
+case "x$ac_cv_sizeof_float" in
+    'x16')
+      CCTK_REAL16='float' ;;
+    'x8')
+      CCTK_REAL8='float' ;;
+    'x4')
+      CCTK_REAL4='float' ;;
+esac
+
+if test "x$DISABLE_REAL16" != 'xyes' -a "x$DISABLE_REAL16" != 'xno' -a "x$DISABLE_REAL16" != 'x'; then
+    AC_ERROR([Didn't recognise setting of DISABLE_REAL16=\"$DISABLE_REAL16\"; should be either \"yes\" or \"no\" or \"\" (empty)])
+fi
+
+if test -n "$CCTK_REAL16" -a \( "x$F77" = 'xnone' -o \( "x$cctk_cv_have_fortran_real16" = 'xyes' -a "x$cctk_cv_have_fortran_complex32" = 'xyes' \) \) -a "x$DISABLE_REAL16" != 'xyes' ; then
+  AC_DEFINE_UNQUOTED(CCTK_REAL16, $CCTK_REAL16)
+  AC_DEFINE(HAVE_CCTK_REAL16)
+fi
+
+if test -n "$CCTK_REAL8" -a \( "x$F77" = 'xnone' -o \( "x$cctk_cv_have_fortran_real8" -a "x$cctk_cv_have_fortran_complex16" = 'xyes' \) \); then
+  AC_DEFINE_UNQUOTED(CCTK_REAL8, $CCTK_REAL8)
+  AC_DEFINE(HAVE_CCTK_REAL8)
+fi
+
+if test -n "$CCTK_REAL4" -a \( "x$F77" = 'xnone' -o \( "x$cctk_cv_have_fortran_real4" = 'xyes' -a "x$cctk_cv_have_fortran_complex8" = 'xyes' \) \); then
+  AC_DEFINE_UNQUOTED(CCTK_REAL4, $CCTK_REAL4)
+  AC_DEFINE(HAVE_CCTK_REAL4)
+fi
+
+
+# Define the default floating point and integer precisions
+case "x$REAL_PRECISION" in
+  'x16')
+    AC_DEFINE(CCTK_REAL_PRECISION_16) ;;
+  'x8')
+    AC_DEFINE(CCTK_REAL_PRECISION_8) ;;
+  'x4')
+    AC_DEFINE(CCTK_REAL_PRECISION_4) ;;
+  *)
+    AC_DEFINE(CCTK_REAL_PRECISION_8) ;;
+esac
+
+case "x$INTEGER_PRECISION" in
+  'x8')
+    AC_DEFINE(CCTK_INTEGER_PRECISION_8) ;;
+  'x4')
+    AC_DEFINE(CCTK_INTEGER_PRECISION_4) ;;
+  'x2')
+    AC_DEFINE(CCTK_INTEGER_PRECISION_2) ;;
+  *)
+    AC_DEFINE(CCTK_INTEGER_PRECISION_4) ;;
+esac
+
+# Define any code needed before the definition of a Fortran subroutine
+# This is empty on most architectures.
+: ${CCTK_FCALL=''}
+AC_DEFINE_UNQUOTED(CCTK_FCALL, $CCTK_FCALL)
+
+
+# Decide whether the preprocessed C and Fortran files should contain
+# C preprocessor line directives to point to the original source file
+
+# Test for valid setting of option C_LINE_DIRECTIVES/F_LINE_DIRECTIVES
+if test -n "$C_LINE_DIRECTIVES" ; then
+  changequote({, })
+  C_LINE_DIRECTIVES=`echo $C_LINE_DIRECTIVES | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+  if test "$C_LINE_DIRECTIVES" != 'yes' -a "$C_LINE_DIRECTIVES" != 'no' ; then
+    AC_ERROR(Didn't recognize setting of C_LINE_DIRECTIVES=\"$C_LINE_DIRECTIVES\" (should be either \"yes\" or \"no\"))
+  fi
+else
+  C_LINE_DIRECTIVES='no'
+fi
+if test -n "$F_LINE_DIRECTIVES"; then
+  changequote({, })
+  F_LINE_DIRECTIVES=`echo $F_LINE_DIRECTIVES | tr '[:upper:]' '[:lower:]'`
+  changequote([, ])
+  if test "$F_LINE_DIRECTIVES" != 'yes' -a "$F_LINE_DIRECTIVES" != 'no' ; then
+    AC_ERROR(Didn't recognize setting of F_LINE_DIRECTIVES=\"$F_LINE_DIRECTIVES\" (should be either \"yes\" or \"no\"))
+  fi
+else
+  F_LINE_DIRECTIVES='no'
+fi
+
+AC_DEFINE_UNQUOTED(C_LINE_DIRECTIVES, "$C_LINE_DIRECTIVES")
+AC_DEFINE_UNQUOTED(F_LINE_DIRECTIVES, "$F_LINE_DIRECTIVES")
+AC_SUBST(C_LINE_DIRECTIVES)
+AC_SUBST(F_LINE_DIRECTIVES)
+
+
+# Define how to make a directory in the config.h file
+AC_DEFINE_UNQUOTED(MKDIR, "$MKDIR")
+AC_SUBST(MKDIRFLAGS)
+: ${MKDIRFLAGS='-p'}
+AC_DEFINE_UNQUOTED(MKDIRFLAGS, " $MKDIRFLAGS ")
+
+
+# The perl scripts run by the make system need to have their names
+# changed if under cygwin - e.g. //d/foo needs to be d:/foo
+PERL_CONFIGURE_SCRIPT="$srcdir/configure.pl"
+if test "$host_os" = 'cygwin' ; then
+  PERL_CONFIGURE_SCRIPT=`echo $PERL_CONFIGURE_SCRIPT | sed 's,^/cygdrive/\(.\)/,\1:/,' | sed 's,^//\(.\)/,\1:/,'`
+fi
+
+
+AC_SUBST(BUILD_ACTIVETHORNS)
+BUILD_ACTIVETHORNS='$(CCTK_HOME)/lib/sbin/BuildActiveThorns.pl'
+
+AC_SUBST(CST)
+CST='$(CCTK_HOME)/lib/sbin/CST'
+
+AC_SUBST(F_FILE_PROCESSOR)
+F_FILE_PROCESSOR='$(CCTK_HOME)/lib/sbin/f_file_processor.pl'
+AC_SUBST(C_FILE_PROCESSOR)
+C_FILE_PROCESSOR='$(CCTK_HOME)/lib/sbin/c_file_processor.pl'
+
+# Put the libraries from the known-architectures onto the LIB variable.
+LIBS="$LIBS $KNOWN_LIBS"
+LDFLAGS="$LDFLAGS $KNOWN_LDFLAGS"
+
+#Set the compileonly flags if they've not been set by now
+AC_SUBST(CCOMPILEONLY)
+AC_SUBST(FCOMPILEONLY)
+: ${CCOMPILEONLY='-c -o'}
+: ${FCOMPILEONLY='-c -o'}
+
+
+# Set the createexe flag if it's not been set by now
+AC_SUBST(CREATEEXE)
+: ${CREATEEXE='-o'}
+
+# Set the directory seperator for this architecture
+AC_SUBST(DIRSEP)
+: ${DIRSEP='/'}
+
+# Set the option seperator for this architecture.  Hopefully it is the same for all compilers.
+AC_SUBST(OPTIONSEP)
+: ${OPTIONSEP='$(EMPTY_VAR) # a single space'}
+
+# How to name libraries for this system
+AC_SUBST(LIBNAME_PREFIX)
+: ${LIBNAME_PREFIX='lib'}
+AC_SUBST(LIBNAME_SUFFIX)
+: ${LIBNAME_SUFFIX='.a'}
+
+# How to link the cactus libraries
+AC_SUBST(CACTUSLIBLINKLINE)
+: ${CACTUSLIBLINKLINE='-L$(CCTK_LIBDIR) $(addprefix -l, $(ALLCACTUSLIBS))'}
+
+# How to generate dependency info
+AC_SUBST(C_DEPEND)
+: ${C_DEPEND='$(CC) -E -M $(CPPFLAGS)'}
+AC_SUBST(C_DEPEND_OUT)
+: ${C_DEPEND_OUT=' > $@'}
+
+AC_SUBST(CXX_DEPEND)
+: ${CXX_DEPEND='$(CXX) -E -M $(CPPFLAGS)'}
+AC_SUBST(CXX_DEPEND_OUT)
+: ${CXX_DEPEND_OUT=' > $@'}
+
+AC_SUBST(F77_DEPEND)
+: ${F77_DEPEND='$(FPP) -M $(FPPFLAGS)'}
+AC_SUBST(F77_DEPEND_OUT)
+: ${F77_DEPEND_OUT=' > $@'}
+
+AC_SUBST(F_DEPEND)
+: ${F_DEPEND='$(FPP) -M $(FPPFLAGS)'}
+AC_SUBST(F_DEPEND_OUT)
+: ${F_DEPEND_OUT=' > $@'}
+
+# How to generate F90 dependency info for modules
+AC_SUBST(F_DEPEND_MODULES)
+: ${F_DEPEND_MODULES='$(CCTK_HOME)/lib/sbin/f_depend_modules.pl'}
+AC_SUBST(F_DEPEND_MODULES_OUT)
+: ${F_DEPEND_MODULES_OUT=' >> $@'}
+
+# Postprocessing of object files.  Most architectures don't need to do this at all.
+AC_SUBST(C_POSTPROCESSING)
+: ${C_POSTPROCESSING=''}
+AC_SUBST(CXX_POSTPROCESSING)
+: ${CXX_POSTPROCESSING=''}
+AC_SUBST(F77_POSTPROCESSING)
+: ${F77_POSTPROCESSING=''}
+AC_SUBST(F_POSTPROCESSING)
+: ${F_POSTPROCESSING=''}
+AC_SUBST(F90_POSTPROCESSING)
+: ${F90_POSTPROCESSING=''}
+
+# How to generate an intermediate C++ name (some compilers are very picky).
+AC_SUBST(CXX_WORKING_NAME)
+: ${CXX_WORKING_NAME='$(notdir $<)'}
+
+# What is the suffix for freeformat f90 names (some compilers are very picky).
+AC_SUBST(F90_SUFFIX)
+: ${F90_SUFFIX='f90'}
+
+# How to get the current working directory when in the shell
+AC_SUBST(GET_WD)
+: ${GET_WD='pwd'}
+
+# Way for Make to transofrm things like include directories
+# into a form suitable for the compiler.
+AC_SUBST(TRANSFORM_DIRS)
+: ${TRANSFORM_DIRS='$(1)'}
+
+# Any additional system include directories.
+AC_SUBST(SYS_INC_DIRS)
+: ${SYS_INC_DIRS=' '}
+
+# How to link in the non-Cactus libraries:
+# Add -L and -l prefixes, but only for file names;
+# allow arbitrary options in between
+AC_SUBST(GENERAL_LIBRARIES)
+: ${GENERAL_LIBRARIES='$(patsubst -L-%,-%,$(LIBDIRS:%=-L%)) $(patsubst -l-%,-%,$(LIBS:%=-l%))'}
+
+
+# Do we need to make sure Perl makes a backup when editting in place ?
+AC_SUBST(PERL_BACKUP_NECESSARY)
+: ${PERL_BACKUP_NECESSARY=''}
+
+# Cache stuff - this will probably change
+: ${CACHELINE_BYTES='0'}
+: ${CACHE_SIZE='0'}
+AC_DEFINE_UNQUOTED(CCTK_CACHELINE_BYTES, $CACHELINE_BYTES)
+AC_DEFINE_UNQUOTED(CCTK_CACHE_SIZE, $CACHE_SIZE)
+
+
+#########################################################################
+#Check for extra stuff
+#########################################################################
+CCTK_CreateFile cctk_Extradefs.h '/* Stuff from extra packages */'
+CCTK_WriteLine  cctk_Extradefs.h '#ifndef _CCTK_EXTRADEFS_H_'
+CCTK_WriteLine  cctk_Extradefs.h '#define _CCTK_EXTRADEFS_H_'
+
+CCTK_CreateFile make.extra.defn '# Stuff from extra packages '
+
+for extra in `ls $srcdir/extras`
+do
+  if test -d $srcdir/extras/$extra ; then
+    if test -x $srcdir/extras/$extra/setup.sh ; then
+        # Put some comment lines in the files.
+        CCTK_WriteLine cctk_Extradefs.h ''
+        CCTK_WriteLine cctk_Extradefs.h '/* $extra definitions */'
+        CCTK_WriteLine make.extra.defn ''
+        CCTK_WriteLine make.extra.defn "# $extra definitions"
+        # Call the setup script
+        . $srcdir/extras/$extra/setup.sh
+    fi
+  fi
+done
+
+# Find the X libraries in case people need them
+# Commented out as should now be able able to use configure.ccl scripts
+# to do this on an individual basis.
+
+if test "x$CCTK_NEED_X" = 'xyes' ; then 
+AC_PATH_X
+fi
+AC_SUBST(X_LIB_DIR)
+AC_SUBST(X_INC_DIR)
+
+X_LIB_DIR="$x_libraries"
+X_INC_DIR="$x_includes"
+
+# Finish the cctk_Extradefs.h file
+CCTK_WriteLine cctk_Extradefs.h ''
+CCTK_WriteLine cctk_Extradefs.h '#endif /*_CCTK_EXTRADEFS_H*/'
+
+dnl Run any other scripts necessary
+
+AC_OUTPUT_COMMANDS(,$PERL -s $PERL_CONFIGURE_SCRIPT -compiler_f77="$F77" -opts_f77="$F77FLAGS" -compiler_f90="$F90" -opts_f90="$F90FLAGS" .)
+
+dnl Output everything
+CCTK_FinishFiles
+AC_OUTPUT(make.config.defn make.config.deps make.config.rules)

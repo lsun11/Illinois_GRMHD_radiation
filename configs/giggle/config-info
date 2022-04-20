@@ -1,0 +1,26 @@
+# CONFIGURATION  : giggle
+# CONFIG-DATE    : Wed Oct 13 18:12:27 2021 (GMT)
+# CONFIG-HOST    : h2ologin3
+# CONFIG-STATUS  : 0
+# CONFIG-MODIFIED: Wed Oct 13 18:12:33 2021 (GMT)
+# CONFIG-OPTIONS :
+CC=cc
+CFLAGS=-std=gnu99 
+CXX=CC -DMPICH_IGNORE_CXX_SEEK 
+CXXFLAGS=-fpermissive 
+CXX_OPTIMISE_FLAGS=-I/sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0/include/ -fast -diag-enable=vec -no-ipo -O2 -qopenmp 
+C_OPTIMISE_FLAGS=-I/sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0/include/ -fast -diag-enable=vec -no-ipo -O2 -qopenmp 
+F77=ftn 
+F77FLAGS=
+F77_OPTIMISE_FLAGS=-fast -diag-enable=vec -no-ipo -O2 -qopenmp 
+F90=ftn 
+F90FLAGS=
+F90_OPTIMISE_FLAGS=-fast -diag-enable=vec -no-ipo -O2 -qopenmp 
+GSL_DIR=/sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0
+HDF5=yes 
+HDF5_DIR=/opt/cray/hdf5/1.10.2.0/INTEL/16.0
+LD=echo -L/sw/xe/gsl/1.16-2014-12/cnl4.0_intel15.0.0/lib -lgsl -lgslcblas -Wl,--allow-multiple-definition 
+MPI=CUSTOM 
+MPI_LIBS=mpich 
+OPENMP=yes 
+PTHREADS=yes 

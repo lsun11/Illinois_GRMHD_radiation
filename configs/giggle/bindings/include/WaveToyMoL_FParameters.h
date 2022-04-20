@@ -1,0 +1,36 @@
+#define DECLARE_CCTK_PARAMETERS \
+CCTK_REAL  excision_radius&&\
+CCTK_REAL  run_time&&\
+CCTK_INT Symmetry&&\
+CCTK_INT bssn_enable&&\
+CCTK_INT cowling_enable&&\
+CCTK_INT excision_enable&&\
+CCTK_INT fisheye_enable&&\
+CCTK_INT iter_count&&\
+CCTK_INT number_of_mol_ministeps&&\
+CCTK_INT rot_metric&&\
+CCTK_INT trA_detg_enforce&&\
+COMMON /cctk_params_global/excision_radius,run_time,Symmetry,bssn_enable,cowling_enable,excision_enable,fisheye_enable,iter_count,number_of_mol_ministeps,rot_metric,trA_detg_enforce&&\
+CCTK_INT WaveToyMoL_MaxNumEvolvedVars&&\
+COMMON /WaveToyMoLrest/WaveToyMoL_MaxNumEvolvedVars&&\
+CCTK_STRING  bound&&\
+CCTK_INT estimate_error&&\
+CCTK_INT order&&\
+COMMON /WaveToyMoLpriv/bound,estimate_error,order&&\
+CCTK_INT CCTKH0&&\
+CCTK_INT CCTKH1&&\
+CCTK_INT CCTKH2&&\
+CCTK_INT CCTKH3&&\
+CCTK_INT CCTKH4&&\
+CCTK_INT CCTKH5&&\
+CCTK_INT CCTKH6&&\
+CCTK_INT CCTKH7&&\
+CCTK_INT CCTKH8&&\
+CCTK_INT CCTKH9&&\
+CCTK_INT CCTKH10&&\
+CCTK_INT CCTKH11&&\
+CCTK_INT MoL_Num_Evolved_Vars&&\
+CCTK_INT CCTKH12&&\
+CCTK_INT CCTKH13&&\
+COMMON /METHODOFLINESrest/CCTKH0,CCTKH1,CCTKH2,CCTKH3,CCTKH4,CCTKH5,CCTKH6,CCTKH7,CCTKH8,CCTKH9,CCTKH10,CCTKH11,MoL_Num_Evolved_Vars,CCTKH12,CCTKH13&&\
+

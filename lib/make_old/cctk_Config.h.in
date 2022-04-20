@@ -1,0 +1,260 @@
+#ifndef _CCTK_CONFIG_H_
+#define _CCTK_CONFIG_H_
+
+/* Define if your processor stores words with the most significant
+   byte first (like Motorola and SPARC, unlike Intel and VAX).  */
+#undef WORDS_BIGENDIAN
+
+/* Define if standard C headers are available. */
+#undef STDC_HEADERS
+
+/* Modifier for Fortran function definitions. */
+#undef CCTK_FCALL
+
+/* What debugging options to use */
+#undef CCTK_DEBUG
+#undef CCTK_TRACEMEMORY
+
+/* Various library functions */
+#undef HAVE_GETHOSTBYNAME
+#undef HAVE_GETOPT_LONG_ONLY
+#undef HAVE_CRYPT
+#undef HAVE_FINITE
+#undef HAVE_ISNAN
+#undef HAVE_ISINF
+#undef HAVE_MKSTEMP
+#undef HAVE_VA_COPY
+
+/* Do we have mode_t ? */
+#undef HAVE_MODE_T
+
+/* Do we have SOCKET ? */
+#undef HAVE_SOCKET_TYPE
+
+/* Do we have socklen_t ? Default to 'int' if not. */
+#undef HAVE_SOCKLEN_T
+#ifdef HAVE_SOCKLEN_T
+#  define CCTK_SOCKLEN_T socklen_t
+#else
+#  define CCTK_SOCKLEN_T int
+#endif
+
+/* Do we have hrtime_t ? */
+#undef HAVE_HRTIME_T
+
+/* Some timing functions */
+#undef HAVE_GETHRTIME
+#undef HAVE_READ_REAL_TIME
+#undef HAVE_TIME_BASE_TO_TIME
+#undef HAVE_CLOCK_GETTIME
+#undef HAVE_MACH_ABSOLUTE_TIME
+
+/* Cray UNICOS _rtc() (real-time clock) intrinsic */
+#undef HAVE__RTC
+
+/* Some include things */
+#undef HAVE_TIME_H
+#undef HAVE_SYS_FILIO_H
+#undef HAVE_SYS_IOCTL_H
+#undef HAVE_SYS_SOCKET_H
+#undef HAVE_SYS_TIME_H
+#undef HAVE_SYS_TYPES_H
+#undef HAVE_UNISTD_H
+#undef HAVE_STRING_H
+#undef HAVE_ASSERT_H
+#undef HAVE_TGMATH_H
+#undef HAVE_SYS_STAT_H
+#undef HAVE_GETOPT_H
+#undef HAVE_REGEX_H
+#undef HAVE_NETINET_IN_H
+#undef HAVE_NETDB_H
+#undef HAVE_ARPA_INET_H
+#undef HAVE_WINSOCK2_H
+#undef HAVE_CRYPT_H
+#undef HAVE_DIRENT_H
+#undef HAVE_C_ASM_H
+#undef HAVE_INTRINSICS_H
+#undef HAVE_MACH_MACH_TIME_H
+#undef HAVE_SIGNAL_H
+#undef HAVE_MALLOC_H
+#undef HAVE_MALLINFO
+#undef HAVE_MALLOPT
+#undef HAVE_M_MMAP_THRESHOLD_VALUE
+
+#undef TIME_WITH_SYS_TIME
+
+/* Which format does the C++ STL on this machine provide. */
+#undef HAVE_VECTOR
+#undef HAVE_VECTOR_H
+
+/* Timing stuff */
+#undef HAVE_TIME_GETTIMEOFDAY
+#undef GETTIMEOFDAY_NEEDS_TIMEZONE
+#undef HAVE_TIME_GETRUSAGE
+#undef HAVE_TIME__FTIME
+
+/* Cache stuff */
+#undef CCTK_CACHELINE_BYTES
+#undef CCTK_CACHE_SIZE
+
+/* The name of the NULL device for redirecting things to */
+#undef NULL_DEVICE
+
+/* Define the machine architecture for the build */
+#undef CCTK_BUILD_OS
+#undef CCTK_BUILD_CPU
+#undef CCTK_BUILD_VENDOR
+
+/******************************************************************************/
+
+/* Size info for various datatypes */
+#undef SIZEOF_SHORT_INT
+#undef SIZEOF_INT
+#undef SIZEOF_LONG_INT
+#undef SIZEOF_LONG_LONG
+#undef SIZEOF_LONG_DOUBLE
+#undef SIZEOF_DOUBLE
+#undef SIZEOF_FLOAT
+#undef SIZEOF_CHAR_P
+
+/* The chosen CCTK precision */
+
+/* Floating point precision */
+#undef CCTK_REAL_PRECISION_16
+#undef CCTK_REAL_PRECISION_8
+#undef CCTK_REAL_PRECISION_4
+
+/* Integer precision */
+#undef CCTK_INTEGER_PRECISION_8
+#undef CCTK_INTEGER_PRECISION_4
+#undef CCTK_INTEGER_PRECISION_2
+#undef CCTK_INTEGER_PRECISION_1
+
+/* Integer sizes */
+#undef HAVE_CCTK_INT8
+#undef HAVE_CCTK_INT4
+#undef HAVE_CCTK_INT2
+#undef HAVE_CCTK_INT1
+
+/* Float sizes */
+#undef HAVE_CCTK_REAL16
+#undef HAVE_CCTK_REAL8
+#undef HAVE_CCTK_REAL4
+
+/******************************************************************************/
+
+#ifdef CCODE
+
+/* CCTK C/C++ Integer datatypes */
+#undef CCTK_INT8
+#undef CCTK_INT4
+#undef CCTK_INT2
+#undef CCTK_INT1
+
+/* CCTK C/C++ Float datatypes */
+#undef CCTK_REAL16
+#undef CCTK_REAL8
+#undef CCTK_REAL4
+
+/****************************************************************************/
+/* C specific stuff */
+/****************************************************************************/
+#ifndef __cplusplus
+
+/* Define to empty if the 'inline' keyword does not work. */
+#undef inline
+
+/* Define to empty if the 'const' keyword does not work. */
+#undef const
+
+/* Define to empty if the 'restrict' keyword does not work. */
+#undef CCTK_C_RESTRICT
+#ifdef CCTK_C_RESTRICT
+#define restrict CCTK_C_RESTRICT
+#endif
+
+/* Allow the use of CCTK_RESTRICT as a qualifier always. */
+#ifdef CCTK_C_RESTRICT
+#define CCTK_RESTRICT CCTK_C_RESTRICT
+#else
+#define CCTK_RESTRICT restrict
+#endif
+
+/* Some C compilers (e.g. c99 ones) define bool */
+#undef HAVE_CCTK_C_BOOL
+
+/* deprecated in beta15 */
+#ifdef HAVE_CCTK_C_BOOL
+#define CCTK_HAVE_C_BOOL
+#endif
+
+/* Since this is non-standard leave commented out for the moment */
+#if 0
+#ifndef HAVE_CCTK_C_BOOL
+typedef enum {false, true} bool;
+#endif /* HAVE_CCTK_CXX_BOOL */
+#endif
+
+#endif /* ! defined __cplusplus */
+/****************************************************************************/
+
+/****************************************************************************/
+/* C++ specific stuff */
+/****************************************************************************/
+#ifdef __cplusplus
+
+/* Some C++ compilers don't have bool ! */
+#undef HAVE_CCTK_CXX_BOOL
+
+#ifndef HAVE_CCTK_CXX_BOOL
+typedef enum {false, true} bool;
+#else
+/* deprecated in beta15 */
+#define CCTK_HAVE_CXX_BOOL
+#endif
+
+/* Some C++ compilers recognise the restrict keyword */
+#undef CCTK_CXX_RESTRICT
+
+/* Since this is non-standard leave commented out for the moment */
+#if 0
+/* Define to empty if the keyword does not work. */
+#ifdef CCTK_CXX_RESTRICT
+#define restrict CCTK_CXX_RESTRICT
+#endif
+#endif
+
+/* Allow the use of CCTK_RESTRICT as a qualifier always. */
+#ifdef CCTK_CXX_RESTRICT
+#define CCTK_RESTRICT CCTK_CXX_RESTRICT
+#else
+#define CCTK_RESTRICT restrict
+#endif
+
+#endif /* __cplusplus */
+/****************************************************************************/
+
+#endif /* CCODE */
+
+#ifdef FCODE
+
+#undef HAVE_CCTK_FORTRAN_REAL4
+#undef HAVE_CCTK_FORTRAN_REAL8
+#undef HAVE_CCTK_FORTRAN_REAL16
+
+#undef HAVE_CCTK_FORTRAN_COMPLEX8
+#undef HAVE_CCTK_FORTRAN_COMPLEX16
+#undef HAVE_CCTK_FORTRAN_COMPLEX32
+
+#endif /* FCODE */
+
+/* Now include the code to pick an appropriate precison for reals and ints */
+#include "cctk_Types.h"
+
+/* Include any other stuff which is specific to this architecture */
+#include "cctk_Archdefs.h"
+
+/* Include any extra stuff from optional extra packages. */
+#include "cctk_Extradefs.h"
+
+#endif /* _CCTK_CONFIG_H_ */

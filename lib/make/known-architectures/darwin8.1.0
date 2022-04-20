@@ -1,0 +1,13 @@
+#! /bin/sh
+# /*@@
+#   @file    darwin8.1.0
+#   @date    Mon 25 July 2005 
+#   @author  Thomas Radke
+#   @desc
+#            Known architecture stuff for MacOS X (Darwin) release 8.1.0
+#   @enddesc
+#   @version $Header: /cactusdevcvs/Cactus/lib/make/known-architectures/darwin8.1.0,v 1.1 2005/07/25 15:51:39 tradke Exp $
+# @@*/
+
+. $srcdir/known-architectures/darwin
+

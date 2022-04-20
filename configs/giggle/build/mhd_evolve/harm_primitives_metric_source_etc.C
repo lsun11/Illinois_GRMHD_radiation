@@ -1,0 +1,449 @@
+// Here is a wrapper for the 2d solver described in Noble et al.  
+// It is meant to be an interface with their code.
+// Note that it assumes a simple gamma law for the moment.  No hybrid.
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <sys/time.h>
+#include <math.h>
+#include "cctk.h"
+#include "harm_u2p_defs.h"
+#include "harm_primitives_headers.h"
+
+#define SQR(x) ((x) * (x))
+
+template <class T> const T& max (const T& a, const T& b) {
+  return (a<b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
+}
+template <class T> const T& min (const T& a, const T& b) {
+  return (a<b)?b:a;
+}
+
+void compute_pcold_epscold_cpp(double &rhob, double &P_cold, double &eps_cold,
+                               int &neos, int &ergo_star, double &ergo_sigma, double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, int &enable_OS_collapse);
+
+extern "C" void CCTK_FCALL metric_source_terms_and_misc_vars_
+  (const cGH **cctkGH,int *ext,
+   double *rho,double *Sx,double *Sy,double *Sz,
+   double *Sxx,double *Sxy,double *Sxz,double *Syy,double *Syz,double *Szz,
+   double *tau_rad, double *S_rad_x, double *S_rad_y, double *S_rad_z,
+   double *rho_Ye, double *Y_e,
+   double *E_rad,  double *F_radx, double *F_rady,double *F_radz, double *F_rad0,double *F,
+   double *h,double *w, 
+   double *st_x,double *st_y,double *st_z,
+   double *Ex,double *Ey,double *Ez,
+   double *sbt,double *sbx,double *sby,double *sbz,
+   double *lapm1,double *shiftx,double *shifty,double *shiftz,
+   double *phi,double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+   double *P,double *rho_b,double *u0,double *vx,double *vy,double *vz,
+   double *Bx,double *By,double *Bz,
+   double *rho_star,double *mhd_st_x,double *mhd_st_y,double *mhd_st_z,
+   int &neos,int &ergo_star, double &ergo_sigma,
+   double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,
+   double &rho_b_atm, int &enable_OS_collapse, int &rad_evolve_enable, int &rad_closure_scheme, double &Psi6threshold,double &Erad_atm_cut);
+
+void metric_source_terms_and_misc_vars(const cGH *cctkGH,int *ext,double *rho,double *Sx,double *Sy,double *Sz,
+				       double *Sxx,double *Sxy,double *Sxz,double *Syy,double *Syz,double *Szz,
+				       double *tau_rad, double *S_rad_x, double *S_rad_y, double *S_rad_z,
+				       double *rho_Ye, double *Y_e,
+				       double *E_rad, double *F_radx, double *F_rady,double *F_radz, double *F_rad0,double *F,
+				       double *h,double *w,
+				       double *st_x,double *st_y,double *st_z,
+				       double *Ex,double *Ey,double *Ez,
+				       double *sbt,double *sbx,double *sby,double *sbz,
+				       double *lapm1,double *shiftx,double *shifty,double *shiftz,
+				       double *phi,double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+				       double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+				       double *P,double *rho_b,double *u0,double *vx,double *vy,double *vz,
+				       double *Bx,double *By,double *Bz,
+				       double *rho_star,double *mhd_st_x,double *mhd_st_y,double *mhd_st_z,
+				       int &neos,int &ergo_star, double &ergo_sigma,
+				       double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab, 
+				       double &rho_b_atm, int &enable_OS_collapse, int &rad_evolve_enable, int &rad_closure_scheme, double &Psi6threshold,double &Erad_atm_cut) {
+  //printf ("start metric_source_terms_and_misc_vars!!!!!! \n");
+#pragma omp parallel for
+  for(int k=0;k<ext[2];k++)
+    for(int j=0;j<ext[1];j++)
+      for(int i=0;i<ext[0];i++) {
+	int index = CCTK_GFINDEX3D(cctkGH,i,j,k);
+
+	
+
+        if(isnan(mhd_st_x[index])) { printf("Inside metric source, found nan in msx %d %d %d\n",i,j,k); }
+        if(isnan(mhd_st_y[index])) { printf("Inside metric source, found nan in msy %d %d %d\n",i,j,k); }
+        if(isnan(mhd_st_z[index])) { printf("Inside metric source, found nan in msz %d %d %d\n",i,j,k); }
+
+	//	if(h[index]==0.0) {printf("Inside metric source, h[index] is 0!!!! %d %d %d\n",i,j,k);}
+       
+	//	if(i==0&&j==0) { printf("Inside metric source, i=j=0, k=%d\n", k);
+	// printf("Inside metric source, i,j, k, h[index] is %d, %d, %d, %e \n",i,j,k,h[index]);}
+
+        double f1o8p = 1.0/(8.0*M_PI);
+        double f1o4p = 2.0*f1o8p;
+
+	double rho_starL = rho_star[index];
+
+	double alpn1 = lapm1[index] + 1.0;
+        double alpn1_inv = 1.0/alpn1;
+
+	double au0m1 = alpn1*u0[index]-1.0;
+
+	double BxL = Bx[index];
+        double ByL = By[index];
+        double BzL = Bz[index];
+
+
+	double gxxL = gxx[index];                                                                                              
+	double gxyL = gxy[index];                                                                                           
+	double gxzL = gxz[index];                                                     
+	double gyyL = gyy[index];                   
+	double gyzL = gyz[index];                                                   
+        double gzzL = gzz[index];                                                                                                
+	
+	double shiftxL = shiftx[index];                                          
+	double shiftyL = shifty[index];                              
+        double shiftzL = shiftz[index];
+
+	double Psi2 = exp(2.0*phi[index]);
+	double Psi4 = Psi2*Psi2;
+        double Psim4 = 1.0/Psi4;
+        double Psi6 = Psi4*Psi2;
+        double Psim6 = 1.0/Psi6;
+
+	double u_xl, u_yl, u_zl;
+	double u_xll,u_yll,u_zll;
+	double u0L, PL, rho_bL;
+	double ux_l, uy_l, uz_l;
+
+	if (rho_starL < 0.0){
+	  rho_bL = rho_b_atm;
+	  //printf ("negative rho_star found!!!");
+	  double P_cold, eps_cold;
+	  compute_pcold_epscold_cpp(rho_bL, P_cold, eps_cold,
+				    neos, ergo_star, ergo_sigma, rho_tab,P_tab,eps_tab,k_tab,gamma_tab, enable_OS_collapse);
+	  PL = P_cold;
+	  double eps= eps_cold;
+	  double h_l = 1.0 + PL/rho_bL + eps;
+	  
+	  u0[index] = 1.0*alpn1_inv;
+	  vx[index] = -shiftxL;
+	  vy[index] = -shiftyL;
+	  vz[index] = -shiftzL;
+	  
+
+	  ux_l = vx[index]*u0[index];
+	  uy_l = vy[index]*u0[index];
+	  uz_l = vz[index]*u0[index];
+
+	  double B2 = Psi4*( gxxL*SQR(BxL) +
+                      2.0*gxyL*BxL*ByL +
+                      2.0*gxzL*BxL*BzL +
+                      gyyL*SQR(ByL) +
+                      2.0*gyzL*ByL*BzL +
+                      gzzL*SQR(BzL) );
+	  double xsb2 = B2*f1o4p;
+	  rho_star[index] = Psi6*rho_bL;
+	  st_x[index]  = 0.0;
+	  st_y[index]  = 0.0;
+	  st_z[index]  = 0.0;
+	  mhd_st_x[index] = 0.0;
+	  mhd_st_y[index] = 0.0;
+	  mhd_st_z[index] = 0.0;
+	  u_xll   = 0.0;
+	  u_yll   = 0.0;
+	  u_zll   = 0.0;
+	  h[index]     = h_l;
+	  w[index]     = rho_star[index];
+	  rho_b[index] = rho_bL;
+	  P[index]     = PL;
+	  rho[index]   = rho_bL*(1.0+eps);
+	  Sx[index]    = 0.0;
+	  Sy[index]    = 0.0;
+	  Sz[index]    = 0.0;
+	  Sxx[index]   = Psi4 * gxxL * PL;
+	  Sxy[index]   = Psi4 * gxyL * PL;
+	  Sxz[index]   = Psi4 * gxzL * PL;
+	  Syy[index]   = Psi4 * gyyL * PL;
+	  Syz[index]   = Psi4 * gyzL * PL;
+	  Szz[index]   = Psi4 * gzzL * PL;	  
+
+	}
+	else{
+	u0L = u0[index];
+	PL = P[index];
+	rho_bL = rho_b[index];
+	//	double au0m1 = alpn1*u0L-1.0;
+
+	u_xll = (gxxL*(shiftxL+vx[index]) + 
+			gxyL*(shiftyL+vy[index]) + 
+			gxzL*(shiftzL+vz[index]))*Psi4*u0L;
+	u_yll = (gxyL*(shiftxL+vx[index]) + 
+			gyyL*(shiftyL+vy[index]) + 
+			gyzL*(shiftzL+vz[index]))*Psi4*u0L;
+        u_zll = (gxzL*(shiftxL+vx[index]) + 
+			gyzL*(shiftyL+vy[index]) + 
+			gzzL*(shiftzL+vz[index]))*Psi4*u0L;
+
+	u_xl = u_xll;
+	u_yl = u_yll;
+	u_zl = u_zll;
+
+	w[index] = (1.0+lapm1[index])*u0L*rho_starL;
+	double st_x_l = rho_starL*h[index]*u_xl;
+	double st_y_l = rho_starL*h[index]*u_yl;
+	double st_z_l = rho_starL*h[index]*u_zl;
+
+	st_x[index] = st_x_l;
+	st_y[index] = st_y_l;
+	st_z[index] = st_z_l;
+
+	ux_l = vx[index]*u0L;
+	uy_l = vy[index]*u0L;
+	uz_l = vz[index]*u0L;
+
+
+	double fac;
+
+        if(w[index]==0.0 || h[index] == 0.0){
+          fac = 0.0;
+        }
+        else{
+          fac = 1.0 / ( Psi6 * w[index]* h[index] ) ;
+        }
+
+
+	rho[index] = h[index] * w[index] * Psim6 - PL;
+	Sx[index]  = st_x_l * Psim6;
+	Sy[index]  = st_y_l * Psim6; 
+	Sz[index]  = st_z_l * Psim6;
+	Sxx[index] = fac * st_x_l*st_x_l + Psi4 * gxxL * PL;
+	Sxy[index] = fac * st_x_l*st_y_l + Psi4 * gxyL * PL;
+	Sxz[index] = fac * st_x_l*st_z_l + Psi4 * gxzL * PL;
+	Syy[index] = fac * st_y_l*st_y_l + Psi4 * gyyL * PL;
+	Syz[index] = fac * st_y_l*st_z_l + Psi4 * gyzL * PL;
+	Szz[index] = fac * st_z_l*st_z_l + Psi4 * gzzL * PL;
+
+	/*
+	if(isnan(Sxx[index])) { printf("BAD sxx BEFORE MHD: %d %d %d %e.  %e %e %e %e %e %e %e %e %e %e\n",
+				       i,j,k,Sxx[index],Psi4,w[index],gxxL,gxyL,gyyL,rho_starL,h[index],u_xl,PL,rho_bL);
+          printf("%e,%e,%e,%e,%e\n", st_x_l, st_y_l, st_z_l, rho_star[index], u_xl);
+	}
+	*/
+
+	}
+
+
+	// MHD metric sources
+
+	double E_xl = Psi6 * ( ByL*(vz[index]+shiftzL) 
+			       - BzL*(vy[index]+shiftyL) )*alpn1_inv;
+	double E_yl = Psi6 * ( BzL*(vx[index]+shiftxL) 
+			       - BxL*(vz[index]+shiftzL) )*alpn1_inv;
+	double E_zl = Psi6 * ( BxL*(vy[index]+shiftyL) 
+			       - ByL*(vx[index]+shiftxL) )*alpn1_inv;
+	Ex[index] = (gupxx[index]*E_xl + gupxy[index]*E_yl + 
+		     gupxz[index]*E_zl)*Psim4;
+	Ey[index] = (gupxy[index]*E_xl + gupyy[index]*E_yl + 
+		     gupyz[index]*E_zl)*Psim4;
+	Ez[index] = (gupxz[index]*E_xl + gupyz[index]*E_yl + 
+		     gupzz[index]*E_zl)*Psim4;
+	double B_xl  = Psi4 * (gxxL * BxL + gxyL * ByL 
+			       + gxzL * BzL);
+	double B_yl  = Psi4 * (gxyL * BxL + gyyL * ByL 
+			       + gyzL * BzL);
+	double B_zl  = Psi4 * (gxzL * BxL + gyzL * ByL 
+			       + gzzL * BzL);
+        double temp = f1o8p*(Ex[index]*E_xl + Ey[index]*E_yl + Ez[index]*E_zl 
+			     + BxL*B_xl + ByL*B_yl + BzL*B_zl);
+	rho[index]   = rho[index] + temp;
+	Sxx[index]   = Sxx[index] + temp*Psi4*gxxL 
+	  - f1o4p*(E_xl*E_xl + B_xl*B_xl);
+	Sxy[index]   = Sxy[index] + temp*Psi4*gxyL 
+	  - f1o4p*(E_xl*E_yl + B_xl*B_yl);
+	Sxz[index]   = Sxz[index] + temp*Psi4*gxzL 
+	  - f1o4p*(E_xl*E_zl + B_xl*B_zl);
+	Syy[index]   = Syy[index] + temp*Psi4*gyyL 
+	  - f1o4p*(E_yl*E_yl + B_yl*B_yl);
+	Syz[index]   = Syz[index] + temp*Psi4*gyzL 
+	  - f1o4p*(E_yl*E_zl + B_yl*B_zl);
+	Szz[index]   = Szz[index] + temp*Psi4*gzzL 
+	  - f1o4p*(E_zl*E_zl + B_zl*B_zl);
+	Sx[index]    = Sx[index] + f1o4p*Psi6*(Ey[index]*BzL - Ez[index]*ByL);
+	Sy[index]    = Sy[index] + f1o4p*Psi6*(Ez[index]*BxL - Ex[index]*BzL);
+	Sz[index]    = Sz[index] + f1o4p*Psi6*(Ex[index]*ByL - Ey[index]*BxL);
+	sbt[index] = u_xll*BxL + u_yll*ByL + u_zll*BzL;
+	sbx[index] = BxL/u0L + vx[index]*sbt[index];
+	sby[index] = ByL/u0L + vy[index]*sbt[index];
+	sbz[index] = BzL/u0L + vz[index]*sbt[index];
+
+
+	if(isnan(Sxx[index])) { printf("BAD sxx BEFORE rad: %d %d %d %e.  %e %e %e %e %e %e %e %e %e %e\n",
+				      i,j,k,Sxx[index],Psi6,B_xl,BzL,Ez[index],ByL,rho_starL,h[index],u_xl,PL,rho_bL); 
+	  printf("%e,%e,%e,%e,%e\n", E_xl, vx[index], temp, alpn1_inv, rho_b_atm);
+	}
+      
+
+	Y_e[index] = max(0.0, rho_Ye[index]/rho_star[index]);
+	Y_e[index] = min(0.99, Y_e[index]);
+	//Add radiation terms to the source IF RAD_CLOSURE_SCHEME ==0!!!!
+	//If rad_closure_scheme is 1, use primtives_rad_cpp to add radiation terms to source.
+	// For current purpose, microphysics_scheme is hard set to 0 for RAD_CLOSURE_SCHEME = 0.
+	if (rad_evolve_enable ==1 && rad_closure_scheme== 0){
+	double tau_radl = tau_rad[index];
+	double S_rad_xl = S_rad_x[index];
+	double S_rad_yl = S_rad_y[index];
+	double S_rad_zl = S_rad_z[index];
+
+	double E_radl, P_radl, F_radxl, F_radyl, F_radzl, F_rad0l;
+	//Apply atm floor of rad primitives:                                                                                                                                                                                                                                                                          
+	bool recom_rad = false;
+	if (tau_radl < 0.0)
+	  {
+	    recom_rad = true;
+	    E_radl = Erad_atm_cut;
+	    F_radxl = 0.0;
+	    F_radyl = 0.0;
+	    F_radzl = 0.0;
+	    F_rad0l = 0.0;
+	    P_radl = E_radl/3.0;
+	  }
+	else{
+
+	  double au0 = au0m1 + 1.0;
+	  double F_rad0_denom = alpn1 * Psi6 *(2.0*au0*au0 + 1.0)/(4.0*au0*au0 - 1.0);
+	  double F_rad0_num = 4.0*au0*(1.0 - au0*au0)/(4.0*au0*au0 - 1.0)*tau_radl
+	    +( (shiftxL*u0[index]+ux_l)*S_rad_xl
+	       +(shiftyL*u0[index]+uy_l)*S_rad_yl
+	       +(shiftzL*u0[index]+uz_l)*S_rad_zl);
+	  F_rad0l = F_rad0_num/F_rad0_denom;
+	  E_radl = 3.0*(tau_radl/Psi6 - 2.0*alpn1*au0*F_rad0l)/(4.0*au0*au0 - 1.0);
+
+
+	  P_radl = E_radl/3.0;
+	  F_radxl = ((gupxx[index]*S_rad_xl +
+		      gupxy[index]*S_rad_yl +
+		      gupxz[index]*S_rad_zl)*Psim4)/(alpn1*Psi6*u0[index])-
+	    (E_radl+P_radl)*u0[index]*(vx[index]+shiftx[index]) -
+	    2.0*(F_rad0l * shiftx[index]) - F_rad0l*vx[index];
+	  
+	  F_radyl = ((gupxy[index]*S_rad_xl +
+		      gupyy[index]*S_rad_yl +
+		      gupyz[index]*S_rad_zl)*Psim4)/(alpn1*Psi6*u0[index])-
+	    (E_radl+P_radl)*u0[index]*(vy[index]+shifty[index]) -
+	    2.0*(F_rad0l * shifty[index]) - F_rad0l*vy[index];
+	  
+	  
+	  F_radzl = ((gupxz[index]*S_rad_xl +
+		      gupyz[index]*S_rad_yl +
+		      gupzz[index]*S_rad_zl)*Psim4)/(alpn1*Psi6*u0[index])-
+	    (E_radl+P_radl)*u0[index]*(vz[index]+shiftz[index]) -
+	    2.0*(F_rad0l * shiftz[index]) - F_rad0l*vz[index];
+	}
+
+
+	double shift_xl = Psi4 * (shiftx[index]*gxxL + shifty[index]*gxyL +shiftz[index]*gxzL);
+	double shift_yl = Psi4 * (shiftx[index]*gxyL + shifty[index]*gyyL +shiftz[index]*gyzL);
+	double shift_zl = Psi4 * (shiftx[index]*gxzL + shifty[index]*gyzL +shiftz[index]*gzzL);
+
+	//Apply Psi6threshold fix on E_radl, and F_radl:                                                                                                                                                                                                                                                              
+	if(Psi6 > Psi6threshold) {
+	  recom_rad = true;
+	  double Erad_horiz_cap = 1.0e2*Erad_atm_cut;
+	  if(E_radl < Erad_horiz_cap){
+	    E_radl = Erad_horiz_cap;
+	    P_radl = E_radl/3.0;
+	    F_radxl = 0.0;
+	    F_radyl = 0.0;
+	    F_radzl = 0.0;
+	    F_rad0l = 0.0;
+	  }
+	}
+
+	E_rad[index] = E_radl;
+	F_radx[index] = F_radxl;
+	F_rady[index] = F_radyl;
+	F_radz[index] = F_radzl;
+	F_rad0[index] = F_rad0l;
+	F[index] = sqrt(Psi4*(gxxL*SQR(F_radxl)+gyyL*SQR(F_radyl)+gzzL*SQR(F_radzl) + 2.0*( gxyL*F_radxl*F_radyl + gxzL*F_radxl*F_radzl + gyzL*F_radyl*F_radzl)));
+       
+
+	double temp_rad = alpn1*u0[index];
+	double temp_rad1 = temp_rad*temp_rad*(E_radl+P_radl) - P_radl + 2.0*SQR(alpn1)*u0[index]*F_rad0l;
+
+	//F_rad_\alpha = g_{0\alpha} F_rad0 + g_{z\alpha} F_radz + g_{y\alpha} F_rady + g_{z\alpha} F_radz                                                                                                                                                                                                            
+	double F_rad_xl = Psi4 * (gxxL * F_radxl + gxyL * F_radyl + gxzL * F_radzl) + shift_xl*F_rad0l;
+	double F_rad_yl = Psi4 * (gxyL * F_radxl + gyyL * F_radyl + gyzL * F_radzl) + shift_yl*F_rad0l;
+	double F_rad_zl = Psi4 * (gxzL * F_radxl + gyzL * F_radyl + gzzL * F_radzl) + shift_zl*F_rad0l;
+
+	double v_xl = Psi4 * (vx[index]*gxxL + vy[index]*gxyL +vz[index]*gxzL);
+	double v_yl = Psi4 * (vx[index]*gxyL + vy[index]*gyyL +vz[index]*gyzL);
+	double v_zl = Psi4 * (vx[index]*gxzL + vy[index]*gyzL +vz[index]*gzzL);
+
+	rho[index]   = rho[index] + temp_rad1;
+
+	Sx[index] = Sx[index] + temp_rad*( ( (E_radl+P_radl)*u0L + F_rad0l) * (shift_xl + v_xl) + F_rad_xl);
+	Sy[index] = Sy[index] + temp_rad*( ( (E_radl+P_radl)*u0L + F_rad0l) * (shift_yl + v_yl) + F_rad_yl);
+	Sz[index] = Sz[index] + temp_rad*( ( (E_radl+P_radl)*u0L + F_rad0l) * (shift_zl + v_zl) + F_rad_zl);
+
+	Sxx[index] = Sxx[index] + (E_radl+P_radl)*SQR(u0L*(shift_xl+v_xl)) + 2.0*F_rad_xl*u0L*(shift_xl+v_xl) + Psi4 * P_radl * gxxL;
+	Syy[index] = Syy[index] + (E_radl+P_radl)*SQR(u0L*(shift_yl+v_yl)) + 2.0*F_rad_yl*u0L*(shift_yl+v_yl) + Psi4 * P_radl * gyyL;
+	Szz[index] = Szz[index] + (E_radl+P_radl)*SQR(u0L*(shift_zl+v_zl)) + 2.0*F_rad_yl*u0L*(shift_zl+v_zl) + Psi4 * P_radl * gzzL;
+	Sxy[index] = Sxy[index] + (E_radl+P_radl)*SQR(u0L)*(shift_xl+v_xl)*(shift_yl+v_yl) + u0L*(F_rad_xl*(shift_yl+v_yl)+F_rad_yl*(shift_xl+v_xl)) + Psi4 * P_radl * gxyL;
+	Sxz[index] = Sxz[index] + (E_radl+P_radl)*SQR(u0L)*(shift_xl+v_xl)*(shift_zl+v_zl) + u0L*(F_rad_xl*(shift_zl+v_zl)+F_rad_zl*(shift_xl+v_xl)) + Psi4 * P_radl * gxzL;
+	Syz[index] = Syz[index] + (E_radl+P_radl)*SQR(u0L)*(shift_yl+v_yl)*(shift_zl+v_zl) + u0L*(F_rad_yl*(shift_zl+v_zl)+F_rad_zl*(shift_yl+v_yl)) + Psi4 * P_radl * gyzL;
+
+
+	// recompute_conservatives:                                                                                                 
+	tau_rad[index] = SQR(alpn1)*Psi6*(E_radl*SQR(u0[index]) + 2.0*F_rad0l*u0[index] + P_radl*SQR(u0[index])) - Psi6*P_radl;
+	S_rad_x[index] = alpn1*Psi6*((E_radl+P_radl)*u0[index]*u_xll + F_rad0l*u_xll + F_rad_xl*u0[index]);
+	S_rad_x[index] = alpn1*Psi6*((E_radl+P_radl)*u0[index]*u_yll + F_rad0l*u_yll + F_rad_yl*u0[index]);
+	S_rad_z[index] = alpn1*Psi6*((E_radl+P_radl)*u0[index]*u_zll + F_rad0l*u_zll + F_rad_zl*u0[index]);
+
+	}
+      }
+  //  printf ("End metric_source_terms_and_misc_vars \n");
+}
+
+
+extern "C" void CCTK_FCALL metric_source_terms_and_misc_vars_
+  (const cGH **cctkGH,int *ext,
+   double *rho,double *Sx,double *Sy,double *Sz,
+   double *Sxx,double *Sxy,double *Sxz,double *Syy,double *Syz,double *Szz,
+   double *tau_rad, double *S_rad_x, double *S_rad_y, double *S_rad_z,
+   double *rho_Ye, double *Y_e,
+   double *E_rad, double *F_radx, double *F_rady,double *F_radz, double *F_rad0,double *F, 
+   double *h,double *w,
+   double *st_x,double *st_y,double *st_z,
+   double *Ex,double *Ey,double *Ez,
+   double *sbt,double *sbx,double *sby,double *sbz,
+   double *lapm1,double *shiftx,double *shifty,double *shiftz,
+   double *phi,double *gxx,double *gxy,double *gxz,double *gyy,double *gyz,double *gzz,
+   double *gupxx,double *gupxy,double *gupxz,double *gupyy,double *gupyz,double *gupzz,
+   double *P,double *rho_b,double *u0,double *vx,double *vy,double *vz,
+   double *Bx,double *By,double *Bz,
+   double *rho_star,double *mhd_st_x,double *mhd_st_y,double *mhd_st_z,
+   int &neos,int &ergo_star, double &ergo_sigma,
+   double *rho_tab,double *P_tab,double *eps_tab,double *k_tab,double *gamma_tab,
+   double &rho_b_atm, int &enable_OS_collapse, int &rad_evolve_enable, int &rad_closure_scheme, double &Psi6threshold, double &Erad_atm_cut) {
+  metric_source_terms_and_misc_vars (*cctkGH,ext,
+				     rho,Sx,Sy,Sz,
+				     Sxx,Sxy,Sxz,Syy,Syz,Szz,
+				     tau_rad, S_rad_x,S_rad_y, S_rad_z,
+				     rho_Ye, Y_e,
+				     E_rad, F_radx, F_rady, F_radz, F_rad0, F, 
+				     h,w,
+				     st_x,st_y,st_z,
+				     Ex,Ey,Ez,
+				     sbt,sbx,sby,sbz,
+				     lapm1,shiftx,shifty,shiftz,
+				     phi,gxx,gxy,gxz,gyy,gyz,gzz,
+				     gupxx,gupxy,gupxz,gupyy,gupyz,gupzz,
+				     P,rho_b,u0,vx,vy,vz,
+				     Bx,By,Bz,
+				     rho_star,mhd_st_x,mhd_st_y,mhd_st_z,
+				     neos,ergo_star, ergo_sigma,
+				     rho_tab, P_tab,eps_tab,k_tab,gamma_tab,
+				     rho_b_atm, enable_OS_collapse, rad_evolve_enable, rad_closure_scheme, Psi6threshold, Erad_atm_cut);
+
+}

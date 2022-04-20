@@ -1,0 +1,12 @@
+#! /bin/sh
+# /*@@
+#   @file      openbsd3.0
+#   @date      Wed May 15 18:45:49 CEST 2002
+#   @author    Jonathan Thornburg
+#   @desc
+#              known-architectures file for OpenBSD 3.0
+#   @enddesc 
+#   @version $Header: /cactusdevcvs/Cactus/lib/make/known-architectures/openbsd3.0,v 1.1 2002/05/15 17:17:48 tradke Exp $
+# @@*/
+
+. $srcdir/known-architectures/openbsd

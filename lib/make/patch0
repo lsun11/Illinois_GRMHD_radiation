@@ -1,0 +1,10 @@
+--- make.configuration  25 Jan 2008 15:03:12 -0000      1.89
++++ make.configuration  14 Aug 2009 14:19:29 -0000
+@@ -126,6 +126,7 @@
+
+ # Build the executable
+ $(EXEDIR)$(DIRSEP)$(EXE): $(CONFIG)/make.thornlist $(CONFIG)/cctki_version.h $(patsubst %,$(CCTK_LIBDIR)/$(LIBNAME_PREFIX)$(CCTK_LIBNAME_PREFIX)%$(LIBNAME_SUFFIX),$(notdir $(THORNS) $(CACTUSLIBS)))
++       $(PERL) -s $(CCTK_HOME)/lib/sbin/CheckThornLibs.pl $(EXE) $(THORNS)
+       @echo Creating $(EXE) in $(EXEDIR) from $(THORNS)
+       datetime=`/bin/date +'%Y-%m-%dT%H:%M:%S%z' 2>&1` ; \
+       if [ $$? != 0 ]; then datetime=`/bin/date` ; fi ; \

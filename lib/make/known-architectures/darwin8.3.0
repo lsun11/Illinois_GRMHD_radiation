@@ -1,0 +1,13 @@
+#! /bin/sh
+# /*@@
+#   @file    darwin8.3.0
+#   @date    07.11.2005
+#   @author  Steve White
+#   @desc
+#            Known architecture stuff for MacOS X (Darwin) release 8.3.0
+#   @enddesc
+#   @version $Header: /cactusdevcvs/Cactus/lib/make/known-architectures/darwin8.3.0,v 1.1 2005/11/07 23:52:23 swhite Exp $
+# @@*/
+
+. $srcdir/known-architectures/darwin
+

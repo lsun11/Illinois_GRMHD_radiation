@@ -1,0 +1,616 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:725: checking host system type
+configure:771: checking whether make sets ${MAKE}
+configure:836: checking whether the C compiler (cc -std\=gnu99 ) works
+configure:853: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:879: checking whether the C compiler (cc -std\=gnu99 ) is a cross-compiler
+configure:884: checking whether we are using GNU C
+configure:893: cc -E conftest.c
+configure:941: checking whether the C++ compiler (CC -DMPICH_IGNORE_CXX_SEEK -fpermissive ) works
+configure:958: CC -DMPICH_IGNORE_CXX_SEEK -o conftest -fpermissive   conftest.C  1>&5
+configure:984: checking whether the C++ compiler (CC -DMPICH_IGNORE_CXX_SEEK -fpermissive ) is a cross-compiler
+configure:989: checking whether we are using GNU C++
+configure:998: CC -DMPICH_IGNORE_CXX_SEEK -E conftest.C
+configure:1012: checking for ranlib
+configure:1048: checking for cpp
+configure:1138: checking for perl
+configure:1249: checking for ar
+configure:1286: checking for mkdir
+configure:1325: checking for bash
+configure:1552: checking how to run the C preprocessor
+configure:1632: checking for ANSI C header files
+configure:1645: /lib/cpp  conftest.c >/dev/null 2>conftest.out
+configure:1712: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:1739: checking whether byte ordering is bigendian
+configure:1757: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:1772: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(1767): error: identifier "not" is undefined
+   not big endian
+   ^
+
+configure(1767): error: expected a ";"
+   not big endian
+           ^
+
+compilation aborted for conftest.c (code 2)
+configure: failed program was:
+#line 1761 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#include <sys/param.h>
+int main() {
+
+#if BYTE_ORDER != BIG_ENDIAN
+ not big endian
+#endif
+; return 0; }
+configure:1848: checking size of long long
+configure:1867: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:1892: checking size of long int
+configure:1911: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:1936: checking size of int
+configure:1955: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:1980: checking size of short int
+configure:1999: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2026: checking size of long double
+configure:2045: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2070: checking size of double
+configure:2089: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2115: checking size of float
+configure:2134: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2161: checking size of char *
+configure:2180: cc -o conftest -std\=gnu99   conftest.c  1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2215: checking for the null device
+configure:2278: checking for gethostbyname
+configure:2306: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2379: checking whether mode_t is defined
+configure:2394: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2420: checking for availability of gettimeofday timing
+configure:2433: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2455: checking if gettimeofday needs timezone
+configure:2473: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2496: checking for availability of getrusage timing
+configure:2514: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2536: checking for availability of _ftime timing
+configure:2554: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(2547): error: incomplete type is not allowed
+    struct _timeb timebs;
+                  ^
+
+compilation aborted for conftest.c (code 2)
+configure: failed program was:
+#line 2541 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/timeb.h>
+int main() {
+  struct _timeb timebs;
+  _ftime(&timebs);
+  printf("%f\n",(double)(timebs.time + timebs.millitm/1000.0));
+  return 0;
+; return 0; }
+configure:2581: checking for time.h
+configure:2594: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2621: checking for sys/time.h
+configure:2634: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2661: checking for sys/types.h
+configure:2674: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2701: checking for unistd.h
+configure:2714: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2741: checking for string.h
+configure:2754: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2781: checking for assert.h
+configure:2794: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2821: checking for tgmath.h
+configure:2834: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2861: checking for sys/stat.h
+configure:2874: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2901: checking for getopt.h
+configure:2914: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2941: checking for dirent.h
+configure:2954: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:2981: checking for c_asm.h
+configure:2994: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(2988): catastrophic error: cannot open source file "c_asm.h"
+  #include <c_asm.h>
+                    ^
+
+compilation aborted for conftest.c (code 4)
+configure: failed program was:
+#line 2986 "configure"
+#include "confdefs.h"
+ 
+#include <c_asm.h>
+int main() {
+ 
+; return 0; }
+configure:3021: checking for intrinsics.h
+configure:3034: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(3028): catastrophic error: cannot open source file "intrinsics.h"
+  #include <intrinsics.h>
+                         ^
+
+compilation aborted for conftest.c (code 4)
+configure: failed program was:
+#line 3026 "configure"
+#include "confdefs.h"
+ 
+#include <intrinsics.h>
+int main() {
+ 
+; return 0; }
+configure:3061: checking for mach/mach_time.h
+configure:3074: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(3068): catastrophic error: cannot open source file "mach/mach_time.h"
+  #include <mach/mach_time.h>
+                             ^
+
+compilation aborted for conftest.c (code 4)
+configure: failed program was:
+#line 3066 "configure"
+#include "confdefs.h"
+ 
+#include <mach/mach_time.h>
+int main() {
+ 
+; return 0; }
+configure:3098: checking for regex.h
+configure:3111: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3136: checking for sys/filio.h
+configure:3151: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(3145): catastrophic error: cannot open source file "sys/filio.h"
+  #include <sys/filio.h>
+                        ^
+
+compilation aborted for conftest.c (code 4)
+configure: failed program was:
+#line 3141 "configure"
+#include "confdefs.h"
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif 
+#include <sys/filio.h>
+int main() {
+ 
+; return 0; }
+configure:3178: checking for sys/ioctl.h
+configure:3193: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3220: checking for sys/socket.h
+configure:3235: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3262: checking for netinet/in.h
+configure:3277: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3304: checking for netdb.h
+configure:3319: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3346: checking for arpa/inet.h
+configure:3361: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3388: checking for winsock2.h
+configure:3401: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(3395): catastrophic error: cannot open source file "winsock2.h"
+  #include <winsock2.h>
+                       ^
+
+compilation aborted for conftest.c (code 4)
+configure: failed program was:
+#line 3393 "configure"
+#include "confdefs.h"
+ 
+#include <winsock2.h>
+int main() {
+ 
+; return 0; }
+configure:3428: checking for crypt.h
+configure:3443: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3470: checking for signal.h
+configure:3483: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3510: checking for malloc.h
+configure:3523: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3548: checking whether time.h and sys/time.h may both be included
+configure:3562: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3587: checking whether socklen_t is defined
+configure:3612: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3637: checking whether SOCKET is defined
+configure:3662: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(3658): error: identifier "SOCKET" is undefined
+  SOCKET foo; return 0
+  ^
+
+compilation aborted for conftest.c (code 2)
+configure: failed program was:
+#line 3642 "configure"
+#include "confdefs.h"
+#include <stdio.h>
+#include <stdlib.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif
+int main() {
+SOCKET foo; return 0
+; return 0; }
+configure:3688: checking for hrtime_t
+configure:3724: checking for gethrtime
+configure:3752: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/tmp/icc4ZRxRU.o: In function `main':
+conftest.c:(.text+0x2f): undefined reference to `gethrtime'
+/usr/bin/ld: link errors found, deleting executable `conftest'
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 3729 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char gethrtime(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char gethrtime();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_gethrtime) || defined (__stub___gethrtime)
+choke me
+#else
+gethrtime();
+#endif
+
+; return 0; }
+configure:3724: checking for read_real_time
+configure:3752: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/tmp/iccwAni4w.o: In function `main':
+conftest.c:(.text+0x2f): undefined reference to `read_real_time'
+/usr/bin/ld: link errors found, deleting executable `conftest'
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 3729 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char read_real_time(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char read_real_time();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_read_real_time) || defined (__stub___read_real_time)
+choke me
+#else
+read_real_time();
+#endif
+
+; return 0; }
+configure:3724: checking for time_base_to_time
+configure:3752: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/tmp/iccySVF1Y.o: In function `main':
+conftest.c:(.text+0x2f): undefined reference to `time_base_to_time'
+/usr/bin/ld: link errors found, deleting executable `conftest'
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 3729 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char time_base_to_time(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char time_base_to_time();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_time_base_to_time) || defined (__stub___time_base_to_time)
+choke me
+#else
+time_base_to_time();
+#endif
+
+; return 0; }
+configure:3724: checking for clock_gettime
+configure:3752: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3724: checking for mach_absolute_time
+configure:3752: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/tmp/icc7HUF27.o: In function `main':
+conftest.c:(.text+0x2f): undefined reference to `mach_absolute_time'
+/usr/bin/ld: link errors found, deleting executable `conftest'
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 3729 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char mach_absolute_time(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char mach_absolute_time();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_mach_absolute_time) || defined (__stub___mach_absolute_time)
+choke me
+#else
+mach_absolute_time();
+#endif
+
+; return 0; }
+configure:3778: checking for _rtc intrinsic
+configure:3790: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/tmp/iccu61g3s.o: In function `main':
+conftest.c:(.text+0x2f): undefined reference to `_rtc'
+/usr/bin/ld: link errors found, deleting executable `conftest'
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 3781 "configure"
+#include "confdefs.h"
+#ifdef HAVE_INTRINSICS_H
+#include <intrinsics.h>
+#endif
+int main() {
+_rtc()
+; return 0; }
+configure:3811: checking for mallinfo
+configure:3839: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3868: checking for mallopt
+configure:3896: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3924: checking whether M_MMAP_THRESHOLD is defined
+configure:3939: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:3965: checking if __int64 is defined
+configure:3977: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:4012: checking for vector
+configure:4025: CC -DMPICH_IGNORE_CXX_SEEK -c -fpermissive  conftest.C 1>&5
+configure:4012: checking for vector.h
+configure:4025: CC -DMPICH_IGNORE_CXX_SEEK -c -fpermissive  conftest.C 1>&5
+configure(4019): catastrophic error: cannot open source file "vector.h"
+  #include <vector.h>
+                     ^
+
+compilation aborted for conftest.C (code 4)
+configure: failed program was:
+#line 4017 "configure"
+#include "confdefs.h"
+ 
+#include <vector.h>
+int main() {
+ 
+; return 0; }
+configure:4064: checking for getopt_long_only
+configure:4092: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:4135: checking for working const
+configure:4189: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:4211: checking for C inline
+configure:4233: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5 conftest2.c
+icc: command line warning #10159: invalid argument for option '-std'
+configure(4229): warning #303: explicit type is missing ("int" assumed)
+  } inline foo() {
+           ^
+
+configure:4264: checking for C restrict
+configure:4282: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(4275): error: expected a ";"
+  double * restrict foo;
+                    ^
+
+configure(4276): error: expected a ")"
+  void bar (void * restrict arr[]);
+                            ^
+
+configure(4277): error: expected a ";"
+  struct tux { char * restrict arr[3]; };
+                               ^
+
+compilation aborted for conftest.c (code 2)
+configure: failed program was:
+#line 4271 "configure"
+#include "confdefs.h"
+
+int main() {
+
+double * restrict foo;
+void bar (void * restrict arr[]);
+struct tux { char * restrict arr[3]; };
+
+; return 0; }
+configure:4282: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:4308: checking for C++ restrict
+configure:4334: CC -DMPICH_IGNORE_CXX_SEEK -c -fpermissive  conftest.C 1>&5
+configure(4327): error: expected a ";"
+  double * restrict foo;
+                    ^
+
+configure(4328): error: expected a ")"
+  void bar (void * restrict arr[]);
+                            ^
+
+configure(4329): error: expected a ";"
+  struct tux { char * restrict arr[3]; };
+                               ^
+
+compilation aborted for conftest.C (code 2)
+configure: failed program was:
+#line 4323 "configure"
+#include "confdefs.h"
+
+int main() {
+
+double * restrict foo;
+void bar (void * restrict arr[]);
+struct tux { char * restrict arr[3]; };
+
+; return 0; }
+configure:4334: CC -DMPICH_IGNORE_CXX_SEEK -c -fpermissive  conftest.C 1>&5
+configure:4368: checking for C bool
+configure:4381: cc -c -std\=gnu99  conftest.c 1>&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure(4377): error: identifier "bool" is undefined
+  bool foo;
+  ^
+
+compilation aborted for conftest.c (code 2)
+configure: failed program was:
+#line 4374 "configure"
+#include "confdefs.h"
+
+int main() {
+bool foo;
+; return 0; }
+configure:4403: checking for CXX bool
+configure:4424: CC -DMPICH_IGNORE_CXX_SEEK -c -fpermissive  conftest.C 1>&5
+configure:4454: checking for Fortran REAL*4
+configure:4470: ftn -c  conftest.f 1>&5
+configure:4499: checking for Fortran REAL*8
+configure:4515: ftn -c  conftest.f 1>&5
+configure:4544: checking for Fortran REAL*16
+configure:4560: ftn -c  conftest.f 1>&5
+configure:4590: checking for Fortran COMPLEX*8
+configure:4606: ftn -c  conftest.f 1>&5
+configure:4635: checking for Fortran COMPLEX*16
+configure:4651: ftn -c  conftest.f 1>&5
+configure:4680: checking for Fortran COMPLEX*32
+configure:4696: ftn -c  conftest.f 1>&5
+configure:4727: checking for crypt
+configure:4755: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/tmp/iccQVRrFs.o: In function `main':
+conftest.c:(.text+0x2f): undefined reference to `crypt'
+/usr/bin/ld: link errors found, deleting executable `conftest'
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 4732 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char crypt(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char crypt();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_crypt) || defined (__stub___crypt)
+choke me
+#else
+crypt();
+#endif
+
+; return 0; }
+configure:4773: checking for crypt in library crypt
+configure:4793: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:4834: checking for finite
+configure:4862: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:4946: checking for isnan
+configure:4974: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:5058: checking for isinf
+configure:5086: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:5170: checking for mkstemp
+configure:5198: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:5279: checking for va_copy
+configure:5291: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+configure:5318: checking for main in library c_r
+configure:5334: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lc_r -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'
+/usr/bin/ld: cannot find -lc_r
+/usr/bin/sha1sum: conftest: No such file or directory
+configure: failed program was:
+#line 5327 "configure"
+#include "confdefs.h"
+
+int main() {
+main()
+; return 0; }
+configure:5355: checking for main in library pthread
+configure:5371: cc -o conftest -std\=gnu99   conftest.c  -L/opt/cray/craype/2.5.16/lib  -lpthread -lcrypt >&5
+icc: command line warning #10159: invalid argument for option '-std'

@@ -1,0 +1,12 @@
+rm exe/cactus_giggle
+#make -j32 giggle
+make -j32 giggle
+string=`make -j32 giggle | grep "\-o"`;
+col=`echo $string |awk '{for(i=1;i<NF;i++){if ($i=="-o") print i} }'`; 
+string1=`echo $string | awk -v n=$col '{out="";for(i=n;i<=NF;i++){out=out" "$i}; print "CC" out}'`;
+string2=`echo $string | awk -v n=$col '{out="";for(i=1;i<n;i++){out=out" "$i};print out}'`;
+echo $string1 $string2
+echo $string1 $string2 > link
+chmod u+x link
+./link
+

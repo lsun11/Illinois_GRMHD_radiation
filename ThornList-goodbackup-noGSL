@@ -1,0 +1,138 @@
+# arrangement/thorn                # implements (inherits) [friend] {shares}
+#
+
+# INITIAL DATA THORNS
+ABE/scalarwaveMoL
+
+ABE/linearized_wave
+
+ABE/bbhlorene
+ABE/TwoPunctures
+ABE/TwoPuncturesAEI
+ABE/kerr
+#ABE/bbh_cookpfeiffer
+#ABE/stationary_puncture
+
+ABE/Dissipation
+ABE/bhns
+###ABE/ridX
+ABE/movingbox
+ABE/movingbox_for_boosted_bh
+#ABE/movingbox_for_bbh
+ABE/magnetar
+ABE/shock_mhd
+ABE/nonlinear_alfven_wave
+ABE/cylindrical2d
+ABE/mag_bondi
+# Don't use: superceded by mag_bondi!
+#ABE/statpunc_bondi
+ABE/bbh_cookpfeiffer_rot
+
+# OLD THORNS, LIKELY NEED TO BE UPDATED
+#ABE/bondi
+#ABE/moving_puncture
+#ABE/shocktests
+#ABE/bns
+#ABE/disk
+#ABE/puncture_tracker
+#ABE/ahfinder
+#ABE/IDAnalyticBH
+# ANCIENT THORNS, FOR USE WITH PRE-CARPET CODE
+#ABE/interpolation
+#ABE/binfile_checkpoint
+#ABE/em_evolve_ct
+
+# EVOLUTION THORNS
+ABE/bssn
+ABE/shift
+ABE/lapse
+
+ABE/mhd_evolve
+
+# DIAGNOSTIC OUTPUT/UTILITY THORNS
+ABE/fisheye
+ABE/jobsuicide
+ABE/excision
+ABE/ahfinderdirect
+ABE/diagnostics_vacuum
+ABE/diagnostics_mhd
+
+ABE/gw_extraction
+
+# OTHER, MILDLY MODIFIED CACTUS-BASED THORNS NEEDED FOR AHFINDER's, etc.
+CactusBase/MoL
+CactusUtils/NaNChecker
+
+ABE/SphericalSurface
+ABE/StaticConformal
+
+# CARPET THORNS
+CarpetExtra/CarpetIntegrateTest
+CarpetExtra/WaveToyMoL
+CarpetExtra/IDScalarWaveMoL
+Carpet/Carpet
+Carpet/CarpetEvolutionMask
+Carpet/CarpetInterp
+Carpet/CarpetIOASCII
+Carpet/CarpetIOBasic
+Carpet/CarpetIOScalar
+Carpet/CarpetIOHDF5
+Carpet/CarpetLib
+#Carpet/CarpetMask
+Carpet/CarpetReduce
+Carpet/CarpetRegrid
+Carpet/CarpetRegrid2
+Carpet/CarpetSlab
+Carpet/CarpetTest
+Carpet/CarpetTracker
+
+# CACTUS-BASED THORNS
+BetaThorns/Cartoon2D
+CactusBase/Boundary                # boundary ( ) [ ] { }
+CactusBase/CartGrid3D              # grid (coordbase) [ ] {driver}
+CactusBase/CoordBase               # CoordBase ( ) [ ] { }
+CactusBase/HDF5
+CactusBase/InitBase
+CactusBase/IOASCII                 # IOASCII ( ) [ ] {IO}
+CactusBase/IOBasic                 # IOBasic (IO) [ ] {IO}
+CactusBase/IOUtil                  # IO ( ) [ ] { }
+CactusBase/LocalInterp             # LocalInterp ( ) [ ] { }
+CactusBase/LocalReduce
+CactusBase/SymBase                 # SymBase ( ) [ ] { }
+CactusBase/Time                    # time ( ) [ ] {cactus}
+
+# UNCOMMENT IF YOU DON'T NEED CARPET:
+#CactusPUGH/PUGH                    # Driver ( ) [ ] {cactus}
+#CactusPUGH/PUGHInterp              # Interp ( ) [ ] { }
+#CactusPUGH/PUGHReduce              # Reduce ( ) [ ] { }
+#CactusPUGH/PUGHSlab                # Hyperslab ( ) [ ] { }
+
+
+#CactusPUGHIO/IOHDF5                # IOHDF5 ( ) [ ] {IO}
+#CactusPUGHIO/IOHDF5Util            # IOHDF5Util (IO) [ ] {IO}
+###CactusPUGHIO/IsoSurfacer           # isosurfacer (Grid,IO) [ ] {IO}
+#CactusUtils/NaNChecker             # NaNChecker (Reduce) [ ] { }
+#CactusUtils/TimerReport            # timerreport ( ) [ ] {IO}
+
+#CactusWave/WaveToyC        
+#CactusWave/IDScalarWaveC   
+#CactusWave/WaveToyF77      
+#CactusWave/WaveToyFreeF90  
+#CactusWave/WaveToyF90  
+#CactusWave/IDScalarWave    
+
+#CactusElliptic/EllBase
+#CactusElliptic/EllPETSc
+
+CactusExamples/IDWaveMoL
+CactusExamples/WaveMoL
+
+CactusBase/AEILocalInterp
+CactusEinstein/SpaceMask
+
+CactusEinstein/ADMMacros
+
+# AEI Thorns:
+#AEIThorns/BAM_Elliptic
+#CactusElliptic/EllBase
+

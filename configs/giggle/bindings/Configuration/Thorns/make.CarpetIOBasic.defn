@@ -1,0 +1,3 @@
+include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.CARPET.defn
+include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.CARPETLIB.defn
+include /mnt/a/u/sciteam/lsun2/illinois_grmhd_radtest_0903/configs/giggle/bindings/Configuration/Capabilities/make.IOUTIL.defn

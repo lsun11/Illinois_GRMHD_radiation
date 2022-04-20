@@ -1,0 +1,13 @@
+#! /bin/sh
+# /*@@
+#   @file    darwin7.8.0
+#   @date    Mon Feb 21 2005 
+#   @author  Tom Goodale
+#   @desc
+#            Known architecture stuff for MacOS X (Darwin) release 7.8.0
+#   @enddesc
+#   @version $Header: /cactusdevcvs/Cactus/lib/make/known-architectures/darwin7.8.0,v 1.1 2005/02/21 17:56:12 goodale Exp $
+# @@*/
+
+. $srcdir/known-architectures/darwin
+

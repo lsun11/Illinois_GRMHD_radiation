@@ -1,0 +1,13 @@
+INC_DIRS += $(HDF5_INC_DIRS)
+HDF5_BUILD          = 
+HDF5_ENABLE_CXX     = no
+HDF5_ENABLE_FORTRAN = yes
+LIBSZ_DIR           = 
+LIBZ_DIR            = 
+HDF5_INSTALL_DIR    = 
+HDF5_DIR            = /opt/cray/hdf5/1.10.2.0/INTEL/16.0
+HDF5_ENABLE_CXX     = no
+HDF5_ENABLE_FORTRAN = yes
+HDF5_INC_DIRS       = /opt/cray/hdf5/1.10.2.0/INTEL/16.0/lib /opt/cray/hdf5/1.10.2.0/INTEL/16.0/include  
+HDF5_LIB_DIRS       = /opt/cray/hdf5/1.10.2.0/INTEL/16.0/lib   
+HDF5_LIBS           =  hdf5hl_fortran hdf5_fortran hdf5_hl hdf5 z m 

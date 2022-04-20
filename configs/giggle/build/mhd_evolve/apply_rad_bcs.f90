@@ -1,0 +1,382 @@
+!-----------------------------------------------------------------------------
+! Update outer boundaries
+!-----------------------------------------------------------------------------
+subroutine apply_rad_bc_mhd_new(ext, fake_ext, X,Y,Z, &
+     E_rad, P_rad, F_radx, F_rady, F_radz,&
+     Symmetry,bc, &
+     have_bdry_min,have_bdry_max)
+implicit none
+  integer, dimension(3)                   :: ext,fake_ext,have_bdry_min,have_bdry_max
+  real*8, dimension(ext(1),ext(2),ext(3)) :: X,Y,Z
+  real*8, dimension(ext(1),ext(2),ext(3)) :: E_rad, P_rad, F_radx, F_rady, F_radz
+  integer                                 :: Symmetry
+  integer                                 :: bc
+!
+! Other variables:
+! 
+  integer                            :: i,j,k
+  integer                            :: imin, jmin, kmin, imax, jmax, kmax
+  real*8, parameter                  :: ZERO = 0.D0
+  real*8, parameter                  :: TWO = 2.D0, THREE = 3.D0
+  real*8                             :: nx,ny,nz
+  integer                            :: NO_SYMM, EQUATORIAL, OCTANT
+  integer                            :: PI_SYMM, AXISYM
+  integer                            :: FREEZE, EXTRAP, PERIODIC, OUTF, COPY, QUAD
+  integer                            :: PLANAR
+  parameter(NO_SYMM = 0, EQUATORIAL = 1, OCTANT = 2, PI_SYMM = 3, AXISYM = 4)
+  parameter(OUTF = 1, FREEZE = 2, COPY = 3, EXTRAP = 4, QUAD = 5, PLANAR = 6)
+! Storage variables:
+  integer, parameter                 :: m = 17
+  real*8, dimension(m)               :: AUX
+!write(*,*) Start apply_RAD_bc_mhd_new!!!! bc is, bc
+!
+! Input translation
+!
+  imin = ext(1)-fake_ext(1)+1
+  jmin = ext(2)-fake_ext(2)+1
+  kmin = ext(3)-fake_ext(3)+1
+  imax = fake_ext(1)
+  jmax = fake_ext(2)
+  kmax = fake_ext(3)
+  !Is the following correct?  Not any more.
+!  if(Symmetry == AXISYM .or. Symmetry==OCTANT .or. Symmetry==EQUATORIAL) then
+!     kmin = lbound(tau,3)+1
+!  end if
+  !first apply boundary conditions on the hydro primitive variables
+  if(bc==FREEZE) then
+     write(*,*) 'Warning:  Freeze boundary conditions are not supported!'
+     stop
+  else if(bc==OUTF) then
+     if (have_bdry_max(1)==1) then
+        E_rad(imax,:,:) = E_rad(imax-1,:,:)
+        P_rad(imax,:,:) = P_rad(imax-1,:,:)
+        F_radx(imax,:,:) = F_radx(imax-1,:,:)
+        F_rady(imax,:,:) = F_rady(imax-1,:,:)
+        F_radz(imax,:,:) = F_radz(imax-1,:,:)
+        where (F_radx(imax,:,:) .lt. ZERO)
+              F_radx(imax,:,:) = ZERO
+        end where
+     end if
+     if (have_bdry_min(1)==1) then
+        E_rad(imin,:,:) = E_rad(imin+1,:,:)
+        P_rad(imin,:,:) = P_rad(imin+1,:,:)
+        F_radx(imin,:,:) = F_radx(imin+1,:,:)
+        F_rady(imin,:,:) = F_rady(imin+1,:,:)
+        F_radz(imin,:,:) = F_radz(imin+1,:,:)
+       where (F_radx(imin,:,:) .gt. ZERO)
+             F_radx(imin,:,:) = ZERO
+       end where
+     end if
+     if (have_bdry_max(2)==1) then
+        E_rad(:,jmax,:) = E_rad(:,jmax-1,:)
+        P_rad(:,jmax,:) = P_rad(:,jmax-1,:)
+        F_radx(:,jmax,:) = F_radx(:,jmax-1,:)
+        F_rady(:,jmax,:) = F_rady(:,jmax-1,:)
+        F_radz(:,jmax,:) = F_radz(:,jmax-1,:)
+        where (F_rady(:,jmax,:) .lt. ZERO)
+              F_rady(:,jmax,:) = ZERO
+        end where
+     end if
+     if (have_bdry_min(2)==1) then
+        E_rad(:,jmin,:) = E_rad(:,jmin+1,:)
+        P_rad(:,jmin,:) = P_rad(:,jmin+1,:)
+        F_radx(:,jmin,:) = F_radx(:,jmin+1,:)
+        F_rady(:,jmin,:) = F_rady(:,jmin+1,:)
+        F_radz(:,jmin,:) = F_radz(:,jmin+1,:)
+        where (F_rady(:,jmin,:) .gt. ZERO)
+              F_rady(:,jmin,:) = ZERO
+        end where
+     end if
+     if (have_bdry_max(3)==1) then
+        E_rad(:,:,kmax) = E_rad(:,:,kmax-1)
+        P_rad(:,:,kmax) = P_rad(:,:,kmax-1)
+        F_radx(:,:,kmax) = F_radx(:,:,kmax-1)
+        F_rady(:,:,kmax) = F_rady(:,:,kmax-1)
+        F_radz(:,:,kmax) = F_radz(:,:,kmax-1)
+        where (F_radz(:,:,kmax) .lt. ZERO)
+              F_radz(:,:,kmax) = ZERO
+        end where
+     end if
+     if (have_bdry_min(3)==1) then
+        E_rad(:,:,kmin) = E_rad(:,:,kmin+1)
+        P_rad(:,:,kmin) = P_rad(:,:,kmin+1)
+        F_radx(:,:,kmin) = F_radx(:,:,kmin+1)
+        F_rady(:,:,kmin) = F_rady(:,:,kmin+1)
+        F_radz(:,:,kmin) = F_radz(:,:,kmin+1)
+        where (F_radz(:,:,kmin) .gt. ZERO)
+              F_radz(:,:,kmin) = ZERO
+        end where
+     end if
+  else if(bc==EXTRAP) then
+     if (have_bdry_max(1)==1) then
+        E_rad(imax,:,:) = TWO*E_rad(imax-1,:,:) &
+             - E_rad(imax-2,:,:)
+        P_rad(imax,:,:) = TWO*P_rad(imax-1,:,:) &
+             - P_rad(imax-2,:,:)
+        F_radx(imax,:,:) = TWO*F_radx(imax-1,:,:) &
+             - F_radx(imax-2,:,:)
+        F_rady(imax,:,:) = TWO*F_rady(imax-1,:,:) &
+             - F_rady(imax-2,:,:)
+        F_radz(imax,:,:) = TWO*F_radz(imax-1,:,:) &
+             - F_radz(imax-2,:,:)
+     end if
+     if (have_bdry_max(2)==1) then
+        E_rad(:,jmax,:) = TWO*E_rad(:,jmax-1,:) &
+             - E_rad(:,jmax-2,:)
+        P_rad(:,jmax,:) = TWO*P_rad(:,jmax-1,:) &
+             - P_rad(:,jmax-2,:)
+        F_radx(:,jmax,:) = TWO*F_radx(:,jmax-1,:) &
+             - F_radx(:,jmax-2,:)
+        F_rady(:,jmax,:) = TWO*F_rady(:,jmax-1,:) &
+             - F_rady(:,jmax-2,:)
+        F_radz(:,jmax,:) = TWO*F_radz(:,jmax-1,:) &
+             - F_radz(:,jmax-2,:)
+     end if
+     if (have_bdry_max(3)==1) then
+        E_rad(:,:,kmax) = TWO*E_rad(:,:,kmax-1) &
+             - E_rad(:,:,kmax-2)
+        P_rad(:,:,kmax) = TWO*P_rad(:,:,kmax-1) &
+             - P_rad(:,:,kmax-2)
+        F_radx(:,:,kmax) = TWO*F_radx(:,:,kmax-1) &
+             - F_radx(:,:,kmax-2)
+        F_rady(:,:,kmax) = TWO*F_rady(:,:,kmax-1) &
+             - F_rady(:,:,kmax-2)
+        F_radz(:,:,kmax) = TWO*F_radz(:,:,kmax-1) &
+             - F_radz(:,:,kmax-2)
+     end if
+     if (have_bdry_min(1)==1) then
+        E_rad(imin,:,:) = TWO*E_rad(imin+1,:,:) &
+             - E_rad(imin+2,:,:)
+        P_rad(imin,:,:) = TWO*P_rad(imin+1,:,:) &
+             - P_rad(imin+2,:,:)
+        F_radx(imin,:,:) = TWO*F_radx(imin+1,:,:) &
+             - F_radx(imin+2,:,:)
+        F_rady(imin,:,:) = TWO*F_rady(imin+1,:,:) &
+             - F_rady(imin+2,:,:)
+        F_radz(imin,:,:) = TWO*F_radz(imin+1,:,:) &
+             - F_radz(imin+2,:,:)
+     end if
+     if (have_bdry_min(2)==1) then
+        E_rad(:,jmin,:) = TWO*E_rad(:,jmin+1,:) &
+             - E_rad(:,jmin+2,:)
+        P_rad(:,jmin,:) = TWO*P_rad(:,jmin+1,:) &
+             - P_rad(:,jmin+2,:)
+        F_radx(:,jmin,:) = TWO*F_radx(:,jmin+1,:) &
+             - F_radx(:,jmin+2,:)
+        F_rady(:,jmin,:) = TWO*F_rady(:,jmin+1,:) &
+             - F_rady(:,jmin+2,:)
+        F_radz(:,jmin,:) = TWO*F_radz(:,jmin+1,:) &
+             - F_radz(:,jmin+2,:)
+     end if
+     if (have_bdry_min(3)==1) then
+        E_rad(:,:,kmin) = TWO*E_rad(:,:,kmin+1) &
+             - E_rad(:,:,kmin+2)
+        P_rad(:,:,kmin) = TWO*P_rad(:,:,kmin+1) &
+             - P_rad(:,:,kmin+2)
+        F_radx(:,:,kmin) = TWO*F_radx(:,:,kmin+1) &
+             - F_radx(:,:,kmin+2)
+        F_rady(:,:,kmin) = TWO*F_rady(:,:,kmin+1) &
+             - F_rady(:,:,kmin+2)
+        F_radz(:,:,kmin) = TWO*F_radz(:,:,kmin+1) &
+             - F_radz(:,:,kmin+2)
+     end if
+  elseif(bc==PLANAR) then
+     do k=kmin+1,kmax-1
+        do j=jmin,jmax
+           do i=imin,imax
+              if(i==imax) then
+                 if(j==jmax) then
+                    E_rad(i,j,k) = E_rad(i-1,j-1,k)
+                    P_rad(i,j,k) = P_rad(i-1,j-1,k)
+                    F_radx(i,j,k) = F_radx(i-1,j-1,k)
+                    F_rady(i,j,k) = F_rady(i-1,j-1,k)
+                    F_radz(i,j,k) = F_radz(i-1,j-1,k)
+                 else if(j==jmax-1) then
+                    E_rad(i,j,k) = E_rad(i-1,j,k)
+                    P_rad(i,j,k) = P_rad(i-1,j,k)
+                    F_radx(i,j,k) = F_radx(i-1,j,k)
+                    F_rady(i,j,k) = F_rady(i-1,j,k)
+                    F_radz(i,j,k) = F_radz(i-1,j,k)
+                 else
+                    E_rad(i,j,k) = E_rad(i-1,j+1,k)
+                    P_rad(i,j,k) = P_rad(i-1,j+1,k)
+                    F_radx(i,j,k) = F_radx(i-1,j+1,k)
+                    F_rady(i,j,k) = F_rady(i-1,j+1,k)
+                    F_radz(i,j,k) = F_radz(i-1,j+1,k)
+                 end if
+              else if(i==imin) then
+                 if(j==jmin) then
+                    E_rad(i,j,k) = E_rad(i+1,j+1,k)
+                    P_rad(i,j,k) = P_rad(i+1,j+1,k)
+                    F_radx(i,j,k) = F_radx(i+1,j+1,k)
+                    F_rady(i,j,k) = F_rady(i+1,j+1,k)
+                    F_radz(i,j,k) = F_radz(i+1,j+1,k)
+                 else if(j==jmin+1) then
+                    E_rad(i,j,k) = E_rad(i+1,j,k)
+                    P_rad(i,j,k) = P_rad(i+1,j,k)
+                    F_radx(i,j,k) = F_radx(i+1,j,k)
+                    F_rady(i,j,k) = F_rady(i+1,j,k)
+                    F_radz(i,j,k) = F_radz(i+1,j,k)
+                 else
+                    E_rad(i,j,k) = E_rad(i+1,j-1,k)
+                    P_rad(i,j,k) = P_rad(i+1,j-1,k)
+                    F_radx(i,j,k) = F_radx(i+1,j-1,k)
+                    F_rady(i,j,k) = F_rady(i+1,j-1,k)
+                    F_radz(i,j,k) = F_radz(i+1,j-1,k)
+                 end if
+              else if(j==jmin) then
+                 if(i==imin+1) then
+                    E_rad(i,j,k) = E_rad(i,j+1,k)
+                    P_rad(i,j,k) = P_rad(i,j+1,k)
+                    F_radx(i,j,k) = F_radx(i,j+1,k)
+                    F_rady(i,j,k) = F_rady(i,j+1,k)
+                    F_radz(i,j,k) = F_radz(i,j+1,k)
+                 else
+                    E_rad(i,j,k) = E_rad(i-1,j+1,k)
+                    P_rad(i,j,k) = P_rad(i-1,j+1,k)
+                    F_radx(i,j,k) = F_radx(i-1,j+1,k)
+                    F_rady(i,j,k) = F_rady(i-1,j+1,k)
+                    F_radz(i,j,k) = F_radz(i-1,j+1,k)
+                 end if
+              else if(j==jmax) then
+                 if(i==imax-1) then
+                    E_rad(i,j,k) = E_rad(i,j-1,k)
+                    P_rad(i,j,k) = P_rad(i,j-1,k)
+                    F_radx(i,j,k) = F_radx(i,j-1,k)
+                    F_rady(i,j,k) = F_rady(i,j-1,k)
+                    F_radz(i,j,k) = F_radz(i,j-1,k)
+                 else
+                    E_rad(i,j,k) = E_rad(i+1,j-1,k)
+                    P_rad(i,j,k) = P_rad(i+1,j-1,k)
+                    F_radx(i,j,k) = F_radx(i+1,j-1,k)
+                    F_rady(i,j,k) = F_rady(i+1,j-1,k)
+                    F_radz(i,j,k) = F_radz(i+1,j-1,k)
+                 end if
+              end if
+           end do
+        end do
+     end do
+  else if (bc==COPY) then
+     if (have_bdry_max(1)==1) then
+        E_rad(imax,:,:) = E_rad(imax-1,:,:)
+        P_rad(imax,:,:) = P_rad(imax-1,:,:)
+        F_radx(imax,:,:) = F_radx(imax-1,:,:)
+        F_rady(imax,:,:) = F_rady(imax-1,:,:)
+        F_radz(imax,:,:) = F_radz(imax-1,:,:)
+     end if
+     if (have_bdry_min(1)==1) then
+        E_rad(imin,:,:) = E_rad(imin+1,:,:)
+        P_rad(imin,:,:) = P_rad(imin+1,:,:)
+        F_radx(imin,:,:) = F_radx(imin+1,:,:)
+        F_rady(imin,:,:) = F_rady(imin+1,:,:)
+        F_radz(imin,:,:) = F_radz(imin+1,:,:)
+     end if
+     if (have_bdry_max(2)==1) then
+        E_rad(:,jmax,:) = E_rad(:,jmax-1,:)
+        P_rad(:,jmax,:) = P_rad(:,jmax-1,:)
+        F_radx(:,jmax,:) = F_radx(:,jmax-1,:)
+        F_rady(:,jmax,:) = F_rady(:,jmax-1,:)
+        F_radz(:,jmax,:) = F_radz(:,jmax-1,:)
+     end if
+     if (have_bdry_min(2)==1) then
+        E_rad(:,jmin,:) = E_rad(:,jmin+1,:)
+        P_rad(:,jmin,:) = P_rad(:,jmin+1,:)
+        F_radx(:,jmin,:) = F_radx(:,jmin+1,:)
+        F_rady(:,jmin,:) = F_rady(:,jmin+1,:)
+        F_radz(:,jmin,:) = F_radz(:,jmin+1,:)
+     end if
+     if (have_bdry_max(3)==1) then
+        E_rad(:,:,kmax) = E_rad(:,:,kmax-1)
+        P_rad(:,:,kmax) = P_rad(:,:,kmax-1)
+        F_radx(:,:,kmax) = F_radx(:,:,kmax-1)
+        F_rady(:,:,kmax) = F_rady(:,:,kmax-1)
+        F_radz(:,:,kmax) = F_radz(:,:,kmax-1)
+     end if
+     if (have_bdry_min(3)==1) then
+        E_rad(:,:,kmin) = E_rad(:,:,kmin+1)
+        P_rad(:,:,kmin) = P_rad(:,:,kmin+1)
+        F_radx(:,:,kmin) = F_radx(:,:,kmin+1)
+        F_rady(:,:,kmin) = F_rady(:,:,kmin+1)
+        F_radz(:,:,kmin) = F_radz(:,:,kmin+1)
+     end if
+  else if(bc==QUAD) then
+     if (have_bdry_max(1)==1) then
+        E_rad(imax,:,:) = THREE*E_rad(imax-1,:,:) &
+             - THREE*E_rad(imax-2,:,:) + E_rad(imax-3,:,:)
+        P_rad(imax,:,:) = THREE*P_rad(imax-1,:,:) &
+             - THREE*P_rad(imax-2,:,:) + P_rad(imax-3,:,:)
+        F_radx(imax,:,:) = THREE*F_radx(imax-1,:,:) &
+             - THREE*F_radx(imax-2,:,:) + F_radx(imax-3,:,:)
+        F_rady(imax,:,:) = THREE*F_rady(imax-1,:,:) &
+             - THREE*F_rady(imax-2,:,:) + F_rady(imax-3,:,:)
+        F_radz(imax,:,:) = THREE*F_radz(imax-1,:,:) &
+             - THREE*F_radz(imax-2,:,:) + F_radz(imax-3,:,:)
+     end if
+     if (have_bdry_min(1)==1) then
+        E_rad(imin,:,:) = THREE*E_rad(imin+1,:,:) &
+             - THREE*E_rad(imin+2,:,:) + E_rad(imin+3,:,:)
+        P_rad(imin,:,:) = THREE*P_rad(imin+1,:,:) &
+             - THREE*P_rad(imin+2,:,:) + P_rad(imin+3,:,:)
+        F_radx(imin,:,:) = THREE*F_radx(imin+1,:,:) &
+             - THREE*F_radx(imin+2,:,:) + F_radx(imin+3,:,:)
+        F_rady(imin,:,:) = THREE*F_rady(imin+1,:,:) &
+             - THREE*F_rady(imin+2,:,:) + F_rady(imin+3,:,:)
+        F_radz(imin,:,:) = THREE*F_radz(imin+1,:,:) &
+             - THREE*F_radz(imin+2,:,:) + F_radz(imin+3,:,:)
+     end if
+     if (have_bdry_max(2)==1) then
+        E_rad(:,jmax,:) = THREE*E_rad(:,jmax-1,:) &
+             - THREE*E_rad(:,jmax-2,:) + E_rad(:,jmax-3,:)
+        P_rad(:,jmax,:) = THREE*P_rad(:,jmax-1,:) &
+             - THREE*P_rad(:,jmax-2,:) + P_rad(:,jmax-3,:)
+        F_radx(:,jmax,:) = THREE*F_radx(:,jmax-1,:) &
+             - THREE*F_radx(:,jmax-2,:) + F_radx(:,jmax-3,:)
+        F_rady(:,jmax,:) = THREE*F_rady(:,jmax-1,:) &
+             - THREE*F_rady(:,jmax-2,:) + F_rady(:,jmax-3,:)
+        F_radz(:,jmax,:) = THREE*F_radz(:,jmax-1,:) &
+             - THREE*F_radz(:,jmax-2,:) + F_radz(:,jmax-3,:)
+     end if
+     if (have_bdry_min(2)==1) then
+        E_rad(:,jmin,:) = THREE*E_rad(:,jmin+1,:) &
+             - THREE*E_rad(:,jmin+2,:) + E_rad(:,jmin+3,:)
+        P_rad(:,jmin,:) = THREE*P_rad(:,jmin+1,:) &
+             - THREE*P_rad(:,jmin+2,:) + P_rad(:,jmin+3,:)
+        F_radx(:,jmin,:) = THREE*F_radx(:,jmin+1,:) &
+             - THREE*F_radx(:,jmin+2,:) + F_radx(:,jmin+3,:)
+        F_rady(:,jmin,:) = THREE*F_rady(:,jmin+1,:) &
+             - THREE*F_rady(:,jmin+2,:) + F_rady(:,jmin+3,:)
+        F_radz(:,jmin,:) = THREE*F_radz(:,jmin+1,:) &
+             - THREE*F_radz(:,jmin+2,:) + F_radz(:,jmin+3,:)
+     end if
+     if (have_bdry_max(3)==1) then
+        E_rad(:,:,kmax) = THREE*E_rad(:,:,kmax-1) &
+             - THREE*E_rad(:,:,kmax-2) + E_rad(:,:,kmax-3)
+        P_rad(:,:,kmax) = THREE*P_rad(:,:,kmax-1) &
+             - THREE*P_rad(:,:,kmax-2) + P_rad(:,:,kmax-3)
+        F_radx(:,:,kmax) = THREE*F_radx(:,:,kmax-1) &
+             - THREE*F_radx(:,:,kmax-2) + F_radx(:,:,kmax-3)
+        F_rady(:,:,kmax) = THREE*F_rady(:,:,kmax-1) &
+             - THREE*F_rady(:,:,kmax-2) + F_rady(:,:,kmax-3)
+        F_radz(:,:,kmax) = THREE*F_radz(:,:,kmax-1) &
+             - THREE*F_radz(:,:,kmax-2) + F_radz(:,:,kmax-3)
+     end if
+     if (have_bdry_min(3)==1) then
+        E_rad(:,:,kmin) = THREE*E_rad(:,:,kmin+1) &
+             - THREE*E_rad(:,:,kmin+2) + E_rad(:,:,kmin+3)
+        P_rad(:,:,kmin) = THREE*P_rad(:,:,kmin+1) &
+             - THREE*P_rad(:,:,kmin+2) + P_rad(:,:,kmin+3)
+        F_radx(:,:,kmin) = THREE*F_radx(:,:,kmin+1) &
+             - THREE*F_radx(:,:,kmin+2) + F_radx(:,:,kmin+3)
+        F_rady(:,:,kmin) = THREE*F_rady(:,:,kmin+1) &
+             - THREE*F_rady(:,:,kmin+2) + F_rady(:,:,kmin+3)
+        F_radz(:,:,kmin) = THREE*F_radz(:,:,kmin+1) &
+             - THREE*F_radz(:,:,kmin+2) + F_radz(:,:,kmin+3)
+     endif
+  end if
+  !write(*,*) midway bc rho_star = ,E_rad(15,15,5),P_rad(15,15,5),F_radx(15,15,5),F_rady(15,15,5),F_radz(15,15,5),have_bdry_max(3)==
+  ! now recompute the conserved variables and the auxiliary variables.
+  ! i=imax, k=kmax
+  if (Symmetry == AXISYM) then
+  write(*,*) "Radiation Not Supported in Axisymmetry!!!!!!!!"
+  end if
+end subroutine apply_rad_bc_mhd_new

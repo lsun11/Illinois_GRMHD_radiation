@@ -1,0 +1,32 @@
+#define DECLARE_CCTK_PARAMETERS \
+CCTK_REAL  excision_radius&&\
+CCTK_REAL  run_time&&\
+CCTK_INT Symmetry&&\
+CCTK_INT bssn_enable&&\
+CCTK_INT cowling_enable&&\
+CCTK_INT excision_enable&&\
+CCTK_INT fisheye_enable&&\
+CCTK_INT iter_count&&\
+CCTK_INT number_of_mol_ministeps&&\
+CCTK_INT rot_metric&&\
+CCTK_INT trA_detg_enforce&&\
+COMMON /cctk_params_global/excision_radius,run_time,Symmetry,bssn_enable,cowling_enable,excision_enable,fisheye_enable,iter_count,number_of_mol_ministeps,rot_metric,trA_detg_enforce&&\
+CCTK_INT surface(10)&&\
+CCTK_INT verbose&&\
+COMMON /CarpetTrackerpriv/surface,verbose&&\
+CCTK_REAL  CCTKH2(42)&&\
+CCTK_STRING  CCTKH1(42)&&\
+CCTK_INT CCTKH0(42)&&\
+CCTK_INT CCTKH3&&\
+CCTK_INT CCTKH4&&\
+CCTK_INT CCTKH5(42)&&\
+CCTK_INT CCTKH6(42)&&\
+CCTK_INT CCTKH7(42)&&\
+CCTK_INT nsurfaces&&\
+CCTK_INT CCTKH8(42)&&\
+CCTK_INT CCTKH9(42)&&\
+CCTK_INT CCTKH10(42)&&\
+CCTK_INT CCTKH11(42)&&\
+CCTK_INT CCTKH12&&\
+COMMON /SPHERICALSURFACErest/CCTKH2,CCTKH1,CCTKH0,CCTKH3,CCTKH4,CCTKH5,CCTKH6,CCTKH7,nsurfaces,CCTKH8,CCTKH9,CCTKH10,CCTKH11,CCTKH12&&\
+

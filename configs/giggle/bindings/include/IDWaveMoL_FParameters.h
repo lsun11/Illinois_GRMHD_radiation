@@ -1,0 +1,34 @@
+#define DECLARE_CCTK_PARAMETERS \
+CCTK_REAL  excision_radius&&\
+CCTK_REAL  run_time&&\
+CCTK_INT Symmetry&&\
+CCTK_INT bssn_enable&&\
+CCTK_INT cowling_enable&&\
+CCTK_INT excision_enable&&\
+CCTK_INT fisheye_enable&&\
+CCTK_INT iter_count&&\
+CCTK_INT number_of_mol_ministeps&&\
+CCTK_INT rot_metric&&\
+CCTK_INT trA_detg_enforce&&\
+COMMON /cctk_params_global/excision_radius,run_time,Symmetry,bssn_enable,cowling_enable,excision_enable,fisheye_enable,iter_count,number_of_mol_ministeps,rot_metric,trA_detg_enforce&&\
+CCTK_STRING  initial_data&&\
+COMMON /idwavemolrest/initial_data&&\
+CCTK_REAL  amplitude&&\
+CCTK_REAL  centrex&&\
+CCTK_REAL  centrey&&\
+CCTK_REAL  centrez&&\
+CCTK_REAL  kx&&\
+CCTK_REAL  ky&&\
+CCTK_REAL  kz&&\
+CCTK_REAL  offsett&&\
+CCTK_REAL  offsetx&&\
+CCTK_REAL  offsety&&\
+CCTK_REAL  offsetz&&\
+CCTK_REAL  radius&&\
+CCTK_REAL  sigma&&\
+CCTK_REAL  slopet&&\
+CCTK_REAL  slopex&&\
+CCTK_REAL  slopey&&\
+CCTK_REAL  slopez&&\
+COMMON /IDWaveMoLpriv/amplitude,centrex,centrey,centrez,kx,ky,kz,offsett,offsetx,offsety,offsetz,radius,sigma,slopet,slopex,slopey,slopez&&\
+
